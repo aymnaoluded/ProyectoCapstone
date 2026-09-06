@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+python-multipart
+asyncpg
+cohere
+google-genai
+langchain-text-splitters
+pypdf
+python-docx
+python-dotenv
