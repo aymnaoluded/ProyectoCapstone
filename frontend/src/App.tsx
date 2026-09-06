@@ -1,122 +1,136 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import { useState, useEffect } from "react";
+import { Sidebar } from "./components/Sidebar";
+import type { VistaApp } from "./components/Sidebar";
+import { Chat } from "./components/Chat";
+import { Login } from "./components/Login";
+import type { Usuario } from "./types";
+import { BaseConocimiento } from "./components/BaseConocimiento";
+import { GestionUsuarios } from "./components/GestionUsuarios";
+import { LogAuditoria } from "./components/LogAuditoria";
+import {
+  obtenerSesionSegura,
+  eliminarSesionSegura,
+} from "./utils/storage";
 
-function App() {
-  const [count, setCount] = useState(0)
+export default function App() {
+  const [usuario, setUsuario] = useState<Usuario | null>(null);
+  const [vistaActiva, setVistaActivaState] = useState<VistaApp>("chat");
+
+  const setVistaActiva = (nuevaVista: VistaApp) => {
+    setVistaActivaState(nuevaVista);
+    localStorage.setItem("vistaActiva", nuevaVista);
+  };
+
+  useEffect(() => {
+    const user = obtenerSesionSegura<Usuario>("user_session");
+    const savedVista = localStorage.getItem("vistaActiva") as VistaApp | null;
+
+    if (user) {
+      setUsuario(user);
+      if (savedVista) {
+        setVistaActivaState(savedVista);
+      } else {
+        const inicial = getVistaInicial(user.rol_nombre);
+        setVistaActivaState(inicial);
+        localStorage.setItem("vistaActiva", inicial);
+      }
+    }
+  }, []);
+
+  // Heartbeat automático cada 60s
+  useEffect(() => {
+    if (!usuario) return;
+
+    const ping = () => {
+      fetch("http://localhost:8000/api/admin/usuarios/heartbeat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id_usuario: usuario.id_usuario }),
+      }).catch(() => {});
+    };
+
+    ping();
+    const interval = setInterval(ping, 60000);
+    return () => clearInterval(interval);
+  }, [usuario]);
+
+  const getVistaInicial = (rol: string): VistaApp => {
+    if (rol === "Administrador") return "admin_conocimiento";
+    if (rol === "Ejecutivo") return "atender_tickets";
+    return "chat";
+  };
+
+  const handleLogin = (user: Usuario) => {
+    setUsuario(user);
+    const vistaDefecto = getVistaInicial(user.rol_nombre);
+    setVistaActiva(vistaDefecto);
+  };
+
+  const handleCerrarSesion = async () => {
+    if (usuario) {
+      try {
+        await fetch("http://localhost:8000/api/admin/usuarios/desconectar", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id_usuario: usuario.id_usuario }),
+        });
+      } catch {}
+    }
+
+    eliminarSesionSegura("user_session");
+    localStorage.removeItem("vistaActiva");
+    setUsuario(null);
+  };
+
+  if (!usuario) {
+    return <Login onLoginSuccess={handleLogin} />;
+  }
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <div className="flex h-screen w-screen bg-slate-100 overflow-hidden font-sans">
+      <Sidebar
+        usuario={usuario}
+        vistaActiva={vistaActiva}
+        setVistaActiva={setVistaActiva}
+        onCerrarSesion={handleCerrarSesion}
+      />
 
-      <div className="ticks"></div>
+      <main className="flex-1 flex flex-col h-full overflow-hidden bg-white">
+        {/* VISTAS CLIENTE */}
+        {vistaActiva === "chat" && <Chat usuario={usuario} />}
+        {vistaActiva === "mis_tickets" && (
+          <div className="p-8 text-slate-700">
+            <h2 className="text-xl font-bold mb-4">Mis Solicitudes</h2>
+            <p className="text-sm text-slate-500">Historial de tickets consultados a través del asistente.</p>
+          </div>
+        )}
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+        {/* VISTAS EJECUTIVO */}
+        {vistaActiva === "atender_tickets" && (
+          <div className="p-8 text-slate-700">
+            <h2 className="text-xl font-bold mb-4">Bandeja de Tickets</h2>
+            <p className="text-sm text-slate-500">Casos escalados por baja confianza del bot o solicitud directa.</p>
+          </div>
+        )}
+        {vistaActiva === "escaladas" && (
+          <div className="p-8 text-slate-700">
+            <h2 className="text-xl font-bold mb-4">Conversaciones Escaladas</h2>
+            <p className="text-sm text-slate-500">Revisión de diálogos con scores menores a 0.60.</p>
+          </div>
+        )}
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+        {/* VISTAS ADMINISTRADOR */}
+        {vistaActiva === "admin_conocimiento" && <BaseConocimiento usuario={usuario} />}
+        {vistaActiva === "admin_usuarios" && <GestionUsuarios />}
+        
+        {vistaActiva === "metricas" && (
+          <div className="p-8 text-slate-700">
+            <h2 className="text-xl font-bold mb-4">Métricas del Sistema</h2>
+            <p className="text-sm text-slate-500">Rendimiento del modelo, umbrales de confianza y volumen de tickets.</p>
+          </div>
+        )}
+        {vistaActiva === "auditoria" && <LogAuditoria />}
+      </main>
+    </div>
+  );
 }
-
-export default App
