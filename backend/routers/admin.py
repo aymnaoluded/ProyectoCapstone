@@ -11,22 +11,98 @@ async def obtener_metricas():
     pool = obtener_db_pool()
     try:
         async with pool.acquire() as conn:
-            total_docs = await conn.fetchval("SELECT COUNT(*) FROM DOCUMENTO WHERE activo = TRUE;")
-            total_fragmentos = await conn.fetchval("SELECT COUNT(*) FROM FRAGMENTO;")
-            total_tickets = await conn.fetchval("SELECT COUNT(*) FROM TICKET;")
-            tickets_pendientes = await conn.fetchval("SELECT COUNT(*) FROM TICKET WHERE estado = 1;")
-            confianza_promedio = await conn.fetchval(
-                "SELECT COALESCE(AVG(nivel_confianza), 0.0) FROM MENSAJE WHERE emisor = 'bot';"
+            # 1. Conversaciones y tasa de escalamiento
+            stats_conv = await conn.fetchrow(
+                """
+                SELECT 
+                    COUNT(*)::INT AS total_conversaciones,
+                    COUNT(*) FILTER (WHERE escalada = TRUE)::INT AS total_escaladas
+                FROM CONVERSACION;
+                """
+            )
+            total_conv = stats_conv["total_conversaciones"] or 0
+            total_esc = stats_conv["total_escaladas"] or 0
+            tasa_escalamiento = round((total_esc / total_conv * 100), 1) if total_conv > 0 else 0.0
+
+            # 2. Desglose de confianza y respuestas del bot (RAG)
+            stats_rag = await conn.fetchrow(
+                """
+                SELECT 
+                    ROUND(COALESCE(AVG(nivel_confianza), 0.0)::NUMERIC, 2) AS confianza_promedio,
+                    COUNT(*) FILTER (WHERE emisor = 'bot')::INT AS total_respuestas,
+                    COUNT(*) FILTER (WHERE emisor = 'bot' AND nivel_confianza >= 0.80)::INT AS alta_confianza,
+                    COUNT(*) FILTER (WHERE emisor = 'bot' AND nivel_confianza >= 0.60 AND nivel_confianza < 0.80)::INT AS media_confianza,
+                    COUNT(*) FILTER (WHERE emisor = 'bot' AND (nivel_confianza < 0.60 OR nivel_confianza IS NULL))::INT AS baja_confianza
+                FROM MENSAJE;
+                """
             )
 
-        return {
-            "total_documentos": total_docs or 0,
-            "total_fragmentos": total_fragmentos or 0,
-            "total_tickets": total_tickets or 0,
-            "tickets_pendientes": tickets_pendientes or 0,
-            "confianza_promedio": round(float(confianza_promedio), 2),
-        }
+            # 3. Métricas de satisfacción del cliente (promedio de estrellas 1 a 5)
+            stats_calif = await conn.fetchrow(
+                """
+                SELECT 
+                    ROUND(COALESCE(AVG(calificacion), 0.0)::NUMERIC, 1) AS promedio_satisfaccion,
+                    COUNT(calificacion)::INT AS total_evaluaciones
+                FROM TICKET
+                WHERE calificacion IS NOT NULL;
+                """
+            )
+
+            # 4. Estado de la base de conocimiento
+            docs_activos = await conn.fetchval(
+                "SELECT COUNT(*)::INT FROM DOCUMENTO WHERE COALESCE(activo, TRUE) = TRUE;"
+            )
+            fragmentos_indexados = await conn.fetchval(
+                """
+                SELECT COUNT(f.id_fragmento)::INT 
+                FROM FRAGMENTO f 
+                INNER JOIN DOCUMENTO d ON f.documento_id = d.id_documento 
+                WHERE COALESCE(d.activo, TRUE) = TRUE;
+                """
+            )
+
+            # 5. Tickets agrupados por estado
+            tickets_por_estado = await conn.fetch(
+                """
+                SELECT 
+                    e.estado,
+                    COUNT(t.id_ticket)::INT AS cantidad
+                FROM ESTADO_TICKET e
+                LEFT JOIN TICKET t ON e.id_estado = t.estado
+                GROUP BY e.id_estado, e.estado
+                ORDER BY e.id_estado ASC;
+                """
+            )
+
+            return {
+                "resumen": {
+                    "total_conversaciones": total_conv,
+                    "tasa_escalamiento": tasa_escalamiento,
+                    "promedio_satisfaccion": float(stats_calif["promedio_satisfaccion"] or 0.0),
+                    "total_evaluaciones": stats_calif["total_evaluaciones"] or 0,
+                    "documentos_activos": docs_activos or 0,
+                    "fragmentos_indexados": fragmentos_indexados or 0,
+                },
+                "rag": {
+                    "confianza_promedio": float(stats_rag["confianza_promedio"] or 0.0),
+                    "total_respuestas": stats_rag["total_respuestas"] or 0,
+                    "alta_confianza": stats_rag["alta_confianza"] or 0,
+                    "media_confianza": stats_rag["media_confianza"] or 0,
+                    "baja_confianza": stats_rag["baja_confianza"] or 0,
+                },
+                "tickets_estado": [
+                    {
+                        "estado": r["estado"],
+                        "cantidad": r["cantidad"]
+                    }
+                    for r in tickets_por_estado
+                ]
+            }
     except Exception as e:
+        print("\n" + "=" * 50)
+        print(">>> ERROR EN GET /api/admin/metricas:")
+        traceback.print_exc()
+        print("=" * 50 + "\n")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/auditoria")
@@ -62,7 +138,6 @@ async def obtener_auditoria():
             for r in rows
         ]
     except Exception as e:
-        import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -98,12 +173,8 @@ async def listar_usuarios():
 
         resultado = []
         for r in rows:
-            # Formateo amigable de la última conexión
             conexion_val = r["ultima_conexion"]
-            if conexion_val:
-                conexion_str = str(conexion_val)[:19]  # 'YYYY-MM-DD HH:MM:SS'
-            else:
-                conexion_str = "Nunca"
+            conexion_str = str(conexion_val)[:19] if conexion_val else "Nunca"
 
             resultado.append({
                 "id_usuario": r["id_usuario"],
@@ -117,14 +188,12 @@ async def listar_usuarios():
             })
 
         return resultado
-
     except Exception as e:
-        print("\n" + "="*50)
+        print("\n" + "=" * 50)
         print(">>> ERROR EN GET /api/admin/usuarios:")
         traceback.print_exc()
-        print("="*50 + "\n")
+        print("=" * 50 + "\n")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 class HeartbeatRequest(BaseModel):
     id_usuario: int
@@ -142,7 +211,6 @@ async def heartbeat_usuario(body: HeartbeatRequest):
         return {"status": "ok"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.post("/usuarios/desconectar")
 async def desconectar_usuario(body: HeartbeatRequest):
@@ -173,8 +241,6 @@ async def desconectar_usuario(body: HeartbeatRequest):
         return {"status": "desconectado"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-from fastapi import Query
 
 @router.patch("/documentos/{id_documento}/toggle")
 async def toggle_estado_documento(id_documento: int, usuario_id: Optional[int] = Query(None)):

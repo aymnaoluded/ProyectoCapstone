@@ -10,6 +10,7 @@ import {
   Headphones,
   LogOut,
   ChevronRight,
+  Inbox
 } from "lucide-react";
 import type { Usuario } from "../types";
 
@@ -17,9 +18,8 @@ export type VistaApp =
   // Cliente
   | "chat"
   | "mis_tickets"
-  // Ejecutivo
-  | "atender_tickets"
-  | "escaladas"
+  // Ejecutivo / Admin
+  | "bandeja_tickets"
   // Admin
   | "admin_conocimiento"
   | "admin_usuarios"
@@ -44,11 +44,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="p-4 space-y-6">
         <div className="flex items-center gap-3 px-2 py-1">
           <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-sm shadow-blue-500/20">
-            <Bot size={30} />
+            <Bot size={22} />
           </div>
           <div>
             <h1 className="font-semibold text-base text-white leading-none">SupportAI</h1>
-            <span className="text-[13px] text-blue-400 font-medium">{usuario.rol_nombre}</span>
+            <span className="text-[12px] text-blue-400 font-medium">{usuario.rol_nombre}</span>
           </div>
         </div>
 
@@ -59,7 +59,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <>
               <button
                 onClick={() => setVistaActiva("chat")}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer ${
                   vistaActiva === "chat"
                     ? "bg-blue-600 text-white shadow-sm shadow-blue-600/30"
                     : "text-slate-400 hover:text-white hover:bg-slate-800/60"
@@ -74,7 +74,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
               <button
                 onClick={() => setVistaActiva("mis_tickets")}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer ${
                   vistaActiva === "mis_tickets"
                     ? "bg-blue-600 text-white shadow-sm shadow-blue-600/30"
                     : "text-slate-400 hover:text-white hover:bg-slate-800/60"
@@ -91,37 +91,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {/* VISTAS EJECUTIVO */}
           {usuario.rol_nombre === "Ejecutivo" && (
-            <>
-              <button
-                onClick={() => setVistaActiva("atender_tickets")}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                  vistaActiva === "atender_tickets"
-                    ? "bg-blue-600 text-white shadow-sm shadow-blue-600/30"
-                    : "text-slate-400 hover:text-white hover:bg-slate-800/60"
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <Headphones size={17} />
-                  <span>Atender Tickets</span>
-                </div>
-                {vistaActiva === "atender_tickets" && <ChevronRight size={15} />}
-              </button>
-
-              <button
-                onClick={() => setVistaActiva("escaladas")}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                  vistaActiva === "escaladas"
-                    ? "bg-blue-600 text-white shadow-sm shadow-blue-600/30"
-                    : "text-slate-400 hover:text-white hover:bg-slate-800/60"
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <MessageSquare size={17} />
-                  <span>Conversaciones Escaladas</span>
-                </div>
-                {vistaActiva === "escaladas" && <ChevronRight size={15} />}
-              </button>
-            </>
+            <button
+              onClick={() => setVistaActiva("bandeja_tickets")}
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer ${
+                vistaActiva === "bandeja_tickets"
+                  ? "bg-blue-600 text-white shadow-sm shadow-blue-600/30"
+                  : "text-slate-400 hover:text-white hover:bg-slate-800/60"
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Headphones size={17} />
+                <span>Bandeja de Tickets</span>
+              </div>
+              {vistaActiva === "bandeja_tickets" && <ChevronRight size={15} />}
+            </button>
           )}
 
           {/* VISTAS ADMINISTRADOR */}
@@ -129,7 +112,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <>
               <button
                 onClick={() => setVistaActiva("admin_conocimiento")}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer ${
                   vistaActiva === "admin_conocimiento"
                     ? "bg-blue-600 text-white shadow-sm shadow-blue-600/30"
                     : "text-slate-400 hover:text-white hover:bg-slate-800/60"
@@ -143,8 +126,38 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </button>
 
               <button
+                onClick={() => setVistaActiva("bandeja_tickets")}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer ${
+                  vistaActiva === "bandeja_tickets"
+                    ? "bg-blue-600 text-white shadow-sm shadow-blue-600/30"
+                    : "text-slate-400 hover:text-white hover:bg-slate-800/60"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <Inbox size={17} />
+                  <span>Supervisión de Tickets</span>
+                </div>
+                {vistaActiva === "bandeja_tickets" && <ChevronRight size={15} />}
+              </button>
+
+              <button
+                onClick={() => setVistaActiva("admin_usuarios")}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer ${
+                  vistaActiva === "admin_usuarios"
+                    ? "bg-blue-600 text-white shadow-sm shadow-blue-600/30"
+                    : "text-slate-400 hover:text-white hover:bg-slate-800/60"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <Users size={17} />
+                  <span>Gestión de Usuarios</span>
+                </div>
+                {vistaActiva === "admin_usuarios" && <ChevronRight size={15} />}
+              </button>
+
+              <button
                 onClick={() => setVistaActiva("metricas")}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer ${
                   vistaActiva === "metricas"
                     ? "bg-blue-600 text-white shadow-sm shadow-blue-600/30"
                     : "text-slate-400 hover:text-white hover:bg-slate-800/60"
@@ -159,7 +172,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
               <button
                 onClick={() => setVistaActiva("auditoria")}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer ${
                   vistaActiva === "auditoria"
                     ? "bg-blue-600 text-white shadow-sm shadow-blue-600/30"
                     : "text-slate-400 hover:text-white hover:bg-slate-800/60"
@@ -170,21 +183,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <span>Log de Auditoría</span>
                 </div>
                 {vistaActiva === "auditoria" && <ChevronRight size={15} />}
-              </button>
-
-              <button
-                onClick={() => setVistaActiva("admin_usuarios")}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                  vistaActiva === "admin_usuarios"
-                    ? "bg-blue-600 text-white shadow-sm shadow-blue-600/30"
-                    : "text-slate-400 hover:text-white hover:bg-slate-800/60"
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <Users size={17} />
-                  <span>Gestión de Usuarios</span>
-                </div>
-                {vistaActiva === "admin_usuarios" && <ChevronRight size={15} />}
               </button>
             </>
           )}
@@ -207,7 +205,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         <button
           onClick={onCerrarSesion}
-          className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-slate-400 hover:text-slate-200 transition-colors"
+          className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
         >
           <LogOut size={15} />
           <span>Cerrar sesión</span>

@@ -36,6 +36,8 @@ export const Chat: React.FC<ChatProps> = ({ usuario }) => {
   const [finalizado, setFinalizado] = useState(false);
   const [calificacion, setCalificacion] = useState<number | null>(null);
   const [calificacionEnviada, setCalificacionEnviada] = useState(false);
+  
+  // Estado para modal de escalamiento a ticket
   const [modalEscalar, setModalEscalar] = useState(false);
   const [tituloTicket, setTituloTicket] = useState("");
   const [descTicket, setDescTicket] = useState("");
@@ -49,6 +51,22 @@ export const Chat: React.FC<ChatProps> = ({ usuario }) => {
 
   const toggleFuentes = (id: string) => {
     setMostrarFuentes((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const abrirModalEscalar = (motivoSugerido?: string) => {
+    setTituloTicket(motivoSugerido || `Consulta escalada desde chat #${conversacionId || "general"}`);
+    
+    // Obtener los últimos mensajes para darle contexto al ejecutivo
+    const contextoConversacion = mensajes
+      .filter((m) => m.id !== "init")
+      .map((m) => `${m.emisor === "user" ? "Cliente" : "IA"}: ${m.texto}`)
+      .slice(-4)
+      .join("\n\n");
+
+    setDescTicket(
+      contextoConversacion || "El cliente requiere atención personalizada de un ejecutivo humano."
+    );
+    setModalEscalar(true);
   };
 
   const enviarMensaje = async (e?: React.FormEvent) => {
@@ -101,7 +119,7 @@ export const Chat: React.FC<ChatProps> = ({ usuario }) => {
         {
           id: (Date.now() + 1).toString(),
           emisor: "bot",
-          texto: "Ocurrió un error al contactar el servidor. Por favor intenta de nuevo.",
+          texto: "Ocurrió un error al contactar el servidor. Por favor intenta nuevamente.",
           hora: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         },
       ]);
@@ -112,7 +130,7 @@ export const Chat: React.FC<ChatProps> = ({ usuario }) => {
 
   const handleEscalarTicket = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!tituloTicket.trim() || !descTicket.trim()) return;
+    if (!tituloTicket.trim() || !descTicket.trim() || escalando) return;
 
     setEscalando(true);
     try {
@@ -135,7 +153,7 @@ export const Chat: React.FC<ChatProps> = ({ usuario }) => {
           {
             id: Date.now().toString(),
             emisor: "bot",
-            texto: `✅ Tu ticket #${ticketData.id_ticket} ha sido creado correctamente en estado "Pendiente". Un ejecutivo revisará tu caso en breve.`,
+            texto: `Se generó el Ticket #${ticketData.id_ticket} con éxito. Un ejecutivo revisará tu caso en la bandeja de soporte. Puedes revisar el avance en "Mis Solicitudes".`,
             hora: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
           },
         ]);
@@ -143,7 +161,7 @@ export const Chat: React.FC<ChatProps> = ({ usuario }) => {
         alert("Error al generar el ticket.");
       }
     } catch {
-      alert("Error de red al crear ticket.");
+      alert("Error de red al crear el ticket.");
     } finally {
       setEscalando(false);
     }
@@ -207,22 +225,12 @@ export const Chat: React.FC<ChatProps> = ({ usuario }) => {
           </div>
         </div>
 
-        {/* Acciones */}
+        {/* Acciones superiores */}
         {!finalizado && (
           <div className="flex items-center gap-2">
             <button
-              onClick={() => {
-                setTituloTicket("Consulta escalada desde el chat");
-                setDescTicket(
-                  mensajes
-                    .filter((m) => m.id !== "init")
-                    .map((m) => `${m.emisor === "user" ? "Cliente" : "IA"}: ${m.texto}`)
-                    .slice(-4)
-                    .join("\n")
-                );
-                setModalEscalar(true);
-              }}
-              className="flex items-center gap-1.5 text-xs font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200/70 px-3.5 py-1.5 rounded-xl transition-all"
+              onClick={() => abrirModalEscalar("Solicitud directa de atención con ejecutivo")}
+              className="flex items-center gap-1.5 text-xs font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200/70 px-3.5 py-1.5 rounded-xl transition-all cursor-pointer"
             >
               <Headphones size={14} />
               <span>Hablar con un ejecutivo</span>
@@ -230,7 +238,7 @@ export const Chat: React.FC<ChatProps> = ({ usuario }) => {
 
             <button
               onClick={handleFinalizarConversacion}
-              className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/80 px-3.5 py-1.5 rounded-xl transition-all"
+              className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/80 px-3.5 py-1.5 rounded-xl transition-all cursor-pointer"
             >
               <CheckCircle size={14} />
               <span>Finalizar chat</span>
@@ -253,7 +261,7 @@ export const Chat: React.FC<ChatProps> = ({ usuario }) => {
                 </div>
               )}
 
-              <div className={`space-y-1 max-w-[85%] sm:max-w-[75%]`}>
+              <div className="space-y-1 max-w-[85%] sm:max-w-[75%]">
                 <div
                   className={`p-4 rounded-2xl text-[13.5px] leading-relaxed shadow-xs ${
                     m.emisor === "user"
@@ -262,6 +270,19 @@ export const Chat: React.FC<ChatProps> = ({ usuario }) => {
                   }`}
                 >
                   <div className="whitespace-pre-wrap">{m.texto}</div>
+
+                  {/* Botón contextual de escalamiento integrado si el bot tiene dudas */}
+                  {m.emisor === "bot" && m.escalarEjecutivo && !finalizado && (
+                    <div className="mt-3 pt-3 border-t border-slate-100">
+                      <button
+                        onClick={() => abrirModalEscalar("Duda no resuelta por la IA")}
+                        className="w-full flex items-center justify-center gap-2 py-2 px-3 text-xs font-semibold text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-xl transition-colors cursor-pointer"
+                      >
+                        <Headphones size={13} />
+                        <span>¿Esta respuesta no resuelve tu problema? Escalar con un ejecutivo</span>
+                      </button>
+                    </div>
+                  )}
 
                   {/* Insignia de Confianza (solo bot) */}
                   {m.emisor === "bot" && m.nivelConfianza && (
@@ -281,7 +302,7 @@ export const Chat: React.FC<ChatProps> = ({ usuario }) => {
                       {m.fuentes && m.fuentes.length > 0 && (
                         <button
                           onClick={() => toggleFuentes(m.id)}
-                          className="text-slate-400 hover:text-slate-700 flex items-center gap-0.5 text-[11px] transition-colors"
+                          className="text-slate-400 hover:text-slate-700 flex items-center gap-0.5 text-[11px] transition-colors cursor-pointer"
                         >
                           <span>{m.fuentes.length} fuentes</span>
                           {mostrarFuentes[m.id] ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
@@ -329,12 +350,12 @@ export const Chat: React.FC<ChatProps> = ({ usuario }) => {
               </div>
               <div className="bg-white border border-slate-200/80 rounded-2xl rounded-tl-xs px-4 py-3 text-xs text-slate-500 shadow-xs flex items-center gap-2">
                 <Loader2 size={13} className="animate-spin text-blue-600" />
-                <span>Buscando en la base de conocimiento...</span>
+                <span>Consultando en base de conocimiento...</span>
               </div>
             </div>
           )}
 
-          {/* Tarjeta de Conversación Finalizada y Calificación */}
+          {/* Tarjeta de Calificación al finalizar */}
           {finalizado && (
             <div className="bg-white border border-slate-200/80 rounded-2xl p-6 text-center max-w-md mx-auto my-4 space-y-3 shadow-sm">
               <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center mx-auto">
@@ -349,7 +370,7 @@ export const Chat: React.FC<ChatProps> = ({ usuario }) => {
                     <button
                       key={est}
                       onClick={() => enviarCalificacion(est)}
-                      className="p-1 text-slate-300 hover:text-amber-400 hover:scale-110 transition-all"
+                      className="p-1 text-slate-300 hover:text-amber-400 hover:scale-110 transition-all cursor-pointer"
                     >
                       <Star
                         size={22}
@@ -389,7 +410,7 @@ export const Chat: React.FC<ChatProps> = ({ usuario }) => {
             <button
               type="submit"
               disabled={cargando || finalizado || !input.trim()}
-              className="absolute right-2 w-8 h-8 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white flex items-center justify-center transition-all shadow-xs"
+              className="absolute right-2 w-8 h-8 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white flex items-center justify-center transition-all shadow-xs cursor-pointer"
             >
               <Send size={14} />
             </button>
@@ -408,7 +429,7 @@ export const Chat: React.FC<ChatProps> = ({ usuario }) => {
               </div>
               <button
                 onClick={() => setModalEscalar(false)}
-                className="text-slate-400 hover:text-slate-600 transition-colors"
+                className="text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
               >
                 <X size={18} />
               </button>
@@ -445,14 +466,14 @@ export const Chat: React.FC<ChatProps> = ({ usuario }) => {
                 <button
                   type="button"
                   onClick={() => setModalEscalar(false)}
-                  className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+                  className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={escalando}
-                  className="bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-xs font-semibold px-4 py-2 rounded-xl transition-colors"
+                  className="bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-xs font-semibold px-4 py-2 rounded-xl transition-colors cursor-pointer"
                 >
                   {escalando ? "Creando ticket..." : "Confirmar y Escalar"}
                 </button>

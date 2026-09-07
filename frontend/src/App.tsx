@@ -7,6 +7,9 @@ import type { Usuario } from "./types";
 import { BaseConocimiento } from "./components/BaseConocimiento";
 import { GestionUsuarios } from "./components/GestionUsuarios";
 import { LogAuditoria } from "./components/LogAuditoria";
+import { MisSolicitudes } from "./components/MisSolicitudes";
+import { BandejaEjecutivo } from "./components/BandejaEjecutivo";
+import { MetricasSistema } from "./components/MetricasSistema";
 import {
   obtenerSesionSegura,
   eliminarSesionSegura,
@@ -21,13 +24,19 @@ export default function App() {
     localStorage.setItem("vistaActiva", nuevaVista);
   };
 
+  const getVistaInicial = (rol: string): VistaApp => {
+    if (rol === "Administrador") return "admin_conocimiento";
+    if (rol === "Ejecutivo") return "bandeja_tickets";
+    return "chat";
+  };
+
   useEffect(() => {
     const user = obtenerSesionSegura<Usuario>("user_session");
     const savedVista = localStorage.getItem("vistaActiva") as VistaApp | null;
 
     if (user) {
       setUsuario(user);
-      if (savedVista) {
+      if (savedVista && savedVista !== ("escaladas" as any)) {
         setVistaActivaState(savedVista);
       } else {
         const inicial = getVistaInicial(user.rol_nombre);
@@ -53,12 +62,6 @@ export default function App() {
     const interval = setInterval(ping, 60000);
     return () => clearInterval(interval);
   }, [usuario]);
-
-  const getVistaInicial = (rol: string): VistaApp => {
-    if (rol === "Administrador") return "admin_conocimiento";
-    if (rol === "Ejecutivo") return "atender_tickets";
-    return "chat";
-  };
 
   const handleLogin = (user: Usuario) => {
     setUsuario(user);
@@ -98,37 +101,17 @@ export default function App() {
       <main className="flex-1 flex flex-col h-full overflow-hidden bg-white">
         {/* VISTAS CLIENTE */}
         {vistaActiva === "chat" && <Chat usuario={usuario} />}
-        {vistaActiva === "mis_tickets" && (
-          <div className="p-8 text-slate-700">
-            <h2 className="text-xl font-bold mb-4">Mis Solicitudes</h2>
-            <p className="text-sm text-slate-500">Historial de tickets consultados a través del asistente.</p>
-          </div>
-        )}
+        {vistaActiva === "mis_tickets" && <MisSolicitudes usuario={usuario} />}
 
-        {/* VISTAS EJECUTIVO */}
-        {vistaActiva === "atender_tickets" && (
-          <div className="p-8 text-slate-700">
-            <h2 className="text-xl font-bold mb-4">Bandeja de Tickets</h2>
-            <p className="text-sm text-slate-500">Casos escalados por baja confianza del bot o solicitud directa.</p>
-          </div>
-        )}
-        {vistaActiva === "escaladas" && (
-          <div className="p-8 text-slate-700">
-            <h2 className="text-xl font-bold mb-4">Conversaciones Escaladas</h2>
-            <p className="text-sm text-slate-500">Revisión de diálogos con scores menores a 0.60.</p>
-          </div>
+        {/* BANDEJA DE TICKETS (Ejecutivo y Administrador) */}
+        {vistaActiva === "bandeja_tickets" && (
+          <BandejaEjecutivo usuario={usuario} />
         )}
 
         {/* VISTAS ADMINISTRADOR */}
         {vistaActiva === "admin_conocimiento" && <BaseConocimiento usuario={usuario} />}
         {vistaActiva === "admin_usuarios" && <GestionUsuarios />}
-        
-        {vistaActiva === "metricas" && (
-          <div className="p-8 text-slate-700">
-            <h2 className="text-xl font-bold mb-4">Métricas del Sistema</h2>
-            <p className="text-sm text-slate-500">Rendimiento del modelo, umbrales de confianza y volumen de tickets.</p>
-          </div>
-        )}
+        {vistaActiva === "metricas" && <MetricasSistema />}
         {vistaActiva === "auditoria" && <LogAuditoria />}
       </main>
     </div>
