@@ -8,7 +8,6 @@ import {
   RefreshCw, 
   Loader2, 
   ChevronRight, 
-  AlertCircle,
   Star
 } from "lucide-react";
 import type { Usuario } from "../types";

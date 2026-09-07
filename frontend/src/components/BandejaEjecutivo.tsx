@@ -6,13 +6,10 @@ import {
   Send,
   RefreshCw,
   Loader2,
-  ChevronRight,
   Filter,
-  CheckCircle2,
   UserCheck,
   Star,
   MessageSquare,
-  AlertCircle
 } from "lucide-react";
 import type { Usuario } from "../types";
 
