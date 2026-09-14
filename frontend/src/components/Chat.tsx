@@ -12,14 +12,26 @@ import {
   Star,
   X,
   Loader2,
+  Plus,
+  BookOpen,
 } from "lucide-react";
-import type { Mensaje, Usuario } from "../types";
+import type { Mensaje, Usuario, ConversacionDetalle } from "../types";
 
 interface ChatProps {
   usuario: Usuario;
+  conversacionIdProp?: number | null;
+  onConversacionCreada?: (id: number) => void;
+  onConversacionActualizada?: () => void;
+  onNuevaConversacion?: () => void;
 }
 
-export const Chat: React.FC<ChatProps> = ({ usuario }) => {
+export const Chat: React.FC<ChatProps> = ({
+  usuario,
+  conversacionIdProp,
+  onConversacionCreada,
+  onConversacionActualizada,
+  onNuevaConversacion,
+}) => {
   const [mensajes, setMensajes] = useState<Mensaje[]>([
     {
       id: "init",
@@ -30,13 +42,15 @@ export const Chat: React.FC<ChatProps> = ({ usuario }) => {
   ]);
   const [input, setInput] = useState("");
   const [cargando, setCargando] = useState(false);
+  const [cargandoHistorial, setCargandoHistorial] = useState(false);
   const [conversacionId, setConversacionId] = useState<number | null>(null);
+  const [conversacionInfo, setConversacionInfo] = useState<ConversacionDetalle | null>(null);
   const [mostrarFuentes, setMostrarFuentes] = useState<Record<string, boolean>>({});
 
   const [finalizado, setFinalizado] = useState(false);
   const [calificacion, setCalificacion] = useState<number | null>(null);
   const [calificacionEnviada, setCalificacionEnviada] = useState(false);
-  
+
   // Estado para modal de escalamiento a ticket
   const [modalEscalar, setModalEscalar] = useState(false);
   const [tituloTicket, setTituloTicket] = useState("");
@@ -45,18 +59,73 @@ export const Chat: React.FC<ChatProps> = ({ usuario }) => {
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Efecto para cargar conversación existente cuando cambia conversacionIdProp
+  useEffect(() => {
+    if (!conversacionIdProp) {
+      // Nueva conversación en blanco
+      setConversacionId(null);
+      setConversacionInfo(null);
+      setMensajes([
+        {
+          id: "init",
+          emisor: "bot",
+          texto: `Hola ${usuario.nombre}, soy tu asistente virtual SupportAI. ¿En qué puedo ayudarte hoy con la base de conocimiento?`,
+          hora: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        },
+      ]);
+      setFinalizado(false);
+      setCalificacion(null);
+      setCalificacionEnviada(false);
+      setInput("");
+      return;
+    }
+
+    // Cargar historial de conversación seleccionada
+    const cargarConversacion = async () => {
+      setCargandoHistorial(true);
+      try {
+        const res = await fetch(
+          `http://localhost:8000/api/chat/conversaciones/${conversacionIdProp}`
+        );
+        if (!res.ok) throw new Error("Error al cargar la conversación");
+
+        const data = await res.json();
+        setConversacionId(data.conversacion.id_conversacion);
+        setConversacionInfo(data.conversacion);
+        setMensajes(data.mensajes || []);
+
+        const estaFinalizada = Boolean(
+          data.conversacion.finalizada ||
+            data.conversacion.fecha_fin ||
+            data.conversacion.calificacion
+        );
+        setFinalizado(estaFinalizada);
+        setCalificacion(data.conversacion.calificacion);
+        setCalificacionEnviada(data.conversacion.calificacion !== null);
+      } catch (err) {
+        console.error("Error cargando historial de chat:", err);
+      } finally {
+        setCargandoHistorial(false);
+      }
+    };
+
+    cargarConversacion();
+  }, [conversacionIdProp, usuario.nombre]);
+
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [mensajes, cargando, finalizado]);
+  }, [mensajes, cargando, finalizado, cargandoHistorial]);
 
   const toggleFuentes = (id: string) => {
     setMostrarFuentes((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
   const abrirModalEscalar = (motivoSugerido?: string) => {
-    setTituloTicket(motivoSugerido || `Consulta escalada desde chat #${conversacionId || "general"}`);
-    
-    // Obtener los últimos mensajes para darle contexto al ejecutivo
+    setTituloTicket(
+      motivoSugerido ||
+        `Consulta escalada desde chat #${conversacionId || "general"}`
+    );
+
     const contextoConversacion = mensajes
       .filter((m) => m.id !== "init")
       .map((m) => `${m.emisor === "user" ? "Cliente" : "IA"}: ${m.texto}`)
@@ -64,7 +133,8 @@ export const Chat: React.FC<ChatProps> = ({ usuario }) => {
       .join("\n\n");
 
     setDescTicket(
-      contextoConversacion || "El cliente requiere atención personalizada de un ejecutivo humano."
+      contextoConversacion ||
+        "El cliente requiere atención personalizada de un ejecutivo humano."
     );
     setModalEscalar(true);
   };
@@ -84,6 +154,8 @@ export const Chat: React.FC<ChatProps> = ({ usuario }) => {
     setMensajes((prev) => [...prev, nuevoMsgUser]);
     setInput("");
     setCargando(true);
+
+    const esPrimeraPregunta = !conversacionId;
 
     try {
       const res = await fetch("http://localhost:8000/api/chat", {
@@ -113,13 +185,19 @@ export const Chat: React.FC<ChatProps> = ({ usuario }) => {
       };
 
       setMensajes((prev) => [...prev, nuevoMsgBot]);
+
+      // Si es la primera pregunta, notificar para que el historial en el sidebar se actualice
+      if (esPrimeraPregunta && onConversacionCreada) {
+        onConversacionCreada(data.conversacion_id);
+      }
     } catch {
       setMensajes((prev) => [
         ...prev,
         {
           id: (Date.now() + 1).toString(),
           emisor: "bot",
-          texto: "Ocurrió un error al contactar el servidor. Por favor intenta nuevamente.",
+          texto:
+            "Ocurrió un error al contactar el servidor. Por favor intenta nuevamente.",
           hora: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         },
       ]);
@@ -157,6 +235,7 @@ export const Chat: React.FC<ChatProps> = ({ usuario }) => {
             hora: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
           },
         ]);
+        if (onConversacionActualizada) onConversacionActualizada();
       } else {
         alert("Error al generar el ticket.");
       }
@@ -180,6 +259,7 @@ export const Chat: React.FC<ChatProps> = ({ usuario }) => {
         body: JSON.stringify({ conversacion_id: conversacionId }),
       });
       setFinalizado(true);
+      if (onConversacionActualizada) onConversacionActualizada();
     } catch (err) {
       console.error(err);
       setFinalizado(true);
@@ -203,6 +283,7 @@ export const Chat: React.FC<ChatProps> = ({ usuario }) => {
         }),
       });
       setCalificacionEnviada(true);
+      if (onConversacionActualizada) onConversacionActualizada();
     } catch {
       setCalificacionEnviada(true);
     }
@@ -211,137 +292,205 @@ export const Chat: React.FC<ChatProps> = ({ usuario }) => {
   return (
     <div className="flex-1 flex flex-col h-full bg-[#f8fafc] overflow-hidden">
       {/* Cabecera del Chat */}
-      <div className="bg-white border-b border-slate-200/80 px-8 py-4 flex items-center justify-between shrink-0 shadow-xs">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs">
+      <div className="bg-white border-b border-slate-200/80 px-6 py-3.5 flex items-center justify-between shrink-0 shadow-xs">
+        <div className="flex items-center gap-3 overflow-hidden">
+          <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs shrink-0">
             <Sparkles size={18} />
           </div>
-          <div>
-            <h2 className="text-sm font-bold text-slate-800">Soporte Virtual IA</h2>
-            <p className="text-[11px] text-emerald-600 font-medium flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-              En línea · RAG habilitado
+          <div className="overflow-hidden">
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-bold text-slate-800 truncate">
+                {conversacionInfo?.titulo || "Soporte Virtual IA"}
+              </h2>
+              {conversacionId && (
+                <span className="text-[11px] font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                  #{conversacionId}
+                </span>
+              )}
+            </div>
+            <p className="text-[11px] font-medium flex items-center gap-1.5 truncate">
+              {finalizado ? (
+                <span className="text-slate-500 flex items-center gap-1">
+                  <BookOpen size={12} className="text-slate-400" />
+                  Modo lectura · Conversación finalizada
+                </span>
+              ) : (
+                <span className="text-emerald-600 flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                  En línea · RAG habilitado
+                </span>
+              )}
             </p>
           </div>
         </div>
 
         {/* Acciones superiores */}
-        {!finalizado && (
-          <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2">
+          {onNuevaConversacion && (
             <button
-              onClick={() => abrirModalEscalar("Solicitud directa de atención con ejecutivo")}
-              className="flex items-center gap-1.5 text-xs font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200/70 px-3.5 py-1.5 rounded-xl transition-all cursor-pointer"
+              onClick={onNuevaConversacion}
+              className="flex items-center gap-1.5 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200/70 px-3 py-1.5 rounded-xl transition-all cursor-pointer"
             >
-              <Headphones size={14} />
-              <span>Hablar con un ejecutivo</span>
+              <Plus size={14} />
+              <span className="hidden sm:inline">Nueva conversación</span>
             </button>
+          )}
 
-            <button
-              onClick={handleFinalizarConversacion}
-              className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/80 px-3.5 py-1.5 rounded-xl transition-all cursor-pointer"
-            >
-              <CheckCircle size={14} />
-              <span>Finalizar chat</span>
-            </button>
-          </div>
-        )}
+          {!finalizado && (
+            <>
+              <button
+                onClick={() => abrirModalEscalar("Solicitud directa de atención con ejecutivo")}
+                className="flex items-center gap-1.5 text-xs font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200/70 px-3 py-1.5 rounded-xl transition-all cursor-pointer"
+              >
+                <Headphones size={14} />
+                <span className="hidden md:inline">Hablar con ejecutivo</span>
+              </button>
+
+              <button
+                onClick={handleFinalizarConversacion}
+                className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/80 px-3 py-1.5 rounded-xl transition-all cursor-pointer"
+              >
+                <CheckCircle size={14} />
+                <span>Finalizar</span>
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Área del Hilo Centralizado */}
       <div className="flex-1 overflow-y-auto px-4 py-6">
         <div className="max-w-3xl mx-auto space-y-5">
-          {mensajes.map((m) => (
-            <div
-              key={m.id}
-              className={`flex gap-3.5 ${m.emisor === "user" ? "justify-end" : "justify-start"}`}
-            >
-              {m.emisor === "bot" && (
-                <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5">
-                  <Sparkles size={15} />
+          {/* Banner si el chat está finalizado en modo lectura */}
+          {finalizado && !cargandoHistorial && (
+            <div className="bg-gradient-to-r from-slate-50 to-blue-50/40 border border-slate-200/90 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                  <CheckCircle size={16} />
                 </div>
-              )}
-
-              <div className="space-y-1 max-w-[85%] sm:max-w-[75%]">
-                <div
-                  className={`p-4 rounded-2xl text-[13.5px] leading-relaxed shadow-xs ${
-                    m.emisor === "user"
-                      ? "bg-blue-600 text-white rounded-br-xs"
-                      : "bg-white text-slate-800 border border-slate-200/80 rounded-tl-xs"
-                  }`}
-                >
-                  <div className="whitespace-pre-wrap">{m.texto}</div>
-
-                  {/* Botón contextual de escalamiento integrado si el bot tiene dudas */}
-                  {m.emisor === "bot" && m.escalarEjecutivo && !finalizado && (
-                    <div className="mt-3 pt-3 border-t border-slate-100">
-                      <button
-                        onClick={() => abrirModalEscalar("Duda no resuelta por la IA")}
-                        className="w-full flex items-center justify-center gap-2 py-2 px-3 text-xs font-semibold text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-xl transition-colors cursor-pointer"
-                      >
-                        <Headphones size={13} />
-                        <span>¿Esta respuesta no resuelve tu problema? Escalar con un ejecutivo</span>
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Insignia de Confianza (solo bot) */}
-                  {m.emisor === "bot" && m.nivelConfianza && (
-                    <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px]">
-                      <div className="flex items-center gap-1.5 font-medium">
-                        {m.nivelConfianza === "ALTA" ? (
-                          <span className="text-emerald-600 flex items-center gap-1">
-                            <ShieldCheck size={13} /> Alta Confianza ({Math.round((m.scoreMaximo || 0) * 100)}%)
-                          </span>
-                        ) : (
-                          <span className="text-amber-600 flex items-center gap-1">
-                            <AlertTriangle size={13} /> Confianza Parcial ({Math.round((m.scoreMaximo || 0) * 100)}%)
-                          </span>
-                        )}
-                      </div>
-
-                      {m.fuentes && m.fuentes.length > 0 && (
-                        <button
-                          onClick={() => toggleFuentes(m.id)}
-                          className="text-slate-400 hover:text-slate-700 flex items-center gap-0.5 text-[11px] transition-colors cursor-pointer"
-                        >
-                          <span>{m.fuentes.length} fuentes</span>
-                          {mostrarFuentes[m.id] ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                        </button>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Despliegue de fuentes RAG */}
-                  {mostrarFuentes[m.id] && m.fuentes && (
-                    <div className="mt-2 space-y-1.5 bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
-                      {m.fuentes.map((f) => (
-                        <div key={f.id_fragmento} className="text-[11px] text-slate-500">
-                          <span className="font-semibold text-slate-700">
-                            Fragmento #{f.id_fragmento} ({Math.round(f.similitud * 100)}%):
-                          </span>
-                          <p className="italic text-slate-600 mt-0.5">"{f.extracto}"</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                <div>
+                  <p className="text-xs font-bold text-slate-800">
+                    Conversación finalizada{" "}
+                    {conversacionInfo?.fecha_fin ? `el ${conversacionInfo.fecha_fin}` : ""}
+                  </p>
+                  <p className="text-[11px] text-slate-500">
+                    Estás visualizando este chat en modo consulta histórica.
+                  </p>
                 </div>
-
-                <span
-                  className={`text-[10px] text-slate-400 block px-1.5 ${
-                    m.emisor === "user" ? "text-right" : "text-left"
-                  }`}
-                >
-                  {m.hora}
-                </span>
               </div>
 
-              {m.emisor === "user" && (
-                <div className="w-8 h-8 rounded-xl bg-slate-800 text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5">
-                  <User size={15} />
-                </div>
+              {onNuevaConversacion && (
+                <button
+                  onClick={onNuevaConversacion}
+                  className="text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 px-3.5 py-1.5 rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1 shrink-0"
+                >
+                  <Plus size={13} />
+                  <span>Iniciar nuevo chat</span>
+                </button>
               )}
             </div>
-          ))}
+          )}
+
+          {/* Estado de Carga del Historial */}
+          {cargandoHistorial ? (
+            <div className="flex flex-col items-center justify-center py-16 space-y-3 text-slate-400">
+              <Loader2 size={24} className="animate-spin text-blue-600" />
+              <p className="text-xs">Cargando conversación...</p>
+            </div>
+          ) : (
+            mensajes.map((m) => (
+              <div
+                key={m.id}
+                className={`flex gap-3.5 ${m.emisor === "user" ? "justify-end" : "justify-start"}`}
+              >
+                {m.emisor === "bot" && (
+                  <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5">
+                    <Sparkles size={15} />
+                  </div>
+                )}
+
+                <div className="space-y-1 max-w-[85%] sm:max-w-[75%]">
+                  <div
+                    className={`p-4 rounded-2xl text-[13.5px] leading-relaxed shadow-xs ${
+                      m.emisor === "user"
+                        ? "bg-blue-600 text-white rounded-br-xs"
+                        : "bg-white text-slate-800 border border-slate-200/80 rounded-tl-xs"
+                    }`}
+                  >
+                    <div className="whitespace-pre-wrap">{m.texto}</div>
+
+                    {/* Botón contextual de escalamiento si el bot tiene dudas */}
+                    {m.emisor === "bot" && m.escalarEjecutivo && !finalizado && (
+                      <div className="mt-3 pt-3 border-t border-slate-100">
+                        <button
+                          onClick={() => abrirModalEscalar("Duda no resuelta por la IA")}
+                          className="w-full flex items-center justify-center gap-2 py-2 px-3 text-xs font-semibold text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-xl transition-colors cursor-pointer"
+                        >
+                          <Headphones size={13} />
+                          <span>¿Esta respuesta no resuelve tu problema? Escalar con un ejecutivo</span>
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Insignia de Confianza (solo bot) */}
+                    {m.emisor === "bot" && m.nivelConfianza && (
+                      <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px]">
+                        <div className="flex items-center gap-1.5 font-medium">
+                          {m.nivelConfianza === "ALTA" ? (
+                            <span className="text-emerald-600 flex items-center gap-1">
+                              <ShieldCheck size={13} /> Alta Confianza ({Math.round((m.scoreMaximo || 0) * 100)}%)
+                            </span>
+                          ) : (
+                            <span className="text-amber-600 flex items-center gap-1">
+                              <AlertTriangle size={13} /> Confianza Parcial ({Math.round((m.scoreMaximo || 0) * 100)}%)
+                            </span>
+                          )}
+                        </div>
+
+                        {m.fuentes && m.fuentes.length > 0 && (
+                          <button
+                            onClick={() => toggleFuentes(m.id)}
+                            className="text-slate-400 hover:text-slate-700 flex items-center gap-0.5 text-[11px] transition-colors cursor-pointer"
+                          >
+                            <span>{m.fuentes.length} fuentes</span>
+                            {mostrarFuentes[m.id] ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Despliegue de fuentes RAG */}
+                    {mostrarFuentes[m.id] && m.fuentes && (
+                      <div className="mt-2 space-y-1.5 bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
+                        {m.fuentes.map((f) => (
+                          <div key={f.id_fragmento} className="text-[11px] text-slate-500">
+                            <span className="font-semibold text-slate-700">
+                              Fragmento #{f.id_fragmento} ({Math.round(f.similitud * 100)}%):
+                            </span>
+                            <p className="italic text-slate-600 mt-0.5">"{f.extracto}"</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <span
+                    className={`text-[10px] text-slate-400 block px-1.5 ${
+                      m.emisor === "user" ? "text-right" : "text-left"
+                    }`}
+                  >
+                    {m.hora}
+                  </span>
+                </div>
+
+                {m.emisor === "user" && (
+                  <div className="w-8 h-8 rounded-xl bg-slate-800 text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5">
+                    <User size={15} />
+                  </div>
+                )}
+              </div>
+            ))
+          )}
 
           {cargando && (
             <div className="flex gap-3.5 justify-start">
@@ -356,7 +505,7 @@ export const Chat: React.FC<ChatProps> = ({ usuario }) => {
           )}
 
           {/* Tarjeta de Calificación al finalizar */}
-          {finalizado && (
+          {finalizado && !cargandoHistorial && (
             <div className="bg-white border border-slate-200/80 rounded-2xl p-6 text-center max-w-md mx-auto my-4 space-y-3 shadow-sm">
               <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center mx-auto">
                 <CheckCircle size={22} />
@@ -394,27 +543,40 @@ export const Chat: React.FC<ChatProps> = ({ usuario }) => {
       {/* Input de Mensaje fijado al pie */}
       <div className="bg-white border-t border-slate-200/80 p-4 shrink-0">
         <div className="max-w-3xl mx-auto">
-          <form onSubmit={enviarMensaje} className="relative flex items-center">
-            <input
-              type="text"
-              disabled={cargando || finalizado}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder={
-                finalizado
-                  ? "Esta conversación ha concluido."
-                  : "Haz una pregunta sobre los documentos indexados..."
-              }
-              className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 pl-4 pr-12 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition-all disabled:opacity-50"
-            />
-            <button
-              type="submit"
-              disabled={cargando || finalizado || !input.trim()}
-              className="absolute right-2 w-8 h-8 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white flex items-center justify-center transition-all shadow-xs cursor-pointer"
-            >
-              <Send size={14} />
-            </button>
-          </form>
+          {finalizado ? (
+            <div className="flex items-center justify-between gap-4 bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 text-xs text-slate-500">
+              <span className="font-medium text-slate-600">
+                Esta conversación ha concluido. Puedes iniciar una nueva consulta en cualquier momento.
+              </span>
+              {onNuevaConversacion && (
+                <button
+                  onClick={onNuevaConversacion}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5 shrink-0"
+                >
+                  <Plus size={14} />
+                  <span>Nueva consulta</span>
+                </button>
+              )}
+            </div>
+          ) : (
+            <form onSubmit={enviarMensaje} className="relative flex items-center">
+              <input
+                type="text"
+                disabled={cargando}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Haz una pregunta sobre los documentos indexados..."
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 pl-4 pr-12 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition-all disabled:opacity-50"
+              />
+              <button
+                type="submit"
+                disabled={cargando || !input.trim()}
+                className="absolute right-2 w-8 h-8 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white flex items-center justify-center transition-all shadow-xs cursor-pointer"
+              >
+                <Send size={14} />
+              </button>
+            </form>
+          )}
         </div>
       </div>
 

@@ -18,10 +18,31 @@ import {
 export default function App() {
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [vistaActiva, setVistaActivaState] = useState<VistaApp>("chat");
+  const [conversacionActivaId, setConversacionActivaId] = useState<number | null>(null);
+  const [refreshHistorialTrigger, setRefreshHistorialTrigger] = useState(0);
 
   const setVistaActiva = (nuevaVista: VistaApp) => {
     setVistaActivaState(nuevaVista);
     localStorage.setItem("vistaActiva", nuevaVista);
+  };
+
+  const handleNuevaConversacion = () => {
+    setConversacionActivaId(null);
+    setVistaActiva("chat");
+  };
+
+  const handleSeleccionarConversacion = (id: number) => {
+    setConversacionActivaId(id);
+    setVistaActiva("chat");
+  };
+
+  const handleConversacionCreada = (id: number) => {
+    setConversacionActivaId(id);
+    setRefreshHistorialTrigger((prev) => prev + 1);
+  };
+
+  const handleConversacionActualizada = () => {
+    setRefreshHistorialTrigger((prev) => prev + 1);
   };
 
   const getVistaInicial = (rol: string): VistaApp => {
@@ -96,11 +117,23 @@ export default function App() {
         vistaActiva={vistaActiva}
         setVistaActiva={setVistaActiva}
         onCerrarSesion={handleCerrarSesion}
+        conversacionActivaId={conversacionActivaId}
+        onSeleccionarConversacion={handleSeleccionarConversacion}
+        onNuevaConversacion={handleNuevaConversacion}
+        refreshHistorialTrigger={refreshHistorialTrigger}
       />
 
       <main className="flex-1 flex flex-col h-full overflow-hidden bg-white">
         {/* VISTAS CLIENTE */}
-        {vistaActiva === "chat" && <Chat usuario={usuario} />}
+        {vistaActiva === "chat" && (
+          <Chat
+            usuario={usuario}
+            conversacionIdProp={conversacionActivaId}
+            onConversacionCreada={handleConversacionCreada}
+            onConversacionActualizada={handleConversacionActualizada}
+            onNuevaConversacion={handleNuevaConversacion}
+          />
+        )}
         {vistaActiva === "mis_tickets" && <MisSolicitudes usuario={usuario} />}
 
         {/* BANDEJA DE TICKETS (Ejecutivo y Administrador) */}

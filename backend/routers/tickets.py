@@ -196,6 +196,12 @@ async def crear_ticket(body: CrearTicketRequest):
                     body.titulo, body.descripcion, body.cliente_id, body.conversacion_id
                 )
 
+                if body.conversacion_id:
+                    await conn.execute(
+                        "UPDATE CONVERSACION SET escalada = TRUE WHERE id_conversacion = $1;",
+                        body.conversacion_id
+                    )
+
                 # Auditoría
                 await conn.execute(
                     """

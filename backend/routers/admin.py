@@ -43,8 +43,14 @@ async def obtener_metricas():
                 SELECT 
                     ROUND(COALESCE(AVG(calificacion), 0.0)::NUMERIC, 1) AS promedio_satisfaccion,
                     COUNT(calificacion)::INT AS total_evaluaciones
-                FROM TICKET
-                WHERE calificacion IS NOT NULL;
+                FROM (
+                    SELECT calificacion FROM TICKET WHERE calificacion IS NOT NULL
+                    UNION ALL
+                    SELECT c.calificacion 
+                    FROM CONVERSACION c 
+                    WHERE c.calificacion IS NOT NULL 
+                      AND NOT EXISTS (SELECT 1 FROM TICKET t WHERE t.conversacion_id = c.id_conversacion AND t.calificacion IS NOT NULL)
+                ) sub;
                 """
             )
 

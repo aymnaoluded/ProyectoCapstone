@@ -1,4 +1,5 @@
 import os
+# pyrefly: ignore [missing-import]
 import asyncpg
 from dotenv import load_dotenv
 
@@ -14,6 +15,9 @@ async def iniciar_db_pool():
         min_size=2,
         max_size=10
     )
+    async with pool.acquire() as conn:
+        await conn.execute("ALTER TABLE CONVERSACION ADD COLUMN IF NOT EXISTS calificacion INTEGER;")
+        await conn.execute("ALTER TABLE CONVERSACION ADD COLUMN IF NOT EXISTS titulo VARCHAR(255);")
 
 async def cerrar_db_pool():
     global pool

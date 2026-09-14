@@ -23,3 +23,28 @@ export interface Mensaje {
   escalarEjecutivo?: boolean;
   fuentes?: Fuente[];
 }
+
+export interface ConversacionResumen {
+  id_conversacion: number;
+  fecha_inicio: string;
+  fecha_fin: string | null;
+  calificacion: number | null;
+  escalada: boolean;
+  finalizada: boolean;
+  titulo: string;
+  primer_mensaje: string;
+  total_mensajes: number;
+}
+
+export interface ConversacionDetalle {
+  id_conversacion: number;
+  cliente_id: number;
+  cliente_nombre: string;
+  cliente_correo: string;
+  fecha_inicio: string;
+  fecha_fin: string | null;
+  calificacion: number | null;
+  escalada: boolean;
+  finalizada: boolean;
+  titulo: string;
+}

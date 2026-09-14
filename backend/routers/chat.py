@@ -1,5 +1,5 @@
 from typing import Optional, List
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from database import obtener_db_pool
 from services import generar_embedding_consulta, responder_gemini
@@ -41,9 +41,11 @@ async def chat_rag(body: ChatRequest):
             async with conn.transaction():
                 conversacion_id = body.conversacion_id
                 if not conversacion_id:
+                    msg_limpio = " ".join(body.mensaje.split())
+                    titulo_conversacion = (msg_limpio[:57] + "...") if len(msg_limpio) > 60 else msg_limpio
                     conv_row = await conn.fetchrow(
-                        "INSERT INTO CONVERSACION (cliente_id) VALUES ($1) RETURNING id_conversacion",
-                        body.cliente_id
+                        "INSERT INTO CONVERSACION (cliente_id, titulo) VALUES ($1, $2) RETURNING id_conversacion",
+                        body.cliente_id, titulo_conversacion
                     )
                     conversacion_id = conv_row["id_conversacion"]
 
@@ -173,14 +175,203 @@ async def finalizar_conversacion(body: FinalizarConversacionRequest):
         async with pool.acquire() as conn:
             async with conn.transaction():
                 await conn.execute(
-                    "UPDATE CONVERSACION SET fecha_fin = NOW() WHERE id_conversacion = $1;",
-                    body.conversacion_id
+                    """
+                    UPDATE CONVERSACION 
+                    SET fecha_fin = COALESCE(fecha_fin, NOW()),
+                        calificacion = COALESCE($1, calificacion)
+                    WHERE id_conversacion = $2;
+                    """,
+                    body.calificacion, body.conversacion_id
                 )
                 if body.calificacion:
                     await conn.execute(
                         "UPDATE TICKET SET calificacion = $1 WHERE conversacion_id = $2;",
                         body.calificacion, body.conversacion_id
                     )
+
+                # Registrar auditoría
+                conv = await conn.fetchrow(
+                    "SELECT cliente_id FROM CONVERSACION WHERE id_conversacion = $1;",
+                    body.conversacion_id
+                )
+                if conv:
+                    calif_detalle = f" con calificación de {body.calificacion} estrellas" if body.calificacion else ""
+                    await conn.execute(
+                        """
+                        INSERT INTO log_auditoria (usuario_id, accion, detalle)
+                        VALUES ($1, 'FIN_CHAT_IA', $2);
+                        """,
+                        conv["cliente_id"],
+                        f"Conversación #{body.conversacion_id} finalizada{calif_detalle}"
+                    )
+
         return {"message": "Conversación finalizada exitosamente."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/conversaciones")
+async def listar_conversaciones(cliente_id: int = Query(...)):
+    """Lista el historial de conversaciones previas con SupportIA para un cliente"""
+    pool = obtener_db_pool()
+    try:
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT 
+                    c.id_conversacion,
+                    c.cliente_id,
+                    c.fecha_inicio,
+                    c.fecha_fin,
+                    c.calificacion,
+                    c.escalada,
+                    c.titulo,
+                    (
+                        SELECT m.contenido 
+                        FROM MENSAJE m 
+                        WHERE m.conversacion_id = c.id_conversacion AND m.emisor = 'cliente' 
+                        ORDER BY m.fecha ASC, m.id_mensaje ASC 
+                        LIMIT 1
+                    ) AS primer_mensaje,
+                    (
+                        SELECT COUNT(*)::INT 
+                        FROM MENSAJE m 
+                        WHERE m.conversacion_id = c.id_conversacion
+                    ) AS total_mensajes
+                FROM CONVERSACION c
+                WHERE c.cliente_id = $1
+                ORDER BY c.fecha_inicio DESC;
+                """,
+                cliente_id
+            )
+
+            return [
+                {
+                    "id_conversacion": r["id_conversacion"],
+                    "fecha_inicio": r["fecha_inicio"].strftime("%Y-%m-%d %H:%M") if r["fecha_inicio"] else "",
+                    "fecha_fin": r["fecha_fin"].strftime("%Y-%m-%d %H:%M") if r["fecha_fin"] else None,
+                    "calificacion": r["calificacion"],
+                    "escalada": bool(r["escalada"]),
+                    "finalizada": bool(r["fecha_fin"] is not None or r["calificacion"] is not None),
+                    "titulo": r["titulo"] or (r["primer_mensaje"][:57] + "..." if r["primer_mensaje"] and len(r["primer_mensaje"]) > 60 else (r["primer_mensaje"] or "Consulta con SupportAI")),
+                    "primer_mensaje": r["primer_mensaje"] or "Consulta inicial con SupportAI",
+                    "total_mensajes": r["total_mensajes"] or 0,
+                }
+                for r in rows
+            ]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/conversaciones/{id_conversacion}")
+async def obtener_detalle_conversacion(id_conversacion: int):
+    """Obtiene el detalle completo de una conversación de SupportIA y su hilo de mensajes"""
+    pool = obtener_db_pool()
+    try:
+        async with pool.acquire() as conn:
+            conv = await conn.fetchrow(
+                """
+                SELECT 
+                    c.id_conversacion,
+                    c.cliente_id,
+                    c.fecha_inicio,
+                    c.fecha_fin,
+                    c.calificacion,
+                    c.escalada,
+                    c.titulo,
+                    CONCAT(u.nombre, ' ', u.apellido) AS cliente_nombre,
+                    u.correo AS cliente_correo
+                FROM CONVERSACION c
+                LEFT JOIN USUARIO u ON c.cliente_id = u.id_usuario
+                WHERE c.id_conversacion = $1;
+                """,
+                id_conversacion
+            )
+
+            if not conv:
+                raise HTTPException(status_code=404, detail="Conversación no encontrada")
+
+            mensajes = await conn.fetch(
+                """
+                SELECT 
+                    id_mensaje,
+                    emisor,
+                    contenido,
+                    fecha,
+                    nivel_confianza,
+                    requiere_escalamiento
+                FROM MENSAJE
+                WHERE conversacion_id = $1
+                ORDER BY fecha ASC, id_mensaje ASC;
+                """,
+                id_conversacion
+            )
+
+            # Cargar fuentes asociadas a los mensajes del bot
+            bot_msg_ids = [m["id_mensaje"] for m in mensajes if m["emisor"] == "bot"]
+            fuentes_por_msg = {}
+            if bot_msg_ids:
+                fuentes_rows = await conn.fetch(
+                    """
+                    SELECT 
+                        mf.mensaje_id,
+                        mf.fragmento_id,
+                        mf.score,
+                        f.contenido
+                    FROM mensaje_fragmento mf
+                    INNER JOIN FRAGMENTO f ON mf.fragmento_id = f.id_fragmento
+                    WHERE mf.mensaje_id = ANY($1::int[])
+                    ORDER BY mf.score DESC;
+                    """,
+                    bot_msg_ids
+                )
+                for fr in fuentes_rows:
+                    m_id = fr["mensaje_id"]
+                    if m_id not in fuentes_por_msg:
+                        fuentes_por_msg[m_id] = []
+                    fuentes_por_msg[m_id].append({
+                        "id_fragmento": fr["fragmento_id"],
+                        "similitud": round(float(fr["score"]), 3),
+                        "extracto": (fr["contenido"][:100] + "...") if fr["contenido"] else ""
+                    })
+
+            resultado_mensajes = []
+            for m in mensajes:
+                score_val = float(m["nivel_confianza"]) if m["nivel_confianza"] is not None else None
+                nivel = None
+                if score_val is not None and m["emisor"] == "bot":
+                    if score_val >= UMBRAL_ALTA_CONFIANZA:
+                        nivel = "ALTA"
+                    elif score_val >= UMBRAL_MEDIA_CONFIANZA:
+                        nivel = "MEDIA"
+                    else:
+                        nivel = "BAJA"
+
+                resultado_mensajes.append({
+                    "id": str(m["id_mensaje"]),
+                    "emisor": "user" if m["emisor"] == "cliente" else "bot",
+                    "texto": m["contenido"],
+                    "hora": m["fecha"].strftime("%H:%M") if m["fecha"] else "",
+                    "nivelConfianza": nivel,
+                    "scoreMaximo": score_val,
+                    "escalarEjecutivo": bool(m["requiere_escalamiento"]),
+                    "fuentes": fuentes_por_msg.get(m["id_mensaje"], [])
+                })
+
+            return {
+                "conversacion": {
+                    "id_conversacion": conv["id_conversacion"],
+                    "cliente_id": conv["cliente_id"],
+                    "cliente_nombre": conv["cliente_nombre"],
+                    "cliente_correo": conv["cliente_correo"],
+                    "fecha_inicio": conv["fecha_inicio"].strftime("%Y-%m-%d %H:%M") if conv["fecha_inicio"] else "",
+                    "fecha_fin": conv["fecha_fin"].strftime("%Y-%m-%d %H:%M") if conv["fecha_fin"] else None,
+                    "calificacion": conv["calificacion"],
+                    "escalada": bool(conv["escalada"]),
+                    "finalizada": bool(conv["fecha_fin"] is not None or conv["calificacion"] is not None),
+                    "titulo": conv["titulo"] or "Consulta con SupportAI"
+                },
+                "mensajes": resultado_mensajes
+            }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
