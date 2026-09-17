@@ -57,17 +57,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [cargandoHistorial, setCargandoHistorial] = useState(false);
 
   useEffect(() => {
-    if (usuario.rol_nombre !== "Cliente") return;
+    if (!usuario || usuario.rol_nombre !== "Cliente") return;
 
     const cargarHistorial = async () => {
       setCargandoHistorial(true);
       try {
+        const token = localStorage.getItem("access_token");
         const res = await fetch(
-          `http://localhost:8000/api/chat/conversaciones?cliente_id=${usuario.id_usuario}`
+          `http://localhost:8000/api/chat/conversaciones?cliente_id=${usuario.id_usuario}`,
+          {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          }
         );
         if (res.ok) {
-          const data: ConversacionResumen[] = await res.json();
-          setConversaciones(data);
+          const data = await res.json();
+          setConversaciones(Array.isArray(data) ? data : []);
         }
       } catch (err) {
         console.error("Error al cargar historial de conversaciones:", err);
@@ -77,28 +81,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
     };
 
     cargarHistorial();
-  }, [usuario.id_usuario, usuario.rol_nombre, refreshHistorialTrigger]);
+  }, [usuario?.id_usuario, usuario?.rol_nombre, refreshHistorialTrigger]);
+
+  // Si usuario no existe en memoria durante el render, previene el colapso del DOM
+  if (!usuario) {
+    return null;
+  }
 
   const categorizarFecha = (
-    fechaStr: string
+    fechaStr?: string
   ): "Hoy" | "Ayer" | "Últimos 7 días" | "Anteriores" => {
     if (!fechaStr) return "Anteriores";
-    const fecha = new Date(fechaStr.replace(" ", "T"));
-    const ahora = new Date();
+    try {
+      const fecha = new Date(fechaStr.replace(" ", "T"));
+      const ahora = new Date();
 
-    const fechaDia = new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate());
-    const hoyDia = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
+      const fechaDia = new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate());
+      const hoyDia = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
 
-    const diffTiempo = hoyDia.getTime() - fechaDia.getTime();
-    const diffDias = Math.floor(diffTiempo / (1000 * 60 * 60 * 24));
+      const diffTiempo = hoyDia.getTime() - fechaDia.getTime();
+      const diffDias = Math.floor(diffTiempo / (1000 * 60 * 60 * 24));
 
-    if (diffDias <= 0) return "Hoy";
-    if (diffDias === 1) return "Ayer";
-    if (diffDias <= 7) return "Últimos 7 días";
-    return "Anteriores";
+      if (diffDias <= 0) return "Hoy";
+      if (diffDias === 1) return "Ayer";
+      if (diffDias <= 7) return "Últimos 7 días";
+      return "Anteriores";
+    } catch {
+      return "Anteriores";
+    }
   };
 
-  const formatearHoraOFecha = (fechaStr: string, grupo: string): string => {
+  const formatearHoraOFecha = (fechaStr?: string, grupo?: string): string => {
     if (!fechaStr) return "";
     try {
       const fecha = new Date(fechaStr.replace(" ", "T"));
@@ -111,7 +124,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
   };
 
-  // Agrupar conversaciones cronológicamente
   const gruposOrden: ("Hoy" | "Ayer" | "Últimos 7 días" | "Anteriores")[] = [
     "Hoy",
     "Ayer",
@@ -129,6 +141,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     {}
   );
 
+  const inicialNombre = (usuario.nombre?.trim()?.charAt(0) || "U").toUpperCase();
+
   return (
     <aside className="w-64 bg-[#111827] text-slate-300 flex flex-col justify-between shrink-0 select-none border-r border-slate-800 h-screen">
       {/* Cabecera del Sidebar */}
@@ -139,14 +153,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
           <div className="overflow-hidden">
             <h1 className="font-semibold text-base text-white leading-none truncate">SupportAI</h1>
-            <span className="text-[12px] text-blue-400 font-medium">{usuario.rol_nombre}</span>
+            <span className="text-[12px] text-blue-400 font-medium">
+              {usuario.rol_nombre || "Usuario"}
+            </span>
           </div>
         </div>
       </div>
 
       {/* Contenido Central Scrollable */}
       <div className="flex-1 overflow-y-auto px-4 py-2 space-y-5 min-h-0">
-        {/* Menú Principal por Rol */}
         <nav className="space-y-1.5">
           {/* VISTAS CLIENTE */}
           {usuario.rol_nombre === "Cliente" && (
@@ -368,7 +383,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 ) : (
                                   <MessageSquare
                                     size={13}
-                                    className={esActivo ? "text-blue-400 shrink-0" : "text-slate-400 shrink-0 group-hover:text-blue-400"}
+                                    className={
+                                      esActivo
+                                        ? "text-blue-400 shrink-0"
+                                        : "text-slate-400 shrink-0 group-hover:text-blue-400"
+                                    }
                                   />
                                 )}
                                 <span className="text-xs font-medium truncate flex-1 leading-snug">
@@ -409,17 +428,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
         )}
       </div>
 
-      {/* Perfil Footer */}
+      {/* Perfil Footer Seguro */}
       <div className="p-4 border-t border-slate-800 space-y-4 shrink-0 bg-[#111827]">
         <div className="flex items-center gap-3 px-2">
           <div className="w-9 h-9 rounded-xl bg-rose-500 text-white font-semibold text-sm flex items-center justify-center shrink-0">
-            {usuario.nombre.charAt(0)}
+            {inicialNombre}
           </div>
           <div className="overflow-hidden">
             <p className="text-sm font-medium text-white truncate leading-tight">
-              {usuario.nombre} {usuario.apellido}
+              {usuario.nombre || "Usuario"} {usuario.apellido || ""}
             </p>
-            <p className="text-xs text-slate-400 truncate">{usuario.correo}</p>
+            <p className="text-xs text-slate-400 truncate">{usuario.correo || ""}</p>
           </div>
         </div>
 

@@ -8,3 +8,4 @@ langchain-text-splitters
 pypdf
 python-docx
 python-dotenv
+python-jose

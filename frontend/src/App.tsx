@@ -45,7 +45,7 @@ export default function App() {
     setRefreshHistorialTrigger((prev) => prev + 1);
   };
 
-  const getVistaInicial = (rol: string): VistaApp => {
+  const getVistaInicial = (rol?: string): VistaApp => {
     if (rol === "Administrador") return "admin_conocimiento";
     if (rol === "Ejecutivo") return "bandeja_tickets";
     return "chat";
@@ -55,7 +55,7 @@ export default function App() {
     const user = obtenerSesionSegura<Usuario>("user_session");
     const savedVista = localStorage.getItem("vistaActiva") as VistaApp | null;
 
-    if (user) {
+    if (user && user.rol_nombre) {
       setUsuario(user);
       if (savedVista && savedVista !== ("escaladas" as any)) {
         setVistaActivaState(savedVista);
@@ -64,18 +64,25 @@ export default function App() {
         setVistaActivaState(inicial);
         localStorage.setItem("vistaActiva", inicial);
       }
+    } else {
+      // Si la sesión guardada estaba incompleta o dañada, limpiarla
+      eliminarSesionSegura("user_session");
+      setUsuario(null);
     }
   }, []);
 
-  // Heartbeat automático cada 60s
+  // Heartbeat automático con cabecera Bearer JWT cada 60s
   useEffect(() => {
     if (!usuario) return;
 
     const ping = () => {
+      const token = localStorage.getItem("access_token");
       fetch("http://localhost:8000/api/admin/usuarios/heartbeat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id_usuario: usuario.id_usuario }),
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
       }).catch(() => {});
     };
 
@@ -91,17 +98,21 @@ export default function App() {
   };
 
   const handleCerrarSesion = async () => {
-    if (usuario) {
+    const token = localStorage.getItem("access_token");
+    if (token) {
       try {
         await fetch("http://localhost:8000/api/admin/usuarios/desconectar", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id_usuario: usuario.id_usuario }),
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
         });
       } catch {}
     }
 
     eliminarSesionSegura("user_session");
+    localStorage.removeItem("access_token");
     localStorage.removeItem("vistaActiva");
     setUsuario(null);
   };

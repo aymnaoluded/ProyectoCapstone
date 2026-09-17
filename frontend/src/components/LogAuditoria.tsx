@@ -19,11 +19,19 @@ export const LogAuditoria: React.FC = () => {
   const cargarLogs = async () => {
     setCargando(true);
     try {
+      const token = localStorage.getItem("access_token");
       const res = await fetch(`http://localhost:8000/api/admin/auditoria?t=${Date.now()}`, {
         cache: "no-store",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
       });
+
       if (res.ok) {
-        setLogs(await res.json());
+        const data = await res.json();
+        setLogs(Array.isArray(data) ? data : []);
+      } else {
+        console.error("Error al cargar auditoría, código de respuesta:", res.status);
       }
     } catch (err) {
       console.error("Error al obtener logs de auditoría:", err);
@@ -39,33 +47,43 @@ export const LogAuditoria: React.FC = () => {
   const accionesUnicas = ["TODAS", ...Array.from(new Set(logs.map((l) => l.accion)))];
 
   const logsFiltrados = logs.filter((l) => {
+    const usuarioStr = (l.usuario || "").toLowerCase();
+    const correoStr = (l.correo || "").toLowerCase();
+    const detalleStr = (l.detalle || "").toLowerCase();
+    const accionStr = (l.accion || "").toLowerCase();
+    const termino = busqueda.toLowerCase();
+
     const coincideTexto =
-      l.usuario.toLowerCase().includes(busqueda.toLowerCase()) ||
-      l.correo.toLowerCase().includes(busqueda.toLowerCase()) ||
-      l.detalle.toLowerCase().includes(busqueda.toLowerCase()) ||
-      l.accion.toLowerCase().includes(busqueda.toLowerCase());
+      usuarioStr.includes(termino) ||
+      correoStr.includes(termino) ||
+      detalleStr.includes(termino) ||
+      accionStr.includes(termino);
 
     const coincideAccion = filtroAccion === "TODAS" || l.accion === filtroAccion;
 
     return coincideTexto && coincideAccion;
   });
 
-     const getBadgeColor = (accion: string) => {
-        switch (accion.toUpperCase()) {
-        case "LOGIN":
-            return "bg-emerald-50 text-emerald-700 border-emerald-200/70";
-        case "LOGOUT":
-            return "bg-red-100 text-red-700 border-red-300"; 
-        case "SUBIDA_DOCUMENTO":
-            return "bg-blue-50 text-blue-700 border-blue-200/70";
-        case "CREACION_TICKET":
-            return "bg-amber-50 text-amber-700 border-amber-200/70";
-        case "ELIMINAR_DOCUMENTO":
-            return "bg-rose-50 text-rose-700 border-rose-200/70";
-        default:
-            return "bg-slate-100 text-slate-700 border-slate-200";
-        }
-    };
+  const getBadgeColor = (accion: string) => {
+    switch (accion?.toUpperCase()) {
+      case "LOGIN":
+        return "bg-emerald-50 text-emerald-700 border-emerald-200/70";
+      case "LOGOUT":
+        return "bg-slate-100 text-slate-700 border-slate-300";
+      case "SUBIDA_DOCUMENTO":
+        return "bg-blue-50 text-blue-700 border-blue-200/70";
+      case "TOGGLE_DOCUMENTO":
+        return "bg-indigo-50 text-indigo-700 border-indigo-200/70";
+      case "CREATE_USUARIO":
+        return "bg-purple-50 text-purple-700 border-purple-200/70";
+      case "CREACION_TICKET":
+        return "bg-amber-50 text-amber-700 border-amber-200/70";
+      case "ELIMINAR_DOCUMENTO":
+        return "bg-rose-50 text-rose-700 border-rose-200/70";
+      default:
+        return "bg-slate-100 text-slate-700 border-slate-200";
+    }
+  };
 
   return (
     <div className="flex-1 flex flex-col h-full bg-[#f8fafc] overflow-y-auto">
@@ -73,14 +91,14 @@ export const LogAuditoria: React.FC = () => {
       <div className="bg-white border-b border-slate-200 px-8 py-6 flex items-center justify-between shrink-0">
         <div>
           <h1 className="text-xl font-bold text-slate-900">Log de Auditoría</h1>
-          <p className="text-s text-slate-500 mt-1">
+          <p className="text-sm text-slate-500 mt-1">
             Registro de eventos de seguridad, operaciones y trazabilidad de acciones.
           </p>
         </div>
 
         <button
           onClick={cargarLogs}
-          className="flex items-center gap-2 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 border border-slate-200 px-3.5 py-2 rounded-xl transition-all"
+          className="flex items-center gap-2 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 border border-slate-200 px-3.5 py-2 rounded-xl transition-all cursor-pointer"
         >
           <RefreshCw size={14} className={cargando ? "animate-spin text-blue-600" : ""} />
           <span>Actualizar</span>
@@ -115,9 +133,9 @@ export const LogAuditoria: React.FC = () => {
           <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs flex items-center justify-between">
             <div>
               <span className="text-2xl font-bold text-slate-900 block">
-                {logs.filter((l) => l.accion === "SUBIDA_DOCUMENTO").length}
+                {logs.filter((l) => l.accion === "SUBIDA_DOCUMENTO" || l.accion === "TOGGLE_DOCUMENTO").length}
               </span>
-              <span className="text-xs font-medium text-slate-500 mt-1 block">Cargas documentales</span>
+              <span className="text-xs font-medium text-slate-500 mt-1 block">Gestión documental</span>
             </div>
             <div className="w-10 h-10 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center">
               <Clock size={20} />
@@ -134,7 +152,7 @@ export const LogAuditoria: React.FC = () => {
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
               placeholder="Buscar por usuario, acción o detalle..."
-              className="w-full bg-white border border-slate-200 rounded-xl py-2 pl-10 pr-4 text-s focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full bg-white border border-slate-200 rounded-xl py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
           </div>
 
@@ -157,7 +175,7 @@ export const LogAuditoria: React.FC = () => {
         {/* Tabla de Logs */}
         <div className="bg-white border border-slate-200/80 rounded-2xl shadow-xs overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-base">
+            <table className="w-full text-left text-sm">
               <thead className="bg-slate-50/70 border-b border-slate-200/80 text-slate-500 font-semibold uppercase tracking-wider">
                 <tr>
                   <th className="px-6 py-3.5">ID</th>
@@ -171,7 +189,7 @@ export const LogAuditoria: React.FC = () => {
                 {logsFiltrados.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="px-6 py-10 text-center text-slate-400">
-                      No hay registros que coincidan con la búsqueda.
+                      {cargando ? "Cargando registros..." : "No hay registros que coincidan con la búsqueda."}
                     </td>
                   </tr>
                 ) : (
@@ -183,7 +201,7 @@ export const LogAuditoria: React.FC = () => {
                       </td>
                       <td className="px-6 py-3.5">
                         <p className="font-semibold text-slate-900">{item.usuario}</p>
-                        <p className="text-[14px] text-slate-400">{item.correo}</p>
+                        <p className="text-xs text-slate-400">{item.correo}</p>
                       </td>
                       <td className="px-6 py-3.5">
                         <span

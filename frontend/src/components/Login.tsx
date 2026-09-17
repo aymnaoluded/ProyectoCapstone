@@ -32,8 +32,21 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         );
       }
 
-      const userData: Usuario = await res.json();
-      guardarSesionSegura("user_session", userData);;
+      // El backend devuelve { access_token, token_type, usuario }
+      const data = await res.json();
+
+      if (!data.usuario) {
+        throw new Error("Respuesta inválida del servidor de autenticación.");
+      }
+
+      // Guardar el JWT para los headers de autenticación
+      if (data.access_token) {
+        localStorage.setItem("access_token", data.access_token);
+      }
+
+      // Guardar únicamente la entidad Usuario en la sesión cifrada
+      const userData: Usuario = data.usuario;
+      guardarSesionSegura("user_session", userData);
       onLoginSuccess(userData);
     } catch (err: any) {
       setError(err.message || "Error al conectar con el servidor.");
