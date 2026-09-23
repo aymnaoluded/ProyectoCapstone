@@ -17,6 +17,13 @@ def hashear_password(password: str) -> str:
 
 
 def verificar_password(password: str, hash_guardado: str) -> bool:
+    if not hash_guardado or not password:
+        return False
+
+    # Compatibilidad con contraseñas en texto plano (usuarios semilla de base de datos)
+    if hash_guardado == password:
+        return True
+
     try:
         salt, hash_esperado = hash_guardado.split("$")
     except ValueError:

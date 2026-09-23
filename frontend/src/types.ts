@@ -27,6 +27,7 @@ export interface Mensaje {
 export interface ConversacionResumen {
   id_conversacion: number;
   fecha_inicio: string;
+  fecha_ultimo_mensaje?: string;
   fecha_fin: string | null;
   calificacion: number | null;
   escalada: boolean;

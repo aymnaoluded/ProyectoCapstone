@@ -115,10 +115,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
     if (!fechaStr) return "";
     try {
       const fecha = new Date(fechaStr.replace(" ", "T"));
-      if (grupo === "Hoy" || grupo === "Ayer") {
-        return fecha.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      const hora = fecha.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      if (grupo === "Hoy") {
+        return hora;
       }
-      return `${fecha.getDate()}/${fecha.getMonth() + 1}`;
+      if (grupo === "Ayer") {
+        return `Ayer ${hora}`;
+      }
+      const dia = String(fecha.getDate()).padStart(2, "0");
+      const mes = String(fecha.getMonth() + 1).padStart(2, "0");
+      return `${dia}/${mes} ${hora}`;
     } catch {
       return "";
     }
@@ -134,7 +140,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const grupos = gruposOrden.reduce<Record<string, ConversacionResumen[]>>(
     (acc, grupo) => {
       acc[grupo] = conversaciones.filter(
-        (c) => categorizarFecha(c.fecha_inicio) === grupo
+        (c) => categorizarFecha(c.fecha_ultimo_mensaje || c.fecha_inicio) === grupo
       );
       return acc;
     },
@@ -175,7 +181,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   }
                 }}
                 className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer ${
-                  vistaActiva === "chat" && !conversacionActivaId
+                  vistaActiva === "chat" &&
+                  (!conversacionActivaId || !conversaciones.some((c) => c.id_conversacion === conversacionActivaId))
                     ? "bg-blue-600 text-white shadow-sm shadow-blue-600/30"
                     : "text-slate-400 hover:text-white hover:bg-slate-800/60"
                 }`}
@@ -365,7 +372,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               title={conv.titulo || conv.primer_mensaje}
                               className={`w-full text-left group px-2.5 py-2 rounded-xl transition-all flex flex-col gap-1 cursor-pointer border ${
                                 esActivo
-                                  ? "bg-blue-600/20 border-blue-500/40 text-white shadow-xs"
+                                  ? "bg-blue-600/25 border-blue-500/60 text-white shadow-xs ring-1 ring-blue-500/30 font-medium"
                                   : "border-transparent text-slate-300 hover:bg-slate-800/60 hover:text-white"
                               }`}
                             >
@@ -398,7 +405,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               <div className="flex items-center justify-between pl-5 text-[10.5px] text-slate-400">
                                 <span className="flex items-center gap-1">
                                   <Clock size={10} />
-                                  {formatearHoraOFecha(conv.fecha_inicio, grupo)}
+                                  {formatearHoraOFecha(conv.fecha_ultimo_mensaje || conv.fecha_inicio, grupo)}
                                 </span>
 
                                 <div className="flex items-center gap-1.5">

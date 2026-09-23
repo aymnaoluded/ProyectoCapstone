@@ -26,9 +26,35 @@ export default function App() {
     localStorage.setItem("vistaActiva", nuevaVista);
   };
 
-  const handleNuevaConversacion = () => {
-    setConversacionActivaId(null);
+  const handleNuevaConversacion = async () => {
     setVistaActiva("chat");
+    if (!usuario) {
+      setConversacionActivaId(null);
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem("access_token");
+      const res = await fetch("http://localhost:8000/api/chat/nueva", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ cliente_id: usuario.id_usuario }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setConversacionActivaId(data.id_conversacion);
+        setRefreshHistorialTrigger((prev) => prev + 1);
+      } else {
+        setConversacionActivaId(null);
+      }
+    } catch (err) {
+      console.error("Error al iniciar nueva conversación:", err);
+      setConversacionActivaId(null);
+    }
   };
 
   const handleSeleccionarConversacion = (id: number) => {

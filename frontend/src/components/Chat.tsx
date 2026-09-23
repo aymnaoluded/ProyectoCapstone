@@ -92,7 +92,18 @@ export const Chat: React.FC<ChatProps> = ({
         const data = await res.json();
         setConversacionId(data.conversacion.id_conversacion);
         setConversacionInfo(data.conversacion);
-        setMensajes(data.mensajes || []);
+        if (data.mensajes && data.mensajes.length > 0) {
+          setMensajes(data.mensajes);
+        } else {
+          setMensajes([
+            {
+              id: "init",
+              emisor: "bot",
+              texto: `Hola ${usuario.nombre}, soy tu asistente virtual SupportAI. ¿En qué puedo ayudarte hoy con la base de conocimiento?`,
+              hora: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            },
+          ]);
+        }
 
         const estaFinalizada = Boolean(
           data.conversacion.finalizada ||
@@ -186,9 +197,11 @@ export const Chat: React.FC<ChatProps> = ({
 
       setMensajes((prev) => [...prev, nuevoMsgBot]);
 
-      // Si es la primera pregunta, notificar para que el historial en el sidebar se actualice
+      // Notificar para que el historial en el sidebar se actualice con nuevo chat o nuevo timestamp
       if (esPrimeraPregunta && onConversacionCreada) {
         onConversacionCreada(data.conversacion_id);
+      } else if (onConversacionActualizada) {
+        onConversacionActualizada();
       }
     } catch {
       setMensajes((prev) => [
@@ -326,16 +339,6 @@ export const Chat: React.FC<ChatProps> = ({
 
         {/* Acciones superiores */}
         <div className="flex items-center gap-2">
-          {onNuevaConversacion && (
-            <button
-              onClick={onNuevaConversacion}
-              className="flex items-center gap-1.5 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200/70 px-3 py-1.5 rounded-xl transition-all cursor-pointer"
-            >
-              <Plus size={14} />
-              <span className="hidden sm:inline">Nueva conversación</span>
-            </button>
-          )}
-
           {!finalizado && (
             <>
               <button

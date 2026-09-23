@@ -9,6 +9,51 @@ router = APIRouter(prefix="/api/chat", tags=["Chat y RAG"])
 UMBRAL_ALTA_CONFIANZA = 0.80
 UMBRAL_MEDIA_CONFIANZA = 0.60
 
+class NuevaConversacionRequest(BaseModel):
+    cliente_id: int
+
+@router.post("/nueva")
+async def crear_nueva_conversacion(body: NuevaConversacionRequest):
+    """Crea una nueva conversación limpia para el cliente o reutiliza una vacía sin mensajes"""
+    pool = obtener_db_pool()
+    try:
+        async with pool.acquire() as conn:
+            async with conn.transaction():
+                # Reutilizar si ya existe una conversación vacía sin mensajes para este cliente
+                empty_conv = await conn.fetchrow(
+                    """
+                    SELECT c.id_conversacion, c.titulo, c.fecha_inicio
+                    FROM CONVERSACION c
+                    WHERE c.cliente_id = $1 
+                      AND NOT EXISTS (SELECT 1 FROM MENSAJE m WHERE m.conversacion_id = c.id_conversacion)
+                    ORDER BY c.id_conversacion DESC
+                    LIMIT 1;
+                    """,
+                    body.cliente_id
+                )
+                if empty_conv:
+                    return {
+                        "id_conversacion": empty_conv["id_conversacion"],
+                        "titulo": empty_conv["titulo"] or "Nueva conversación",
+                        "fecha_inicio": empty_conv["fecha_inicio"].strftime("%Y-%m-%d %H:%M") if empty_conv["fecha_inicio"] else ""
+                    }
+
+                row = await conn.fetchrow(
+                    """
+                    INSERT INTO CONVERSACION (cliente_id, titulo)
+                    VALUES ($1, 'Nueva conversación')
+                    RETURNING id_conversacion, fecha_inicio, titulo;
+                    """,
+                    body.cliente_id
+                )
+                return {
+                    "id_conversacion": row["id_conversacion"],
+                    "titulo": row["titulo"],
+                    "fecha_inicio": row["fecha_inicio"].strftime("%Y-%m-%d %H:%M") if row["fecha_inicio"] else ""
+                }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 class ChatRequest(BaseModel):
     mensaje: str
     cliente_id: Optional[int] = 3
@@ -40,14 +85,26 @@ async def chat_rag(body: ChatRequest):
         async with pool.acquire() as conn:
             async with conn.transaction():
                 conversacion_id = body.conversacion_id
+                msg_limpio = " ".join(body.mensaje.split())
+                titulo_conversacion = (msg_limpio[:57] + "...") if len(msg_limpio) > 60 else msg_limpio
+
                 if not conversacion_id:
-                    msg_limpio = " ".join(body.mensaje.split())
-                    titulo_conversacion = (msg_limpio[:57] + "...") if len(msg_limpio) > 60 else msg_limpio
                     conv_row = await conn.fetchrow(
                         "INSERT INTO CONVERSACION (cliente_id, titulo) VALUES ($1, $2) RETURNING id_conversacion",
                         body.cliente_id, titulo_conversacion
                     )
                     conversacion_id = conv_row["id_conversacion"]
+                else:
+                    # Actualizar título si es 'Nueva conversación', NULL o está vacío
+                    await conn.execute(
+                        """
+                        UPDATE CONVERSACION 
+                        SET titulo = $1 
+                        WHERE id_conversacion = $2 
+                          AND (titulo IS NULL OR titulo = 'Nueva conversación' OR titulo = '');
+                        """,
+                        titulo_conversacion, conversacion_id
+                    )
 
                 await conn.execute(
                     "INSERT INTO MENSAJE (conversacion_id, emisor, contenido) VALUES ($1, 'cliente', $2)",
@@ -226,6 +283,13 @@ async def listar_conversaciones(cliente_id: int = Query(...)):
                     c.escalada,
                     c.titulo,
                     (
+                        SELECT m.fecha 
+                        FROM MENSAJE m 
+                        WHERE m.conversacion_id = c.id_conversacion 
+                        ORDER BY m.fecha DESC, m.id_mensaje DESC 
+                        LIMIT 1
+                    ) AS fecha_ultimo_mensaje,
+                    (
                         SELECT m.contenido 
                         FROM MENSAJE m 
                         WHERE m.conversacion_id = c.id_conversacion AND m.emisor = 'cliente' 
@@ -239,7 +303,14 @@ async def listar_conversaciones(cliente_id: int = Query(...)):
                     ) AS total_mensajes
                 FROM CONVERSACION c
                 WHERE c.cliente_id = $1
-                ORDER BY c.fecha_inicio DESC;
+                  AND EXISTS (SELECT 1 FROM MENSAJE m WHERE m.conversacion_id = c.id_conversacion)
+                ORDER BY COALESCE((
+                    SELECT m.fecha 
+                    FROM MENSAJE m 
+                    WHERE m.conversacion_id = c.id_conversacion 
+                    ORDER BY m.fecha DESC, m.id_mensaje DESC 
+                    LIMIT 1
+                ), c.fecha_inicio) DESC;
                 """,
                 cliente_id
             )
@@ -248,6 +319,7 @@ async def listar_conversaciones(cliente_id: int = Query(...)):
                 {
                     "id_conversacion": r["id_conversacion"],
                     "fecha_inicio": r["fecha_inicio"].strftime("%Y-%m-%d %H:%M") if r["fecha_inicio"] else "",
+                    "fecha_ultimo_mensaje": r["fecha_ultimo_mensaje"].strftime("%Y-%m-%d %H:%M") if r["fecha_ultimo_mensaje"] else (r["fecha_inicio"].strftime("%Y-%m-%d %H:%M") if r["fecha_inicio"] else ""),
                     "fecha_fin": r["fecha_fin"].strftime("%Y-%m-%d %H:%M") if r["fecha_fin"] else None,
                     "calificacion": r["calificacion"],
                     "escalada": bool(r["escalada"]),

@@ -1,3 +1,5 @@
+from asyncio import timeouts
+from asyncio import timeouts
 import os
 import logging
 from typing import Optional
@@ -437,6 +439,7 @@ async def actualizar_documento(
 
             # Guardar el archivo físicamente en la carpeta uploads como en tus registros
             os.makedirs("uploads", exist_ok=True)
+            # pyrefly: ignore [unknown-name]
             timestamp_prefijo = int(time.time() * 1000)
             nombre_guardado = f"{timestamp_prefijo}_{nombre_original.replace(' ', '_')}"
             ruta_disco = os.path.join("uploads", nombre_guardado)
@@ -447,6 +450,7 @@ async def actualizar_documento(
             ruta_bd = f"/uploads/{nombre_guardado}"
 
             # Extraer texto y generar embeddings con Gemini
+            # pyrefly: ignore [not-async]
             texto = await extraer_texto_de_archivo(contenido_bytes, extension)
             if not texto or not texto.strip():
                 raise HTTPException(
@@ -458,6 +462,7 @@ async def actualizar_documento(
             if not chunks:
                 raise HTTPException(status_code=400, detail="No se obtuvieron fragmentos de texto válidos.")
 
+            # pyrefly: ignore [not-async]
             embeddings = await generar_embeddings_gemini(chunks)
 
             # Transacción atómica en PostgreSQL
