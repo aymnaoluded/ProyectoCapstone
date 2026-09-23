@@ -119,6 +119,7 @@ export default function App() {
 
   const handleLogin = (user: Usuario) => {
     setUsuario(user);
+    setConversacionActivaId(null);
     const vistaDefecto = getVistaInicial(user.rol_nombre);
     setVistaActiva(vistaDefecto);
   };
@@ -176,6 +177,9 @@ export default function App() {
         {/* BANDEJA DE TICKETS (Ejecutivo y Administrador) */}
         {vistaActiva === "bandeja_tickets" && (
           <BandejaEjecutivo usuario={usuario} />
+        )}
+        {vistaActiva === "tickets_asignados" && (
+          <BandejaEjecutivo usuario={usuario} soloAsignados={true}/>
         )}
 
         {/* VISTAS ADMINISTRADOR */}

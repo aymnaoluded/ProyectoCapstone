@@ -10,6 +10,7 @@ import {
   UserCheck,
   Star,
   MessageSquare,
+  SolarPanel,
 } from "lucide-react";
 import type { Usuario } from "../types";
 
@@ -44,6 +45,7 @@ interface MensajeTicket {
 
 interface BandejaEjecutivoProps {
   usuario: Usuario;
+  soloAsignados?: boolean;
 }
 
 const ESTADOS_DISPONIBLES = [
@@ -54,7 +56,7 @@ const ESTADOS_DISPONIBLES = [
   { id: 5, nombre: "Cerrado" }
 ];
 
-export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({ usuario }) => {
+export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({ usuario, soloAsignados = false }) => {
   const [tickets, setTickets] = useState<TicketItem[]>([]);
   const [cargando, setCargando] = useState(true);
   const [filtroEstado, setFiltroEstado] = useState<number | null>(null);
@@ -74,12 +76,11 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({ usuario }) =
       }
       const res = await fetch(url);
       if (res.ok) {
-        const data = await res.json();
-        setTickets(data);
-        if (ticketSeleccionado) {
-          const actualizado = data.find((t: TicketItem) => t.id_ticket === ticketSeleccionado.id_ticket);
-          if (actualizado) setTicketSeleccionado(actualizado);
+        let data = await res.json();
+        if (soloAsignados && Array.isArray(data)) {
+          data = data.filter((t: any) => t.ejecutivo && t.ejecutivo.id === usuario.id_usuario);
         }
+        setTickets(data)
       }
     } catch (err) {
       console.error("Error al cargar la bandeja de tickets:", err);
@@ -90,7 +91,7 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({ usuario }) =
 
   useEffect(() => {
     cargarTickets();
-  }, [filtroEstado]);
+  }, [filtroEstado, soloAsignados]);
 
   const seleccionarTicket = async (ticket: TicketItem) => {
     setTicketSeleccionado(ticket);

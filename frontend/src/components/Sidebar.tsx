@@ -26,6 +26,7 @@ export type VistaApp =
   | "mis_tickets"
   // Ejecutivo / Admin
   | "bandeja_tickets"
+  | "tickets_asignados"
   // Admin
   | "admin_conocimiento"
   | "admin_usuarios"
@@ -217,7 +218,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {/* VISTAS EJECUTIVO */}
           {usuario.rol_nombre === "Ejecutivo" && (
-            <button
+            <>
+              <button
               onClick={() => setVistaActiva("bandeja_tickets")}
               className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer ${
                 vistaActiva === "bandeja_tickets"
@@ -231,6 +233,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
               {vistaActiva === "bandeja_tickets" && <ChevronRight size={15} />}
             </button>
+
+            <button
+              onClick={() => setVistaActiva("tickets_asignados")}
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer ${
+                vistaActiva === "tickets_asignados"
+                  ? "bg-blue-600 text-white shadow-sm shadow-blue-600/30"
+                  : "text-slate-400 hover:text-white hover:bg-slate-800/60"
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Headphones size={17} />
+                <span>Tickets Asignados</span>
+              </div>
+              {vistaActiva === "tickets_asignados" && <ChevronRight size={15} />}
+            </button>
+            </>
           )}
 
           {/* VISTAS ADMINISTRADOR */}
