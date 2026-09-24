@@ -312,7 +312,7 @@ export const Chat: React.FC<ChatProps> = ({
           </div>
           <div className="overflow-hidden">
             <div className="flex items-center gap-2">
-              <h2 className="text-sm font-bold text-slate-800 truncate">
+              <h2 className="text-base font-bold text-slate-800 truncate">
                 {conversacionInfo?.titulo || "Soporte Virtual IA"}
               </h2>
               {conversacionId && (
@@ -321,7 +321,7 @@ export const Chat: React.FC<ChatProps> = ({
                 </span>
               )}
             </div>
-            <p className="text-[11px] font-medium flex items-center gap-1.5 truncate">
+            <p className="text-[14px] font-medium flex items-center gap-1.5 truncate">
               {finalizado ? (
                 <span className="text-slate-500 flex items-center gap-1">
                   <BookOpen size={12} className="text-slate-400" />
@@ -343,7 +343,8 @@ export const Chat: React.FC<ChatProps> = ({
             <>
               <button
                 onClick={() => abrirModalEscalar("Solicitud directa de atención con ejecutivo")}
-                className="flex items-center gap-1.5 text-xs font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200/70 px-3 py-1.5 rounded-xl transition-all cursor-pointer"
+                className="flex items-center gap-1.5 text-xs font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200/70 
+                px-3 py-1.5 rounded-xl transition-all cursor-pointer"
               >
                 <Headphones size={14} />
                 <span className="hidden md:inline">Hablar con ejecutivo</span>
@@ -351,7 +352,8 @@ export const Chat: React.FC<ChatProps> = ({
 
               <button
                 onClick={handleFinalizarConversacion}
-                className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/80 px-3 py-1.5 rounded-xl transition-all cursor-pointer"
+                className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/80 
+                px-3 py-1.5 rounded-xl transition-all cursor-pointer"
               >
                 <CheckCircle size={14} />
                 <span>Finalizar</span>
@@ -366,7 +368,8 @@ export const Chat: React.FC<ChatProps> = ({
         <div className="max-w-3xl mx-auto space-y-5">
           {/* Banner si el chat está finalizado en modo lectura */}
           {finalizado && !cargandoHistorial && (
-            <div className="bg-gradient-to-r from-slate-50 to-blue-50/40 border border-slate-200/90 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+            <div className="bg-gradient-to-r from-slate-50 to-blue-50/40 border border-slate-200/90 rounded-2xl p-4 flex flex-col sm:flex-row items-start 
+            sm:items-center justify-between gap-3 shadow-xs">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
                   <CheckCircle size={16} />
@@ -385,7 +388,8 @@ export const Chat: React.FC<ChatProps> = ({
               {onNuevaConversacion && (
                 <button
                   onClick={onNuevaConversacion}
-                  className="text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 px-3.5 py-1.5 rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1 shrink-0"
+                  className="text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 px-3.5 py-1.5 rounded-xl transition-all shadow-xs cursor-pointer 
+                  flex items-center gap-1 shrink-0"
                 >
                   <Plus size={13} />
                   <span>Iniciar nuevo chat</span>
@@ -427,7 +431,8 @@ export const Chat: React.FC<ChatProps> = ({
                       <div className="mt-3 pt-3 border-t border-slate-100">
                         <button
                           onClick={() => abrirModalEscalar("Duda no resuelta por la IA")}
-                          className="w-full flex items-center justify-center gap-2 py-2 px-3 text-xs font-semibold text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-xl transition-colors cursor-pointer"
+                          className="w-full flex items-center justify-center gap-2 py-2 px-3 text-xs font-semibold text-amber-900 bg-amber-50 hover:bg-amber-100 border 
+                          border-amber-200 rounded-xl transition-colors cursor-pointer"
                         >
                           <Headphones size={13} />
                           <span>¿Esta respuesta no resuelve tu problema? Escalar con un ejecutivo</span>
@@ -554,7 +559,8 @@ export const Chat: React.FC<ChatProps> = ({
               {onNuevaConversacion && (
                 <button
                   onClick={onNuevaConversacion}
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5 shrink-0"
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-xl transition-all shadow-xs cursor-pointer flex items-center 
+                  gap-1.5 shrink-0"
                 >
                   <Plus size={14} />
                   <span>Nueva consulta</span>
@@ -569,12 +575,14 @@ export const Chat: React.FC<ChatProps> = ({
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Haz una pregunta sobre los documentos indexados..."
-                className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 pl-4 pr-12 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition-all disabled:opacity-50"
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 pl-4 pr-12 text-xs sm:text-sm text-slate-800 placeholder-slate-400 
+                focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition-all disabled:opacity-50"
               />
               <button
                 type="submit"
                 disabled={cargando || !input.trim()}
-                className="absolute right-2 w-8 h-8 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white flex items-center justify-center transition-all shadow-xs cursor-pointer"
+                className="absolute right-2 w-8 h-8 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white flex items-center justify-center 
+                transition-all shadow-xs cursor-pointer"
               >
                 <Send size={14} />
               </button>

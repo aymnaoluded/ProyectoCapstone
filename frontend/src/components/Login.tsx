@@ -70,11 +70,10 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
           <div className="w-12 h-12 bg-blue-600 text-white rounded-2xl flex items-center justify-center mx-auto shadow-md shadow-blue-500/20">
             <Sparkles size={24} />
           </div>
-          <h1 className="text-xl font-bold text-slate-900">SupportAI</h1>
-          <p className="text-xs text-slate-500">Ingresa tus credenciales para acceder a la plataforma</p>
+          <h1 className="text-3xl font-bold text-slate-900">SupportAI</h1>
+          <p className="text-s text-slate-500">Ingresa tus credenciales para acceder a la plataforma</p>
         </div>
 
-        {/* Alerta de error integrada en la aplicación */}
         {error && (
           <div className="flex items-start gap-3 p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-rose-700 animate-in fade-in duration-200">
             <AlertCircle size={18} className="shrink-0 text-rose-500 mt-0.5" />
@@ -84,7 +83,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-700">Correo institucional</label>
+            <label className="text-s font-semibold text-slate-700">Correo institucional</label>
             <div className="relative flex items-center">
               <Mail className="absolute left-3.5 text-slate-400" size={16} />
               <input
@@ -96,13 +95,14 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                 }}
                 required
                 placeholder="ejemplo@correo.com"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-10 pr-4 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition-all"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-10 pr-4 text-sm sm:text-lg text-slate-800 placeholder-slate-400 
+                focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition-all"
               />
             </div>
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-700">Contraseña</label>
+            <label className="text-s font-semibold text-slate-700">Contraseña</label>
             <div className="relative flex items-center">
               <Lock className="absolute left-3.5 text-slate-400" size={16} />
               <input
@@ -114,7 +114,8 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                 }}
                 required
                 placeholder="••••••••"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-10 pr-4 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition-all"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-10 pr-4 text-xs sm:text-lg text-slate-800 placeholder-slate-400 
+                focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition-all"
               />
             </div>
           </div>
@@ -122,7 +123,8 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
           <button
             type="submit"
             disabled={cargando}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold py-2.5 rounded-xl flex items-center justify-center gap-2 text-xs sm:text-sm shadow-sm shadow-blue-500/20 transition-all cursor-pointer"
+            className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold py-2.5 
+            rounded-xl flex items-center justify-center gap-2 text-xs sm:text-base shadow-sm shadow-blue-500/20 transition-all cursor-pointer"
           >
             {cargando ? (
               <>
@@ -132,7 +134,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             ) : (
               <>
                 <span>Iniciar sesión</span>
-                <ArrowRight size={16} />
+                <ArrowRight size={18} />
               </>
             )}
           </button>

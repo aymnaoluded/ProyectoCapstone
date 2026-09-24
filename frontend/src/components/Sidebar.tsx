@@ -156,7 +156,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="p-4 pb-2">
         <div className="flex items-center gap-3 px-2 py-1">
           <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-sm shadow-blue-500/20 shrink-0">
-            <Bot size={22} />
+            <Bot size={25} />
           </div>
           <div className="overflow-hidden">
             <h1 className="font-semibold text-base text-white leading-none truncate">SupportAI</h1>
@@ -460,18 +460,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {inicialNombre}
           </div>
           <div className="overflow-hidden">
-            <p className="text-sm font-medium text-white truncate leading-tight">
+            <p className="text-base font-medium text-white truncate leading-tight">
               {usuario.nombre || "Usuario"} {usuario.apellido || ""}
             </p>
-            <p className="text-xs text-slate-400 truncate">{usuario.correo || ""}</p>
+            <p className="text-sm text-slate-400 truncate">{usuario.correo || ""}</p>
           </div>
         </div>
 
         <button
           onClick={onCerrarSesion}
-          className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 rounded-xl transition-colors cursor-pointer"
+          className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 
+          rounded-xl transition-colors cursor-pointer"
         >
-          <LogOut size={15} />
+          <LogOut size={18} />
           <span>Cerrar sesión</span>
         </button>
       </div>

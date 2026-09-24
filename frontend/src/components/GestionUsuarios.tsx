@@ -224,10 +224,7 @@ export const GestionUsuarios: React.FC = () => {
       {/* Cabecera Superior */}
       <div className="bg-white border-b border-slate-200 px-8 py-6 flex items-center justify-between shrink-0">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">Gestión de Usuarios</h1>
-          <p className="text-s text-slate-500 mt-1">
-            Listado general de cuentas, roles asignados y monitoreo de presencia en tiempo real.
-          </p>
+          <h1 className="text-2xl font-bold text-slate-900">Gestión de Usuarios</h1>
         </div>
 
         <div className="flex items-center gap-3">

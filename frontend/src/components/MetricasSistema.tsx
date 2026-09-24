@@ -107,10 +107,7 @@ export const MetricasSistema: React.FC = () => {
       {/* Cabecera */}
       <div className="bg-white border-b border-slate-200 px-8 py-5 flex items-center justify-between shrink-0">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">Métricas y Rendimiento</h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Estadísticas operativas, precisión del motor RAG y satisfacción de usuarios.
-          </p>
+          <h1 className="text-2xl font-bold text-slate-900">Métricas y Rendimiento</h1>
         </div>
         <button
           onClick={cargarMetricas}

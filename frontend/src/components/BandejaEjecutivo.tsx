@@ -238,15 +238,12 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({ usuario, sol
       {/* Cabecera Superior */}
       <div className="bg-white border-b border-slate-200 px-8 py-5 flex items-center justify-between shrink-0">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">Bandeja de Tickets</h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Gestión y resolución de incidentes escalados desde el bot de soporte.
-          </p>
+          <h1 className="text-2xl font-bold text-slate-900">Bandeja de Tickets</h1>
         </div>
 
         <div className="flex items-center gap-3">
           {/* Filtro por estado */}
-          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-600">
+          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-sm text-slate-600">
             <Filter size={13} className="text-slate-400" />
             <select
               value={filtroEstado || ""}
@@ -277,7 +274,7 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({ usuario, sol
         {/* Columna Izquierda: Listado de Tickets */}
         <div className="w-1/3 flex flex-col bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-xs">
           <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-600 uppercase tracking-wider">
+            <span className="text-sm font-semibold text-slate-600 uppercase tracking-wider">
               Tickets Disponibles ({tickets.length})
             </span>
           </div>
@@ -308,11 +305,11 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({ usuario, sol
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <span className="text-xs font-bold text-slate-800 line-clamp-1">
+                    <span className="text-sm font-bold text-slate-800 line-clamp-1">
                       #{t.id_ticket} - {t.titulo}
                     </span>
                     <span
-                      className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${getBadgeEstado(
+                      className={`text-[12px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${getBadgeEstado(
                         t.estado
                       )}`}
                     >
@@ -320,9 +317,9 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({ usuario, sol
                     </span>
                   </div>
 
-                  <p className="text-xs text-slate-500 mt-1 line-clamp-2">{t.descripcion}</p>
+                  <p className="text-sm text-slate-500 mt-1 line-clamp-2">{t.descripcion}</p>
 
-                  <div className="mt-3 flex items-center justify-between text-[11px] text-slate-400">
+                  <div className="mt-3 flex items-center justify-between text-[12px] text-slate-400">
                     <span className="flex items-center gap-1">
                       <User size={12} /> {t.cliente.nombre}
                     </span>
@@ -345,18 +342,18 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({ usuario, sol
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <div className="flex items-center gap-2">
-                      <h2 className="text-sm font-bold text-slate-900">
+                      <h2 className="text-base font-bold text-slate-900">
                         #{ticketSeleccionado.id_ticket} - {ticketSeleccionado.titulo}
                       </h2>
                       <span
-                        className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full border ${getBadgeEstado(
+                        className={`text-[13px] font-semibold px-2.5 py-0.5 rounded-full border ${getBadgeEstado(
                           ticketSeleccionado.estado
                         )}`}
                       >
                         {ticketSeleccionado.estado}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-600 mt-1.5">{ticketSeleccionado.descripcion}</p>
+                    <p className="text-sm text-slate-600 mt-1.5">{ticketSeleccionado.descripcion}</p>
                   </div>
 
                   {/* Acciones de Asignación / Estado */}
@@ -390,7 +387,7 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({ usuario, sol
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
+                <div className="flex items-center justify-between text-sm text-slate-500 pt-2 border-t border-slate-100">
                   <div className="flex items-center gap-4">
                     <span>
                       <strong>Cliente:</strong> {ticketSeleccionado.cliente.nombre} ({ticketSeleccionado.cliente.correo})
@@ -438,11 +435,11 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({ usuario, sol
                           esMio ? "ml-auto items-end" : "mr-auto items-start"
                         }`}
                       >
-                        <span className="text-[10px] text-slate-400 mb-1 px-1">
+                        <span className="text-[12px] text-slate-400 mb-1 px-1">
                           {esMio ? "Tú" : m.autor_nombre} · {m.fecha}
                         </span>
                         <div
-                          className={`rounded-2xl px-4 py-2.5 text-xs leading-relaxed ${
+                          className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
                             esMio
                               ? "bg-blue-600 text-white rounded-br-xs shadow-xs"
                               : "bg-white text-slate-800 border border-slate-200/80 rounded-bl-xs shadow-xs"

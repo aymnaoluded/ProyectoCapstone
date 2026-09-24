@@ -90,10 +90,7 @@ export const LogAuditoria: React.FC = () => {
       {/* Cabecera */}
       <div className="bg-white border-b border-slate-200 px-8 py-6 flex items-center justify-between shrink-0">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">Log de Auditoría</h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Registro de eventos de seguridad, operaciones y trazabilidad de acciones.
-          </p>
+          <h1 className="text-2xl font-bold text-slate-900">Log de Auditoría</h1>
         </div>
 
         <button
