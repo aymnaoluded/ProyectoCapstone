@@ -430,8 +430,6 @@ export const BaseConocimiento: React.FC<BaseConocimientoProps> = ({ usuario }) =
                 <X size={18} />
               </button>
             </div>
-
-            {/* Error integrado dentro del modal de subida */}
             {errorCrear && (
               <div className="flex items-start gap-2.5 p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs">
                 <AlertCircle size={16} className="shrink-0 mt-0.5 text-rose-500" />

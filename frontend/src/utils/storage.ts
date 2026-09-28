@@ -1,6 +1,6 @@
 import CryptoJS from "crypto-js";
 
-const SECRET_KEY = "SupportAI_SecureSessionKey_2026";
+const SECRET_KEY = import.meta.env.SECRET_KEY;
 
 export const guardarSesionSegura = <T>(key: string, data: T): void => {
   try {

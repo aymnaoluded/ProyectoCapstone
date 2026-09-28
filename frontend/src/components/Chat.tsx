@@ -69,7 +69,7 @@ export const Chat: React.FC<ChatProps> = ({
         {
           id: "init",
           emisor: "bot",
-          texto: `Hola ${usuario.nombre}, soy tu asistente virtual SupportAI. ¿En qué puedo ayudarte hoy con la base de conocimiento?`,
+          texto: `Hola ${usuario.nombre}, soy tu asistente virtual SupportAI. ¿En qué puedo ayudarte hoy?`,
           hora: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         },
       ]);
