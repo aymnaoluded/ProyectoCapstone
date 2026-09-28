@@ -1,6 +1,6 @@
 import CryptoJS from "crypto-js";
 
-const SECRET_KEY = import.meta.env.SECRET_KEY;
+const SECRET_KEY: string = import.meta.env.VITE_SECRET_KEY;
 
 export const guardarSesionSegura = <T>(key: string, data: T): void => {
   try {

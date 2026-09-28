@@ -8,14 +8,34 @@ import docx
 
 gemini_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
+MODELO_GENERACION = "gemini-3.6-flash"
+MODELO_EMBEDDING = "gemini-embedding-001"
+DIMENSIONES_EMBEDDING = 1024
+
+MIME_DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+TAMANO_LOTE_EMBEDDINGS = 50
+
+
 class IANoDisponibleError(Exception):
-    """Se lanza cuando Gemini falla (cuota, red, etc.) - el router debe
-    capturar esto y escalar el caso a un ejecutivo en vez de romper la request."""
     pass
 
-def extraer_texto(buffer: bytes, content_type: str) -> str:
 
-    if content_type == "application/pdf":
+def _normalizar_formato(tipo: str) -> str:
+    valor = (tipo or "").split(";")[0].strip().lower().lstrip(".")
+
+    if valor in ("application/pdf", "pdf"):
+        return "pdf"
+    if valor in (MIME_DOCX, "docx"):
+        return "docx"
+    if valor.startswith("text/") or valor == "txt":
+        return "txt"
+    return ""
+
+
+def extraer_texto(buffer: bytes, content_type: str) -> str:
+    formato = _normalizar_formato(content_type)
+
+    if formato == "pdf":
         reader = PdfReader(io.BytesIO(buffer))
 
         return "\n".join(
@@ -23,7 +43,7 @@ def extraer_texto(buffer: bytes, content_type: str) -> str:
             for page in reader.pages
         )
 
-    if content_type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+    if formato == "docx":
         doc = docx.Document(io.BytesIO(buffer))
 
         return "\n".join(
@@ -31,7 +51,7 @@ def extraer_texto(buffer: bytes, content_type: str) -> str:
             for p in doc.paragraphs
         )
 
-    if content_type.startswith("text/"):
+    if formato == "txt":
         return buffer.decode(
             "utf-8",
             errors="ignore"
@@ -40,6 +60,7 @@ def extraer_texto(buffer: bytes, content_type: str) -> str:
     raise ValueError(
         "Formato no soportado. Solo PDF, DOCX o TXT"
     )
+
 
 def fragmentar_texto(texto: str) -> list[str]:
 
@@ -50,15 +71,20 @@ def fragmentar_texto(texto: str) -> list[str]:
 
     return splitter.split_text(texto)
 
+
 def generar_embedding(texto: str, task_type: str) -> list[float]:
-    resultado = gemini_client.models.embed_content(
-        model="gemini-embedding-001",
-        contents=texto,
-        config=types.EmbedContentConfig(
-            output_dimensionality=1024,
-            task_type=task_type
+    try:
+        resultado = gemini_client.models.embed_content(
+            model=MODELO_EMBEDDING,
+            contents=texto,
+            config=types.EmbedContentConfig(
+                output_dimensionality=DIMENSIONES_EMBEDDING,
+                task_type=task_type
+            )
         )
-    )
+    except Exception as e:
+        raise IANoDisponibleError(f"Gemini no pudo generar el embedding: {e}") from e
+
     return resultado.embeddings[0].values
 
 
@@ -68,6 +94,35 @@ def generar_embedding_documento(texto: str) -> list[float]:
 
 def generar_embedding_consulta(pregunta: str) -> list[float]:
     return generar_embedding(pregunta, task_type="RETRIEVAL_QUERY")
+
+
+def generar_embeddings_documentos(textos: list[str]) -> list[list[float]]:
+    vectores: list[list[float]] = []
+
+    for i in range(0, len(textos), TAMANO_LOTE_EMBEDDINGS):
+        lote = textos[i:i + TAMANO_LOTE_EMBEDDINGS]
+
+        try:
+            resultado = gemini_client.models.embed_content(
+                model=MODELO_EMBEDDING,
+                contents=lote,
+                config=types.EmbedContentConfig(
+                    output_dimensionality=DIMENSIONES_EMBEDDING,
+                    task_type="RETRIEVAL_DOCUMENT"
+                )
+            )
+        except Exception as e:
+            raise IANoDisponibleError(f"Gemini no pudo generar los embeddings: {e}") from e
+
+        if len(resultado.embeddings) != len(lote):
+            raise IANoDisponibleError(
+                "Gemini devolvió una cantidad de embeddings distinta a la esperada"
+            )
+
+        vectores.extend(e.values for e in resultado.embeddings)
+
+    return vectores
+
 
 def responder_gemini(pregunta: str, contextos: list[str]) -> str:
     contexto_unificado = "\n\n---\n\n".join(contextos)
@@ -85,7 +140,7 @@ def responder_gemini(pregunta: str, contextos: list[str]) -> str:
 
     try:
         response = gemini_client.models.generate_content(
-            model="gemini-3.6-flash",
+            model=MODELO_GENERACION,
             contents=pregunta,
             config=types.GenerateContentConfig(
                 system_instruction=system_instruction,
@@ -99,3 +154,4 @@ def responder_gemini(pregunta: str, contextos: list[str]) -> str:
         raise IANoDisponibleError("Gemini devolvió una respuesta vacía")
 
     return response.text
+

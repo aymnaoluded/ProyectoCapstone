@@ -1,25 +1,67 @@
+import logging
 from typing import Optional, List
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from database import obtener_db_pool
 from services import generar_embedding_consulta, responder_gemini
+from .auth import get_usuario_actual, UsuarioToken
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/chat", tags=["Chat y RAG"])
 
 UMBRAL_ALTA_CONFIANZA = 0.80
 UMBRAL_MEDIA_CONFIANZA = 0.60
 
-class NuevaConversacionRequest(BaseModel):
-    cliente_id: int
+# Nombres de rol tal como están en la tabla ROL (verifica con: SELECT nombre FROM ROL;)
+ROLES_STAFF = ("Administrador", "Ejecutivo")
+
+MSG_IA_NO_DISPONIBLE = (
+    "El asistente de IA no está disponible en este momento. "
+    "Puedes solicitar la asistencia de un ejecutivo para atender tu consulta."
+)
+
+
+async def _validar_dueno_conversacion(conn, id_conversacion: int, usuario: UsuarioToken):
+    """Verifica que la conversación exista y pertenezca al usuario autenticado."""
+    conv = await conn.fetchrow(
+        "SELECT id_conversacion, cliente_id FROM CONVERSACION WHERE id_conversacion = $1;",
+        id_conversacion
+    )
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversación no encontrada")
+    if conv["cliente_id"] != usuario.id_usuario:
+        raise HTTPException(status_code=403, detail="No tienes permiso sobre esta conversación.")
+    return conv
+
+
+async def _responder_sin_ia(conn, conversacion_id: int) -> "ChatResponse":
+    """Respuesta controlada cuando la IA falla (cuota, conexión, etc.): se registra y se sugiere escalar."""
+    await conn.execute(
+        """
+        INSERT INTO MENSAJE (conversacion_id, emisor, contenido, nivel_confianza, requiere_escalamiento)
+        VALUES ($1, 'bot', $2, 0.000, TRUE)
+        """,
+        conversacion_id, MSG_IA_NO_DISPONIBLE
+    )
+    return ChatResponse(
+        conversacion_id=conversacion_id,
+        respuesta=MSG_IA_NO_DISPONIBLE,
+        nivel_confianza="BAJA",
+        score_maximo=0.0,
+        escalar_ejecutivo=True,
+        fuentes=[]
+    )
+
 
 @router.post("/nueva")
-async def crear_nueva_conversacion(body: NuevaConversacionRequest):
-    """Crea una nueva conversación limpia para el cliente o reutiliza una vacía sin mensajes"""
+async def crear_nueva_conversacion(usuario: UsuarioToken = Depends(get_usuario_actual)):
+    """Crea una nueva conversación limpia para el usuario autenticado o reutiliza una vacía sin mensajes"""
     pool = obtener_db_pool()
     try:
         async with pool.acquire() as conn:
             async with conn.transaction():
-                # Reutilizar si ya existe una conversación vacía sin mensajes para este cliente
+                # Reutilizar si ya existe una conversación vacía sin mensajes para este usuario
                 empty_conv = await conn.fetchrow(
                     """
                     SELECT c.id_conversacion, c.titulo, c.fecha_inicio
@@ -29,7 +71,7 @@ async def crear_nueva_conversacion(body: NuevaConversacionRequest):
                     ORDER BY c.id_conversacion DESC
                     LIMIT 1;
                     """,
-                    body.cliente_id
+                    usuario.id_usuario
                 )
                 if empty_conv:
                     return {
@@ -44,25 +86,29 @@ async def crear_nueva_conversacion(body: NuevaConversacionRequest):
                     VALUES ($1, 'Nueva conversación')
                     RETURNING id_conversacion, fecha_inicio, titulo;
                     """,
-                    body.cliente_id
+                    usuario.id_usuario
                 )
                 return {
                     "id_conversacion": row["id_conversacion"],
                     "titulo": row["titulo"],
                     "fecha_inicio": row["fecha_inicio"].strftime("%Y-%m-%d %H:%M") if row["fecha_inicio"] else ""
                 }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 class ChatRequest(BaseModel):
     mensaje: str
-    cliente_id: Optional[int] = 3
     conversacion_id: Optional[int] = None
+
 
 class FuenteResponse(BaseModel):
     id_fragmento: int
     similitud: float
     extracto: str
+
 
 class ChatResponse(BaseModel):
     conversacion_id: int
@@ -72,15 +118,22 @@ class ChatResponse(BaseModel):
     escalar_ejecutivo: bool
     fuentes: List[FuenteResponse]
 
+
 @router.post("", response_model=ChatResponse)
-async def chat_rag(body: ChatRequest):
+async def chat_rag(body: ChatRequest, usuario: UsuarioToken = Depends(get_usuario_actual)):
     if not body.mensaje.strip():
         raise HTTPException(status_code=400, detail="El mensaje no puede estar vacío.")
 
     pool = obtener_db_pool()
     try:
-        vector_pregunta = generar_embedding_consulta(body.mensaje)
-        vector_str = f"[{','.join(map(str, vector_pregunta))}]"
+        # Si el servicio de IA falla no se responde con 500: se guarda el mensaje
+        # y se ofrece escalar a un ejecutivo.
+        vector_str = None
+        try:
+            vector_pregunta = generar_embedding_consulta(body.mensaje)
+            vector_str = f"[{','.join(map(str, vector_pregunta))}]"
+        except Exception:
+            logger.exception("Fallo al generar el embedding de la consulta")
 
         async with pool.acquire() as conn:
             async with conn.transaction():
@@ -91,10 +144,13 @@ async def chat_rag(body: ChatRequest):
                 if not conversacion_id:
                     conv_row = await conn.fetchrow(
                         "INSERT INTO CONVERSACION (cliente_id, titulo) VALUES ($1, $2) RETURNING id_conversacion",
-                        body.cliente_id, titulo_conversacion
+                        usuario.id_usuario, titulo_conversacion
                     )
                     conversacion_id = conv_row["id_conversacion"]
                 else:
+                    # Solo el dueño puede escribir en la conversación
+                    await _validar_dueno_conversacion(conn, conversacion_id, usuario)
+
                     # Actualizar título si es 'Nueva conversación', NULL o está vacío
                     await conn.execute(
                         """
@@ -110,6 +166,9 @@ async def chat_rag(body: ChatRequest):
                     "INSERT INTO MENSAJE (conversacion_id, emisor, contenido) VALUES ($1, 'cliente', $2)",
                     conversacion_id, body.mensaje
                 )
+
+                if vector_str is None:
+                    return await _responder_sin_ia(conn, conversacion_id)
 
                 # Búsqueda semántica en pgvector filtrando solo fragmentos de documentos ACTIVOS
                 rows = await conn.fetch(
@@ -175,7 +234,11 @@ async def chat_rag(body: ChatRequest):
                     )
 
                 contextos = [r["contenido"] for r in rows]
-                respuesta_ia = responder_gemini(body.mensaje, contextos)
+                try:
+                    respuesta_ia = responder_gemini(body.mensaje, contextos)
+                except Exception:
+                    logger.exception("Fallo al generar la respuesta con Gemini")
+                    return await _responder_sin_ia(conn, conversacion_id)
 
                 if score_maximo < UMBRAL_ALTA_CONFIANZA:
                     texto_resp = (
@@ -218,19 +281,29 @@ async def chat_rag(body: ChatRequest):
                     escalar_ejecutivo=requiere_esc,
                     fuentes=fuentes_data
                 )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 class FinalizarConversacionRequest(BaseModel):
     conversacion_id: int
     calificacion: Optional[int] = None
 
+
 @router.post("/finalizar")
-async def finalizar_conversacion(body: FinalizarConversacionRequest):
+async def finalizar_conversacion(
+    body: FinalizarConversacionRequest,
+    usuario: UsuarioToken = Depends(get_usuario_actual)
+):
     pool = obtener_db_pool()
     try:
         async with pool.acquire() as conn:
             async with conn.transaction():
+                # Solo el dueño puede cerrar o calificar la conversación
+                await _validar_dueno_conversacion(conn, body.conversacion_id, usuario)
+
                 await conn.execute(
                     """
                     UPDATE CONVERSACION 
@@ -247,28 +320,26 @@ async def finalizar_conversacion(body: FinalizarConversacionRequest):
                     )
 
                 # Registrar auditoría
-                conv = await conn.fetchrow(
-                    "SELECT cliente_id FROM CONVERSACION WHERE id_conversacion = $1;",
-                    body.conversacion_id
+                calif_detalle = f" con calificación de {body.calificacion} estrellas" if body.calificacion else ""
+                await conn.execute(
+                    """
+                    INSERT INTO log_auditoria (usuario_id, accion, detalle)
+                    VALUES ($1, 'FIN_CHAT_IA', $2);
+                    """,
+                    usuario.id_usuario,
+                    f"Conversación #{body.conversacion_id} finalizada{calif_detalle}"
                 )
-                if conv:
-                    calif_detalle = f" con calificación de {body.calificacion} estrellas" if body.calificacion else ""
-                    await conn.execute(
-                        """
-                        INSERT INTO log_auditoria (usuario_id, accion, detalle)
-                        VALUES ($1, 'FIN_CHAT_IA', $2);
-                        """,
-                        conv["cliente_id"],
-                        f"Conversación #{body.conversacion_id} finalizada{calif_detalle}"
-                    )
 
         return {"message": "Conversación finalizada exitosamente."}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @router.get("/conversaciones")
-async def listar_conversaciones(cliente_id: int = Query(...)):
-    """Lista el historial de conversaciones previas con SupportIA para un cliente"""
+async def listar_conversaciones(usuario: UsuarioToken = Depends(get_usuario_actual)):
+    """Lista el historial de conversaciones previas con SupportIA del usuario autenticado"""
     pool = obtener_db_pool()
     try:
         async with pool.acquire() as conn:
@@ -312,7 +383,7 @@ async def listar_conversaciones(cliente_id: int = Query(...)):
                     LIMIT 1
                 ), c.fecha_inicio) DESC;
                 """,
-                cliente_id
+                usuario.id_usuario
             )
 
             return [
@@ -333,9 +404,14 @@ async def listar_conversaciones(cliente_id: int = Query(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @router.get("/conversaciones/{id_conversacion}")
-async def obtener_detalle_conversacion(id_conversacion: int):
-    """Obtiene el detalle completo de una conversación de SupportIA y su hilo de mensajes"""
+async def obtener_detalle_conversacion(
+    id_conversacion: int,
+    usuario: UsuarioToken = Depends(get_usuario_actual)
+):
+    """Obtiene el detalle de una conversación de SupportIA y su hilo de mensajes.
+    Lo puede ver su dueño y el personal (Ejecutivo/Administrador) en modo lectura."""
     pool = obtener_db_pool()
     try:
         async with pool.acquire() as conn:
@@ -360,6 +436,10 @@ async def obtener_detalle_conversacion(id_conversacion: int):
 
             if not conv:
                 raise HTTPException(status_code=404, detail="Conversación no encontrada")
+
+            # Prevención de IDOR: solo el dueño o el personal pueden leerla
+            if conv["cliente_id"] != usuario.id_usuario and usuario.rol not in ROLES_STAFF:
+                raise HTTPException(status_code=403, detail="No tienes permiso sobre esta conversación.")
 
             mensajes = await conn.fetch(
                 """

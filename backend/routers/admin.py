@@ -1,26 +1,21 @@
-from asyncio import timeouts
-from asyncio import timeouts
-import os
 import logging
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form
 from pydantic import BaseModel, EmailStr
 from database import obtener_db_pool
 from .auth import get_usuario_actual, requiere_rol, UsuarioToken
+from .documentos import (
+    TIPOS_PERMITIDOS,
+    leer_archivo_validado,
+    guardar_archivo,
+    sanitizar_nombre_archivo,
+)
 from security import hashear_password
-
-try:
-    from services import (
-        extraer_texto_de_archivo,
-        dividir_texto_en_fragmentos,
-        generar_embeddings_gemini,
-    )
-except ImportError:
-    from services import (
-        extraer_texto as extraer_texto_de_archivo,
-        fragmentar_texto as dividir_texto_en_fragmentos,
-        generar_embedding as generar_embeddings_gemini,
-    )
+from services import (
+    extraer_texto,
+    fragmentar_texto,
+    generar_embedding_documento,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -322,6 +317,7 @@ async def desconectar_usuario(usuario: UsuarioToken = Depends(get_usuario_actual
         logger.error("Error en desconectar_usuario: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Ocurrió un error al cerrar la sesión.")
 
+
 # ==================================
 # Gestión de la base de conocimiento
 # ==================================
@@ -373,7 +369,6 @@ async def toggle_estado_documentos(
 
 
 @router.put("/documentos/{id_documento}")
-@router.put("/documentos/{id_documento}")
 async def actualizar_documento(
     id_documento: int,
     titulo: Optional[str] = Form(None),
@@ -382,7 +377,7 @@ async def actualizar_documento(
 ):
     """
     Actualiza el título y opcionalmente reemplaza el archivo físico y regenera fragmentos RAG.
-    Sincronizado exactamente con las columnas: id_documento, titulo, ruta_archivo, fecha_carga, admin_id, activo.
+    Sincronizado con las columnas: id_documento, titulo, ruta_archivo, fecha_carga, admin_id, activo.
     """
     pool = obtener_db_pool()
     try:
@@ -395,12 +390,12 @@ async def actualizar_documento(
             if not doc_existente:
                 raise HTTPException(status_code=404, detail="Documento no encontrado.")
 
-            nuevo_titulo = titulo.strip() if titulo else doc_existente["titulo"]
+            nuevo_titulo = titulo.strip() if titulo and titulo.strip() else doc_existente["titulo"]
 
             # ============================================================
             # Caso 1: Solo cambio de título (sin reindexación)
             # ============================================================
-            if not archivo:
+            if not archivo or not archivo.filename:
                 async with conn.transaction():
                     await conn.execute(
                         "UPDATE DOCUMENTO SET titulo = $1 WHERE id_documento = $2;",
@@ -425,45 +420,26 @@ async def actualizar_documento(
             # ============================================================
             # Caso 2: Reemplazo de archivo y reindexación vectorial RAG
             # ============================================================
-            nombre_original = archivo.filename or "documento"
-            extension = nombre_original.split(".")[-1].lower()
-            if extension not in ["pdf", "docx", "txt"]:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Formato no admitido. Debe ser archivo PDF, DOCX o TXT."
-                )
 
-            contenido_bytes = await archivo.read()
-            if len(contenido_bytes) == 0:
-                raise HTTPException(status_code=400, detail="El archivo adjunto se encuentra vacío.")
+            # Valida extensión (pdf/docx/txt) y tamaño máximo (25 MB)
+            contenido_bytes, extension = await leer_archivo_validado(archivo)
 
-            # Guardar el archivo físicamente en la carpeta uploads como en tus registros
-            os.makedirs("uploads", exist_ok=True)
-            # pyrefly: ignore [unknown-name]
-            timestamp_prefijo = int(time.time() * 1000)
-            nombre_guardado = f"{timestamp_prefijo}_{nombre_original.replace(' ', '_')}"
-            ruta_disco = os.path.join("uploads", nombre_guardado)
-            
-            with open(ruta_disco, "wb") as f:
-                f.write(contenido_bytes)
-
-            ruta_bd = f"/uploads/{nombre_guardado}"
-
-            # Extraer texto y generar embeddings con Gemini
-            # pyrefly: ignore [not-async]
-            texto = await extraer_texto_de_archivo(contenido_bytes, extension)
+            # extraer_texto y fragmentar_texto son funciones síncronas (sin await)
+            texto = extraer_texto(contenido_bytes, TIPOS_PERMITIDOS[extension])
             if not texto or not texto.strip():
                 raise HTTPException(
                     status_code=400,
                     detail="No fue posible extraer texto legible del documento seleccionado."
                 )
 
-            chunks = dividir_texto_en_fragmentos(texto)
+            chunks = fragmentar_texto(texto)
             if not chunks:
                 raise HTTPException(status_code=400, detail="No se obtuvieron fragmentos de texto válidos.")
 
-            # pyrefly: ignore [not-async]
-            embeddings = await generar_embeddings_gemini(chunks)
+            embeddings = [generar_embedding_documento(chunk) for chunk in chunks]
+
+            nombre_original = sanitizar_nombre_archivo(archivo.filename)
+            ruta_bd = guardar_archivo(contenido_bytes, archivo.filename)
 
             # Transacción atómica en PostgreSQL
             async with conn.transaction():
@@ -474,17 +450,17 @@ async def actualizar_documento(
                 )
 
                 # 2. Insertar los nuevos fragmentos en pgvector
-                for chunk, vector in zip(chunks, embeddings):
+                for i, (chunk, vector) in enumerate(zip(chunks, embeddings)):
                     vector_str = f"[{','.join(map(str, vector))}]"
                     await conn.execute(
                         """
-                        INSERT INTO FRAGMENTO (documento_id, contenido, embedding)
-                        VALUES ($1, $2, $3::vector);
+                        INSERT INTO FRAGMENTO (documento_id, contenido, embedding, orden)
+                        VALUES ($1, $2, $3::vector, $4);
                         """,
-                        id_documento, chunk, vector_str
+                        id_documento, chunk, vector_str, i + 1
                     )
 
-                # 3. Actualizar la tabla DOCUMENTO usando las columnas exactas de tu BDD
+                # 3. Actualizar la tabla DOCUMENTO
                 await conn.execute(
                     """
                     UPDATE DOCUMENTO 
@@ -518,4 +494,4 @@ async def actualizar_documento(
         raise
     except Exception as e:
         logger.error("Error en PUT /documentos/%s: %s", id_documento, e, exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Ocurrió un error al actualizar el documento: {str(e)}")
+        raise HTTPException(status_code=500, detail="Ocurrió un error al actualizar el documento.")

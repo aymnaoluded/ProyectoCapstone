@@ -1,34 +1,50 @@
-from typing import Optional, List
-from fastapi import APIRouter, HTTPException, Query
+from typing import Optional
+from fastapi import APIRouter, HTTPException, Query, Depends
 from pydantic import BaseModel
-from datetime import datetime
 from database import obtener_db_pool
+from .auth import get_usuario_actual, requiere_rol, UsuarioToken
 
 router = APIRouter(prefix="/api/tickets", tags=["Gestión de Tickets"])
+
+ROL_ADMIN = "Administrador"
+ROL_EJECUTIVO = "Ejecutivo"
+ROL_CLIENTE = "Cliente"
+ROLES_STAFF = (ROL_ADMIN, ROL_EJECUTIVO)
+
 
 class CrearTicketRequest(BaseModel):
     titulo: str
     descripcion: str
-    cliente_id: int
     conversacion_id: Optional[int] = None
+
 
 class ActualizarEstadoTicketRequest(BaseModel):
     id_estado: int
-    usuario_id: int
     ejecutivo_id: Optional[int] = None
 
+
 class ResponderTicketRequest(BaseModel):
-    ticket_id: int
-    autor_id: int
     contenido: str
+
+
+def _validar_acceso_ticket(usuario: UsuarioToken, cliente_id_ticket: int) -> None:
+    """Staff accede a todo; un cliente solo a sus propios tickets."""
+    if usuario.rol in ROLES_STAFF:
+        return
+    if usuario.rol == ROL_CLIENTE and usuario.id_usuario == cliente_id_ticket:
+        return
+    raise HTTPException(status_code=403, detail="No tienes permiso para acceder a este ticket.")
+
 
 @router.get("")
 async def listar_tickets(
-    rol: int = Query(..., description="1: Admin, 2: Ejecutivo, 3: Cliente"),
-    usuario_id: int = Query(...),
-    estado_id: Optional[int] = Query(None)
+    estado_id: Optional[int] = Query(None),
+    usuario: UsuarioToken = Depends(get_usuario_actual)
 ):
-    """Lista los tickets según el rol y filtros aplicados"""
+    """Lista los tickets según el rol del usuario autenticado y los filtros aplicados"""
+    if usuario.rol != ROL_CLIENTE and usuario.rol not in ROLES_STAFF:
+        raise HTTPException(status_code=403, detail="No tienes permiso para acceder a este recurso.")
+
     pool = obtener_db_pool()
     try:
         async with pool.acquire() as conn:
@@ -55,11 +71,11 @@ async def listar_tickets(
             """
             params = []
 
-            # Si es cliente, solo ve los suyos
-            if rol == 3:
-                params.append(usuario_id)
+            # Un cliente solo ve sus tickets (el id sale del JWT, no de la petición)
+            if usuario.rol == ROL_CLIENTE:
+                params.append(usuario.id_usuario)
                 query += f" AND t.cliente = ${len(params)}"
-            
+
             # Filtro opcional por estado
             if estado_id:
                 params.append(estado_id)
@@ -93,8 +109,12 @@ async def listar_tickets(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @router.get("/{id_ticket}")
-async def obtener_detalle_ticket(id_ticket: int):
+async def obtener_detalle_ticket(
+    id_ticket: int,
+    usuario: UsuarioToken = Depends(get_usuario_actual)
+):
     """Obtiene el detalle de un ticket con su hilo de mensajes"""
     pool = obtener_db_pool()
     try:
@@ -125,6 +145,8 @@ async def obtener_detalle_ticket(id_ticket: int):
             )
             if not ticket:
                 raise HTTPException(status_code=404, detail="Ticket no encontrado")
+
+            _validar_acceso_ticket(usuario, ticket["cliente_id"])
 
             mensajes = await conn.fetch(
                 """
@@ -179,13 +201,28 @@ async def obtener_detalle_ticket(id_ticket: int):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @router.post("")
-async def crear_ticket(body: CrearTicketRequest):
-    """Crea un nuevo ticket y registra la auditoría"""
+async def crear_ticket(
+    body: CrearTicketRequest,
+    usuario: UsuarioToken = Depends(get_usuario_actual)
+):
+    """Crea un nuevo ticket a nombre del usuario autenticado y registra la auditoría"""
     pool = obtener_db_pool()
     try:
         async with pool.acquire() as conn:
             async with conn.transaction():
+                # Si el ticket nace de una conversación, debe ser del propio usuario
+                if body.conversacion_id:
+                    dueno = await conn.fetchrow(
+                        "SELECT cliente_id FROM CONVERSACION WHERE id_conversacion = $1;",
+                        body.conversacion_id
+                    )
+                    if not dueno:
+                        raise HTTPException(status_code=404, detail="Conversación no encontrada")
+                    if dueno["cliente_id"] != usuario.id_usuario:
+                        raise HTTPException(status_code=403, detail="No tienes permiso sobre esta conversación.")
+
                 # 1 = Pendiente
                 ticket_row = await conn.fetchrow(
                     """
@@ -193,7 +230,7 @@ async def crear_ticket(body: CrearTicketRequest):
                     VALUES ($1, $2, $3, 1, $4)
                     RETURNING id_ticket, titulo;
                     """,
-                    body.titulo, body.descripcion, body.cliente_id, body.conversacion_id
+                    body.titulo, body.descripcion, usuario.id_usuario, body.conversacion_id
                 )
 
                 if body.conversacion_id:
@@ -208,20 +245,34 @@ async def crear_ticket(body: CrearTicketRequest):
                     INSERT INTO log_auditoria (usuario_id, accion, detalle)
                     VALUES ($1, 'CREACION_TICKET', $2);
                     """,
-                    body.cliente_id, f"Ticket #{ticket_row['id_ticket']} creado: '{ticket_row['titulo']}'"
+                    usuario.id_usuario, f"Ticket #{ticket_row['id_ticket']} creado: '{ticket_row['titulo']}'"
                 )
 
                 return {"id_ticket": ticket_row["id_ticket"], "mensaje": "Ticket creado exitosamente"}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @router.patch("/{id_ticket}/estado")
-async def actualizar_estado_ticket(id_ticket: int, body: ActualizarEstadoTicketRequest):
-    """Actualiza el estado del ticket, asigna ejecutivo si corresponde y audita"""
+async def actualizar_estado_ticket(
+    id_ticket: int,
+    body: ActualizarEstadoTicketRequest,
+    usuario: UsuarioToken = Depends(requiere_rol(ROL_EJECUTIVO, ROL_ADMIN))
+):
+    """Actualiza el estado del ticket (solo Ejecutivos y Administradores), asigna ejecutivo si corresponde y audita"""
     pool = obtener_db_pool()
     try:
         async with pool.acquire() as conn:
             async with conn.transaction():
+                existe = await conn.fetchrow(
+                    "SELECT 1 FROM TICKET WHERE id_ticket = $1;",
+                    id_ticket
+                )
+                if not existe:
+                    raise HTTPException(status_code=404, detail="Ticket no encontrado")
+
                 estado_row = await conn.fetchrow(
                     "SELECT estado FROM ESTADO_TICKET WHERE id_estado = $1;",
                     body.id_estado
@@ -248,13 +299,12 @@ async def actualizar_estado_ticket(id_ticket: int, body: ActualizarEstadoTicketR
                         body.id_estado, id_ticket
                     )
 
-                # Auditoría
                 await conn.execute(
                     """
                     INSERT INTO log_auditoria (usuario_id, accion, detalle)
                     VALUES ($1, 'CAMBIO_ESTADO_TICKET', $2);
                     """,
-                    body.usuario_id,
+                    usuario.id_usuario,
                     f"Ticket #{id_ticket} cambió a estado '{estado_row['estado']}'"
                 )
 
@@ -264,24 +314,44 @@ async def actualizar_estado_ticket(id_ticket: int, body: ActualizarEstadoTicketR
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @router.post("/{id_ticket}/mensaje")
-async def responder_ticket(id_ticket: int, body: ResponderTicketRequest):
+async def responder_ticket(
+    id_ticket: int,
+    body: ResponderTicketRequest,
+    usuario: UsuarioToken = Depends(get_usuario_actual)
+):
     """Agrega un mensaje al hilo de discusión del ticket"""
+    if not body.contenido.strip():
+        raise HTTPException(status_code=400, detail="El mensaje no puede estar vacío.")
+
     pool = obtener_db_pool()
     try:
         async with pool.acquire() as conn:
             async with conn.transaction():
+                ticket = await conn.fetchrow(
+                    "SELECT cliente FROM TICKET WHERE id_ticket = $1;",
+                    id_ticket
+                )
+                if not ticket:
+                    raise HTTPException(status_code=404, detail="Ticket no encontrado")
+
+                # Un cliente solo puede responder en sus propios tickets
+                _validar_acceso_ticket(usuario, ticket["cliente"])
+
                 row = await conn.fetchrow(
                     """
                     INSERT INTO ticket_mensaje (ticket_id, autor_id, contenido)
                     VALUES ($1, $2, $3)
                     RETURNING id_ticket_mensaje, fecha;
                     """,
-                    id_ticket, body.autor_id, body.contenido
+                    id_ticket, usuario.id_usuario, body.contenido
                 )
                 return {
                     "id_mensaje": row["id_ticket_mensaje"],
                     "fecha": row["fecha"].strftime("%Y-%m-%d %H:%M")
                 }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -16,6 +16,7 @@ import {
   BookOpen,
 } from "lucide-react";
 import type { Mensaje, Usuario, ConversacionDetalle } from "../types";
+import { cabecerasAuth } from "../utils/api";
 
 interface ChatProps {
   usuario: Usuario;
@@ -85,7 +86,8 @@ export const Chat: React.FC<ChatProps> = ({
       setCargandoHistorial(true);
       try {
         const res = await fetch(
-          `http://localhost:8000/api/chat/conversaciones/${conversacionIdProp}`
+          `http://localhost:8000/api/chat/conversaciones/${conversacionIdProp}`,
+          { headers: cabecerasAuth() }
         );
         if (!res.ok) throw new Error("Error al cargar la conversación");
 
@@ -171,10 +173,9 @@ export const Chat: React.FC<ChatProps> = ({
     try {
       const res = await fetch("http://localhost:8000/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: cabecerasAuth({ "Content-Type": "application/json" }),
         body: JSON.stringify({
           mensaje: textoPregunta,
-          cliente_id: usuario.id_usuario,
           conversacion_id: conversacionId,
         }),
       });
@@ -227,11 +228,10 @@ export const Chat: React.FC<ChatProps> = ({
     try {
       const res = await fetch("http://localhost:8000/api/tickets", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: cabecerasAuth({ "Content-Type": "application/json" }),
         body: JSON.stringify({
           titulo: tituloTicket.trim(),
           descripcion: descTicket.trim(),
-          cliente_id: usuario.id_usuario,
           conversacion_id: conversacionId,
         }),
       });
@@ -268,7 +268,7 @@ export const Chat: React.FC<ChatProps> = ({
     try {
       await fetch("http://localhost:8000/api/chat/finalizar", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: cabecerasAuth({ "Content-Type": "application/json" }),
         body: JSON.stringify({ conversacion_id: conversacionId }),
       });
       setFinalizado(true);
@@ -289,7 +289,7 @@ export const Chat: React.FC<ChatProps> = ({
     try {
       await fetch("http://localhost:8000/api/chat/finalizar", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: cabecerasAuth({ "Content-Type": "application/json" }),
         body: JSON.stringify({
           conversacion_id: conversacionId,
           calificacion: estrellas,

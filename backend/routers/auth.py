@@ -1,3 +1,4 @@
+import logging
 import os
 from datetime import datetime, timedelta, timezone
 from jose import jwt, JWTError
@@ -5,7 +6,9 @@ from fastapi import APIRouter, HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from database import obtener_db_pool
-from security import verificar_password
+from security import verificar_password, hashear_password, es_hash_valido
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/auth", tags=["Autenticacion"])
 
@@ -124,6 +127,19 @@ async def login(body: LoginRequest):
                     status_code=401,
                     detail="El correo o la contraseña ingresados no coinciden."
                 )
+
+            if not es_hash_valido(user["password"]):
+                try:
+                    await conexion.execute(
+                        "UPDATE USUARIO SET password = $1 WHERE id_usuario = $2;",
+                        hashear_password(body.password),
+                        user["id_usuario"]
+                    )
+                except Exception:
+                    logger.exception(
+                        "No se pudo migrar la contraseña del usuario %s",
+                        user["id_usuario"]
+                    )
 
             await conexion.execute(
                 """

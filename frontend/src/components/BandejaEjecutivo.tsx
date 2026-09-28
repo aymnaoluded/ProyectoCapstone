@@ -10,9 +10,9 @@ import {
   UserCheck,
   Star,
   MessageSquare,
-  SolarPanel,
 } from "lucide-react";
 import type { Usuario } from "../types";
+import { cabecerasAuth } from "../utils/api";
 
 interface TicketItem {
   id_ticket: number;
@@ -70,11 +70,11 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({ usuario, sol
   const cargarTickets = async () => {
     setCargando(true);
     try {
-      let url = `http://localhost:8000/api/tickets?rol=${usuario.rol_id}&usuario_id=${usuario.id_usuario}`;
+      let url = "http://localhost:8000/api/tickets";
       if (filtroEstado) {
-        url += `&estado_id=${filtroEstado}`;
+        url += `?estado_id=${filtroEstado}`;
       }
-      const res = await fetch(url);
+      const res = await fetch(url, { headers: cabecerasAuth() });
       if (res.ok) {
         let data = await res.json();
         if (soloAsignados && Array.isArray(data)) {
@@ -97,7 +97,9 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({ usuario, sol
     setTicketSeleccionado(ticket);
     setCargandoDetalle(true);
     try {
-      const res = await fetch(`http://localhost:8000/api/tickets/${ticket.id_ticket}`);
+      const res = await fetch(`http://localhost:8000/api/tickets/${ticket.id_ticket}`, {
+        headers: cabecerasAuth()
+      });
       if (res.ok) {
         const data = await res.json();
         setMensajes(data.mensajes);
@@ -113,13 +115,11 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({ usuario, sol
     if (!ticketSeleccionado) return;
     setActualizandoEstado(true);
     try {
-      // id_estado 2 = En Proceso, asignándose a sí mismo
       const res = await fetch(`http://localhost:8000/api/tickets/${ticketSeleccionado.id_ticket}/estado`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: cabecerasAuth({ "Content-Type": "application/json" }),
         body: JSON.stringify({
           id_estado: 2,
-          usuario_id: usuario.id_usuario,
           ejecutivo_id: usuario.id_usuario
         })
       });
@@ -152,10 +152,9 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({ usuario, sol
     try {
       const res = await fetch(`http://localhost:8000/api/tickets/${ticketSeleccionado.id_ticket}/estado`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: cabecerasAuth({ "Content-Type": "application/json" }),
         body: JSON.stringify({
-          id_estado: nuevoEstadoId,
-          usuario_id: usuario.id_usuario
+          id_estado: nuevoEstadoId
         })
       });
 
@@ -186,10 +185,8 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({ usuario, sol
     try {
       const res = await fetch(`http://localhost:8000/api/tickets/${ticketSeleccionado.id_ticket}/mensaje`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: cabecerasAuth({ "Content-Type": "application/json" }),
         body: JSON.stringify({
-          ticket_id: ticketSeleccionado.id_ticket,
-          autor_id: usuario.id_usuario,
           contenido: nuevoMensaje.trim()
         })
       });

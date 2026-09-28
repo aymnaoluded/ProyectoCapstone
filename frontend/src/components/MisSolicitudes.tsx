@@ -11,6 +11,7 @@ import {
   Star
 } from "lucide-react";
 import type { Usuario } from "../types";
+import { cabecerasAuth } from "../utils/api";
 
 interface TicketItem {
   id_ticket: number;
@@ -52,9 +53,9 @@ export const MisSolicitudes: React.FC<MisSolicitudesProps> = ({ usuario }) => {
   const cargarTickets = async () => {
     setCargando(true);
     try {
-      const res = await fetch(
-        `http://localhost:8000/api/tickets?rol=${usuario.rol_id}&usuario_id=${usuario.id_usuario}`
-      );
+      const res = await fetch("http://localhost:8000/api/tickets", {
+        headers: cabecerasAuth(),
+      });
       if (res.ok) {
         const data = await res.json();
         setTickets(data);
@@ -75,7 +76,9 @@ export const MisSolicitudes: React.FC<MisSolicitudesProps> = ({ usuario }) => {
     setTicketSeleccionado(ticket);
     setCargandoDetalle(true);
     try {
-      const res = await fetch(`http://localhost:8000/api/tickets/${ticket.id_ticket}`);
+      const res = await fetch(`http://localhost:8000/api/tickets/${ticket.id_ticket}`, {
+        headers: cabecerasAuth(),
+      });
       if (res.ok) {
         const data = await res.json();
         setMensajes(data.mensajes);
@@ -101,10 +104,8 @@ export const MisSolicitudes: React.FC<MisSolicitudesProps> = ({ usuario }) => {
         `http://localhost:8000/api/tickets/${ticketSeleccionado.id_ticket}/mensaje`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: cabecerasAuth({ "Content-Type": "application/json" }),
           body: JSON.stringify({
-            ticket_id: ticketSeleccionado.id_ticket,
-            autor_id: usuario.id_usuario,
             contenido: nuevoMensaje.trim(),
           }),
         }

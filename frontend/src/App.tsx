@@ -14,6 +14,7 @@ import {
   obtenerSesionSegura,
   eliminarSesionSegura,
 } from "./utils/storage";
+import { tokenVigente } from "./utils/api";
 
 export default function App() {
   const [usuario, setUsuario] = useState<Usuario | null>(null);
@@ -24,6 +25,13 @@ export default function App() {
   const setVistaActiva = (nuevaVista: VistaApp) => {
     setVistaActivaState(nuevaVista);
     localStorage.setItem("vistaActiva", nuevaVista);
+  };
+
+  const limpiarSesionLocal = () => {
+    eliminarSesionSegura("user_session");
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("vistaActiva");
+    setUsuario(null);
   };
 
   const handleNuevaConversacion = async () => {
@@ -41,7 +49,6 @@ export default function App() {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ cliente_id: usuario.id_usuario }),
       });
 
       if (res.ok) {
@@ -81,7 +88,7 @@ export default function App() {
     const user = obtenerSesionSegura<Usuario>("user_session");
     const savedVista = localStorage.getItem("vistaActiva") as VistaApp | null;
 
-    if (user && user.rol_nombre) {
+    if (user && user.rol_nombre && tokenVigente()) {
       setUsuario(user);
       if (savedVista && savedVista !== ("escaladas" as any)) {
         setVistaActivaState(savedVista);
@@ -91,17 +98,22 @@ export default function App() {
         localStorage.setItem("vistaActiva", inicial);
       }
     } else {
-      // Si la sesión guardada estaba incompleta o dañada, limpiarla
       eliminarSesionSegura("user_session");
+      localStorage.removeItem("access_token");
       setUsuario(null);
     }
   }, []);
 
-  // Heartbeat automático con cabecera Bearer JWT cada 60s
+  // Heartbeat automático con cabecera Bearer JWT cada 60s.
   useEffect(() => {
     if (!usuario) return;
 
     const ping = () => {
+      if (!tokenVigente()) {
+        limpiarSesionLocal();
+        return;
+      }
+
       const token = localStorage.getItem("access_token");
       fetch("http://localhost:8000/api/admin/usuarios/heartbeat", {
         method: "POST",
@@ -109,7 +121,11 @@ export default function App() {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-      }).catch(() => {});
+      })
+        .then((res) => {
+          if (res.status === 401) limpiarSesionLocal();
+        })
+        .catch(() => {});
     };
 
     ping();
@@ -138,10 +154,7 @@ export default function App() {
       } catch {}
     }
 
-    eliminarSesionSegura("user_session");
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("vistaActiva");
-    setUsuario(null);
+    limpiarSesionLocal();
   };
 
   if (!usuario) {
