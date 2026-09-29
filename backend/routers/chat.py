@@ -13,7 +13,6 @@ router = APIRouter(prefix="/api/chat", tags=["Chat y RAG"])
 UMBRAL_ALTA_CONFIANZA = 0.80
 UMBRAL_MEDIA_CONFIANZA = 0.60
 
-# Nombres de rol tal como están en la tabla ROL (verifica con: SELECT nombre FROM ROL;)
 ROLES_STAFF = ("Administrador", "Ejecutivo")
 
 MSG_IA_NO_DISPONIBLE = (
@@ -22,16 +21,26 @@ MSG_IA_NO_DISPONIBLE = (
 )
 
 
-async def _validar_dueno_conversacion(conn, id_conversacion: int, usuario: UsuarioToken):
-    """Verifica que la conversación exista y pertenezca al usuario autenticado."""
+async def _validar_dueno_conversacion(
+    conn, id_conversacion: int, usuario: UsuarioToken, bloquear_si_escalada: bool = False
+):
+    """Verifica que la conversación exista y pertenezca al usuario autenticado.
+    Si bloquear_si_escalada es True, rechaza con 409 cuando la conversación ya
+    fue escalada a un ticket (no debe admitir más mensajes del cliente)."""
     conv = await conn.fetchrow(
-        "SELECT id_conversacion, cliente_id FROM CONVERSACION WHERE id_conversacion = $1;",
+        "SELECT id_conversacion, cliente_id, escalada FROM CONVERSACION WHERE id_conversacion = $1;",
         id_conversacion
     )
     if not conv:
         raise HTTPException(status_code=404, detail="Conversación no encontrada")
     if conv["cliente_id"] != usuario.id_usuario:
         raise HTTPException(status_code=403, detail="No tienes permiso sobre esta conversación.")
+    if bloquear_si_escalada and conv["escalada"]:
+        raise HTTPException(
+            status_code=409,
+            detail="Esta conversación fue escalada a un ticket y ya no admite más mensajes. "
+                   "Continúa el caso desde Mis Solicitudes."
+        )
     return conv
 
 
@@ -127,6 +136,8 @@ async def chat_rag(body: ChatRequest, usuario: UsuarioToken = Depends(get_usuari
 
     pool = obtener_db_pool()
     try:
+        # Si el servicio de IA falla no se responde con 500: se guarda el mensaje
+        # y se ofrece escalar a un ejecutivo.
         vector_str = None
         try:
             vector_pregunta = generar_embedding_consulta(body.mensaje)
@@ -147,10 +158,10 @@ async def chat_rag(body: ChatRequest, usuario: UsuarioToken = Depends(get_usuari
                     )
                     conversacion_id = conv_row["id_conversacion"]
                 else:
-                    # Solo el dueño puede escribir en la conversación
-                    await _validar_dueno_conversacion(conn, conversacion_id, usuario)
+                    await _validar_dueno_conversacion(
+                        conn, conversacion_id, usuario, bloquear_si_escalada=True
+                    )
 
-                    # Actualizar título si es 'Nueva conversación', NULL o está vacío
                     await conn.execute(
                         """
                         UPDATE CONVERSACION 
@@ -301,6 +312,7 @@ async def finalizar_conversacion(
     try:
         async with pool.acquire() as conn:
             async with conn.transaction():
+                # Solo el dueño puede cerrar o calificar la conversación
                 await _validar_dueno_conversacion(conn, body.conversacion_id, usuario)
 
                 await conn.execute(
@@ -457,6 +469,7 @@ async def obtener_detalle_conversacion(
                 id_conversacion
             )
 
+            # Cargar fuentes asociadas a los mensajes del bot
             bot_msg_ids = [m["id_mensaje"] for m in mensajes if m["emisor"] == "bot"]
             fuentes_por_msg = {}
             if bot_msg_ids:
