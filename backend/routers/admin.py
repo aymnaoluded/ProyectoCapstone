@@ -375,10 +375,7 @@ async def actualizar_documento(
     archivo: Optional[UploadFile] = File(None),
     usuario: UsuarioToken = Depends(requiere_rol("Administrador"))
 ):
-    """
-    Actualiza el título y opcionalmente reemplaza el archivo físico y regenera fragmentos RAG.
-    Sincronizado con las columnas: id_documento, titulo, ruta_archivo, fecha_carga, admin_id, activo.
-    """
+    
     pool = obtener_db_pool()
     try:
         async with pool.acquire() as conn:

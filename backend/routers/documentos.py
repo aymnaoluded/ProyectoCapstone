@@ -27,13 +27,9 @@ TIPOS_PERMITIDOS = {
 }
 
 def sanitizar_nombre_archivo(nombre: str) -> str:
-    """
-    Deja solo el nombre del archivo (sin carpetas) y reemplaza cualquier carácter
-    fuera de [A-Za-z0-9._-]. Evita path traversal ("../", "..\\", rutas absolutas).
-    """
     nombre = os.path.basename((nombre or "").replace("\\", "/"))
     nombre = re.sub(r"[^A-Za-z0-9._-]", "_", nombre)
-    nombre = nombre.lstrip(".")  # sin archivos ocultos ni ".."
+    nombre = nombre.lstrip(".") 
     base, ext = os.path.splitext(nombre)
     nombre = base[:100] + ext
     return nombre or "documento"

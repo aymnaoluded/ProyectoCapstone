@@ -1,8 +1,11 @@
+import logging
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Query, Depends
 from pydantic import BaseModel
 from database import obtener_db_pool
 from .auth import get_usuario_actual, requiere_rol, UsuarioToken
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/tickets", tags=["Gestión de Tickets"])
 
@@ -107,7 +110,8 @@ async def listar_tickets(
                 for r in rows
             ]
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Error en GET /api/tickets: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Ocurrió un error al listar los tickets.")
 
 
 @router.get("/{id_ticket}")
@@ -199,7 +203,8 @@ async def obtener_detalle_ticket(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Error en GET /api/tickets/%s: %s", id_ticket, e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Ocurrió un error al obtener el ticket.")
 
 
 @router.post("")
@@ -212,7 +217,6 @@ async def crear_ticket(
     try:
         async with pool.acquire() as conn:
             async with conn.transaction():
-                # Si el ticket nace de una conversación, debe ser del propio usuario
                 if body.conversacion_id:
                     dueno = await conn.fetchrow(
                         "SELECT cliente_id FROM CONVERSACION WHERE id_conversacion = $1;",
@@ -222,6 +226,16 @@ async def crear_ticket(
                         raise HTTPException(status_code=404, detail="Conversación no encontrada")
                     if dueno["cliente_id"] != usuario.id_usuario:
                         raise HTTPException(status_code=403, detail="No tienes permiso sobre esta conversación.")
+
+                    ticket_existente = await conn.fetchval(
+                        "SELECT id_ticket FROM TICKET WHERE conversacion_id = $1 LIMIT 1;",
+                        body.conversacion_id
+                    )
+                    if ticket_existente:
+                        raise HTTPException(
+                            status_code=409,
+                            detail=f"Esta conversación ya fue escalada como el Ticket #{ticket_existente}."
+                        )
 
                 # 1 = Pendiente
                 ticket_row = await conn.fetchrow(
@@ -252,7 +266,8 @@ async def crear_ticket(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Error en POST /api/tickets: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Ocurrió un error al crear el ticket.")
 
 
 @router.patch("/{id_ticket}/estado")
@@ -312,7 +327,8 @@ async def actualizar_estado_ticket(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Error en PATCH /api/tickets/%s/estado: %s", id_ticket, e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Ocurrió un error al actualizar el estado del ticket.")
 
 
 @router.post("/{id_ticket}/mensaje")
@@ -336,7 +352,6 @@ async def responder_ticket(
                 if not ticket:
                     raise HTTPException(status_code=404, detail="Ticket no encontrado")
 
-                # Un cliente solo puede responder en sus propios tickets
                 _validar_acceso_ticket(usuario, ticket["cliente"])
 
                 row = await conn.fetchrow(
@@ -354,4 +369,5 @@ async def responder_ticket(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Error en POST /api/tickets/%s/mensaje: %s", id_ticket, e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Ocurrió un error al enviar el mensaje.")

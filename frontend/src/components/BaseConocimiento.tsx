@@ -365,8 +365,6 @@ export const BaseConocimiento: React.FC<BaseConocimientoProps> = ({ usuario }) =
                         <span className="text-[11px] text-slate-500">
                           {doc.total_fragmentos} fragmentos
                         </span>
-                        <span className="text-[11px] text-slate-400">·</span>
-                        <span className="text-[11px] text-slate-500">{doc.usos} usos</span>
                       </div>
                     </div>
                   </div>

@@ -51,6 +51,8 @@ export const Chat: React.FC<ChatProps> = ({
   const [finalizado, setFinalizado] = useState(false);
   const [calificacion, setCalificacion] = useState<number | null>(null);
   const [calificacionEnviada, setCalificacionEnviada] = useState(false);
+  // true si esta conversación ya generó un ticket (evita escalar dos veces el mismo chat)
+  const [yaEscalado, setYaEscalado] = useState(false);
 
   // Estado para modal de escalamiento a ticket
   const [modalEscalar, setModalEscalar] = useState(false);
@@ -77,6 +79,7 @@ export const Chat: React.FC<ChatProps> = ({
       setFinalizado(false);
       setCalificacion(null);
       setCalificacionEnviada(false);
+      setYaEscalado(false);
       setInput("");
       return;
     }
@@ -115,6 +118,7 @@ export const Chat: React.FC<ChatProps> = ({
         setFinalizado(estaFinalizada);
         setCalificacion(data.conversacion.calificacion);
         setCalificacionEnviada(data.conversacion.calificacion !== null);
+        setYaEscalado(Boolean(data.conversacion.escalada));
       } catch (err) {
         console.error("Error cargando historial de chat:", err);
       } finally {
@@ -222,7 +226,7 @@ export const Chat: React.FC<ChatProps> = ({
 
   const handleEscalarTicket = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!tituloTicket.trim() || !descTicket.trim() || escalando) return;
+    if (!tituloTicket.trim() || !descTicket.trim() || escalando || yaEscalado) return;
 
     setEscalando(true);
     try {
@@ -239,6 +243,7 @@ export const Chat: React.FC<ChatProps> = ({
       if (res.ok) {
         const ticketData = await res.json();
         setModalEscalar(false);
+        setYaEscalado(true);
         setMensajes((prev) => [
           ...prev,
           {
@@ -249,6 +254,11 @@ export const Chat: React.FC<ChatProps> = ({
           },
         ]);
         if (onConversacionActualizada) onConversacionActualizada();
+      } else if (res.status === 409) {
+        const errorData = await res.json().catch(() => null);
+        setYaEscalado(true);
+        setModalEscalar(false);
+        alert(errorData?.detail || "Esta conversación ya fue escalada anteriormente.");
       } else {
         alert("Error al generar el ticket.");
       }
@@ -341,14 +351,21 @@ export const Chat: React.FC<ChatProps> = ({
         <div className="flex items-center gap-2">
           {!finalizado && (
             <>
-              <button
-                onClick={() => abrirModalEscalar("Solicitud directa de atención con ejecutivo")}
-                className="flex items-center gap-1.5 text-xs font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200/70 
-                px-3 py-1.5 rounded-xl transition-all cursor-pointer"
-              >
-                <Headphones size={14} />
-                <span className="hidden md:inline">Hablar con ejecutivo</span>
-              </button>
+              {yaEscalado ? (
+                <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/70 px-3 py-1.5 rounded-xl">
+                  <CheckCircle size={14} />
+                  <span className="hidden md:inline">Ya escalado a un ejecutivo</span>
+                </span>
+              ) : (
+                <button
+                  onClick={() => abrirModalEscalar("Solicitud directa de atención con ejecutivo")}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200/70 
+                  px-3 py-1.5 rounded-xl transition-all cursor-pointer"
+                >
+                  <Headphones size={14} />
+                  <span className="hidden md:inline">Hablar con ejecutivo</span>
+                </button>
+              )}
 
               <button
                 onClick={handleFinalizarConversacion}
@@ -427,7 +444,7 @@ export const Chat: React.FC<ChatProps> = ({
                     <div className="whitespace-pre-wrap">{m.texto}</div>
 
                     {/* Botón contextual de escalamiento si el bot tiene dudas */}
-                    {m.emisor === "bot" && m.escalarEjecutivo && !finalizado && (
+                    {m.emisor === "bot" && m.escalarEjecutivo && !finalizado && !yaEscalado && (
                       <div className="mt-3 pt-3 border-t border-slate-100">
                         <button
                           onClick={() => abrirModalEscalar("Duda no resuelta por la IA")}

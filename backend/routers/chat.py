@@ -96,7 +96,8 @@ async def crear_nueva_conversacion(usuario: UsuarioToken = Depends(get_usuario_a
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Error en POST /api/chat/nueva: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Ocurrió un error al crear la conversación.")
 
 
 class ChatRequest(BaseModel):
@@ -126,8 +127,6 @@ async def chat_rag(body: ChatRequest, usuario: UsuarioToken = Depends(get_usuari
 
     pool = obtener_db_pool()
     try:
-        # Si el servicio de IA falla no se responde con 500: se guarda el mensaje
-        # y se ofrece escalar a un ejecutivo.
         vector_str = None
         try:
             vector_pregunta = generar_embedding_consulta(body.mensaje)
@@ -284,7 +283,8 @@ async def chat_rag(body: ChatRequest, usuario: UsuarioToken = Depends(get_usuari
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Error en POST /api/chat: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Ocurrió un error al procesar el mensaje.")
 
 
 class FinalizarConversacionRequest(BaseModel):
@@ -301,7 +301,6 @@ async def finalizar_conversacion(
     try:
         async with pool.acquire() as conn:
             async with conn.transaction():
-                # Solo el dueño puede cerrar o calificar la conversación
                 await _validar_dueno_conversacion(conn, body.conversacion_id, usuario)
 
                 await conn.execute(
@@ -334,7 +333,8 @@ async def finalizar_conversacion(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Error en POST /api/chat/finalizar: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Ocurrió un error al finalizar la conversación.")
 
 
 @router.get("/conversaciones")
@@ -402,7 +402,8 @@ async def listar_conversaciones(usuario: UsuarioToken = Depends(get_usuario_actu
                 for r in rows
             ]
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Error en GET /api/chat/conversaciones: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Ocurrió un error al listar las conversaciones.")
 
 
 @router.get("/conversaciones/{id_conversacion}")
@@ -437,7 +438,6 @@ async def obtener_detalle_conversacion(
             if not conv:
                 raise HTTPException(status_code=404, detail="Conversación no encontrada")
 
-            # Prevención de IDOR: solo el dueño o el personal pueden leerla
             if conv["cliente_id"] != usuario.id_usuario and usuario.rol not in ROLES_STAFF:
                 raise HTTPException(status_code=403, detail="No tienes permiso sobre esta conversación.")
 
@@ -457,7 +457,6 @@ async def obtener_detalle_conversacion(
                 id_conversacion
             )
 
-            # Cargar fuentes asociadas a los mensajes del bot
             bot_msg_ids = [m["id_mensaje"] for m in mensajes if m["emisor"] == "bot"]
             fuentes_por_msg = {}
             if bot_msg_ids:
@@ -526,4 +525,5 @@ async def obtener_detalle_conversacion(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Error en GET /api/chat/conversaciones/%s: %s", id_conversacion, e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Ocurrió un error al obtener la conversación.")

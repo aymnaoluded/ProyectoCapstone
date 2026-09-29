@@ -77,8 +77,15 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({ usuario, sol
       const res = await fetch(url, { headers: cabecerasAuth() });
       if (res.ok) {
         let data = await res.json();
-        if (soloAsignados && Array.isArray(data)) {
-          data = data.filter((t: any) => t.ejecutivo && t.ejecutivo.id === usuario.id_usuario);
+        if (Array.isArray(data)) {
+          if (soloAsignados) {
+            // Tickets Asignados: solo los que tiene este ejecutivo
+            data = data.filter((t: any) => t.ejecutivo && t.ejecutivo.id === usuario.id_usuario);
+          } else if (usuario.rol_nombre === "Ejecutivo") {
+            // Bandeja de Tickets (Ejecutivo): solo los que todavía no tienen ejecutivo asignado
+            data = data.filter((t: any) => !t.ejecutivo);
+          }
+          // Administrador en "Supervisión de Tickets": ve todos, sin filtrar
         }
         setTickets(data)
       }
@@ -115,6 +122,7 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({ usuario, sol
     if (!ticketSeleccionado) return;
     setActualizandoEstado(true);
     try {
+      // id_estado 2 = En Proceso, asignándose a sí mismo
       const res = await fetch(`http://localhost:8000/api/tickets/${ticketSeleccionado.id_ticket}/estado`, {
         method: "PATCH",
         headers: cabecerasAuth({ "Content-Type": "application/json" }),
@@ -136,7 +144,11 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({ usuario, sol
         };
         setTicketSeleccionado(datosActualizados);
         setTickets((prev) =>
-          prev.map((t) => (t.id_ticket === ticketSeleccionado.id_ticket ? datosActualizados : t))
+          soloAsignados || usuario.rol_nombre === "Administrador"
+            // Tickets Asignados, o Administrador viendo todos: se actualiza en la lista
+            ? prev.map((t) => (t.id_ticket === ticketSeleccionado.id_ticket ? datosActualizados : t))
+            // Bandeja de Tickets (Ejecutivo), que solo lista los sin asignar: al tomarlo, sale de la lista
+            : prev.filter((t) => t.id_ticket !== ticketSeleccionado.id_ticket)
         );
       }
     } catch (err) {
@@ -359,7 +371,8 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({ usuario, sol
                       <button
                         onClick={handleTomarTicket}
                         disabled={actualizandoEstado}
-                        className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-1.5 rounded-xl transition-all shadow-xs disabled:opacity-50 cursor-pointer"
+                        className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-1.5 rounded-xl transition-all 
+                        shadow-xs disabled:opacity-50 cursor-pointer"
                       >
                         <UserCheck size={14} />
                         <span>Tomar Ticket</span>
@@ -371,7 +384,8 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({ usuario, sol
                           value={ticketSeleccionado.id_estado}
                           onChange={(e) => handleCambiarEstado(Number(e.target.value))}
                           disabled={actualizandoEstado}
-                          className="text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer disabled:opacity-50"
+                          className="text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-slate-700 focus:outline-none focus:ring-1 
+                          focus:ring-blue-500 cursor-pointer disabled:opacity-50"
                         >
                           {ESTADOS_DISPONIBLES.map((est) => (
                             <option key={est.id} value={est.id}>
@@ -463,7 +477,8 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({ usuario, sol
                 <button
                   type="submit"
                   disabled={enviando || !nuevoMensaje.trim() || ticketSeleccionado.id_estado === 5}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-50 cursor-pointer"
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors 
+                  disabled:opacity-50 cursor-pointer"
                 >
                   {enviando ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
                   <span>Responder</span>
