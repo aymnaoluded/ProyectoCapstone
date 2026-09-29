@@ -27,6 +27,7 @@ export type VistaApp =
   // Ejecutivo / Admin
   | "bandeja_tickets"
   | "tickets_asignados"
+  | "historial_tickets"
   // Admin
   | "admin_conocimiento"
   | "admin_usuarios"
@@ -248,6 +249,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
               {vistaActiva === "tickets_asignados" && <ChevronRight size={15} />}
             </button>
+
+            <button
+              onClick={() => setVistaActiva("historial_tickets")}
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer ${
+                vistaActiva === "historial_tickets"
+                  ? "bg-blue-600 text-white shadow-sm shadow-blue-600/30"
+                  : "text-slate-400 hover:text-white hover:bg-slate-800/60"
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <History size={17} />
+                <span>Historial de Tickets</span>
+              </div>
+              {vistaActiva === "historial_tickets" && <ChevronRight size={15} />}
+            </button>
             </>
           )}
 
@@ -282,6 +298,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <span>Supervisión de Tickets</span>
                 </div>
                 {vistaActiva === "bandeja_tickets" && <ChevronRight size={15} />}
+              </button>
+
+              <button
+                onClick={() => setVistaActiva("historial_tickets")}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer ${
+                  vistaActiva === "historial_tickets"
+                    ? "bg-blue-600 text-white shadow-sm shadow-blue-600/30"
+                    : "text-slate-400 hover:text-white hover:bg-slate-800/60"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <History size={17} />
+                  <span>Historial de Tickets</span>
+                </div>
+                {vistaActiva === "historial_tickets" && <ChevronRight size={15} />}
               </button>
 
               <button

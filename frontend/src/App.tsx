@@ -88,6 +88,7 @@ export default function App() {
     const user = obtenerSesionSegura<Usuario>("user_session");
     const savedVista = localStorage.getItem("vistaActiva") as VistaApp | null;
 
+    // La sesión solo es válida si hay usuario y un token que no haya expirado
     if (user && user.rol_nombre && tokenVigente()) {
       setUsuario(user);
       if (savedVista && savedVista !== ("escaladas" as any)) {
@@ -105,6 +106,7 @@ export default function App() {
   }, []);
 
   // Heartbeat automático con cabecera Bearer JWT cada 60s.
+  // Si el token venció (o el backend responde 401), se cierra la sesión local.
   useEffect(() => {
     if (!usuario) return;
 
@@ -193,6 +195,9 @@ export default function App() {
         )}
         {vistaActiva === "tickets_asignados" && (
           <BandejaEjecutivo usuario={usuario} soloAsignados={true}/>
+        )}
+        {vistaActiva === "historial_tickets" && (
+          <BandejaEjecutivo usuario={usuario} soloHistorial={true}/>
         )}
 
         {/* VISTAS ADMINISTRADOR */}

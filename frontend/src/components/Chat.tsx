@@ -104,7 +104,7 @@ export const Chat: React.FC<ChatProps> = ({
             {
               id: "init",
               emisor: "bot",
-              texto: `Hola ${usuario.nombre}, soy tu asistente virtual SupportAI. ¿En qué puedo ayudarte hoy con la base de conocimiento?`,
+              texto: `Hola ${usuario.nombre}, soy tu asistente virtual SupportAI. ¿En qué puedo ayudarte hoy?`,
               hora: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
             },
           ]);
@@ -158,7 +158,7 @@ export const Chat: React.FC<ChatProps> = ({
 
   const enviarMensaje = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!input.trim() || cargando || finalizado) return;
+    if (!input.trim() || cargando || finalizado || yaEscalado) return;
 
     const textoPregunta = input.trim();
     const nuevoMsgUser: Mensaje = {
@@ -184,7 +184,12 @@ export const Chat: React.FC<ChatProps> = ({
         }),
       });
 
-      if (!res.ok) throw new Error("Error en la respuesta del asistente");
+      if (!res.ok) {
+        if (res.status === 409) {
+          setYaEscalado(true);
+        }
+        throw new Error("Error en la respuesta del asistente");
+      }
 
       const data = await res.json();
       setConversacionId(data.conversacion_id);
@@ -255,6 +260,7 @@ export const Chat: React.FC<ChatProps> = ({
         ]);
         if (onConversacionActualizada) onConversacionActualizada();
       } else if (res.status === 409) {
+        // Ya existía un ticket para esta conversación (por ejemplo, escalada en otra pestaña)
         const errorData = await res.json().catch(() => null);
         setYaEscalado(true);
         setModalEscalar(false);
@@ -572,6 +578,23 @@ export const Chat: React.FC<ChatProps> = ({
             <div className="flex items-center justify-between gap-4 bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 text-xs text-slate-500">
               <span className="font-medium text-slate-600">
                 Esta conversación ha concluido. Puedes iniciar una nueva consulta en cualquier momento.
+              </span>
+              {onNuevaConversacion && (
+                <button
+                  onClick={onNuevaConversacion}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-xl transition-all shadow-xs cursor-pointer flex items-center 
+                  gap-1.5 shrink-0"
+                >
+                  <Plus size={14} />
+                  <span>Nueva consulta</span>
+                </button>
+              )}
+            </div>
+          ) : yaEscalado ? (
+            <div className="flex items-center justify-between gap-4 bg-amber-50 border border-amber-200 rounded-2xl px-5 py-3 text-xs text-amber-800">
+              <span className="font-medium flex items-center gap-2">
+                <Headphones size={15} className="shrink-0" />
+                Esta conversación fue escalada a un ticket. Sigue el caso y responde desde "Mis solicitudes".
               </span>
               {onNuevaConversacion && (
                 <button

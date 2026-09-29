@@ -46,7 +46,11 @@ interface MensajeTicket {
 interface BandejaEjecutivoProps {
   usuario: Usuario;
   soloAsignados?: boolean;
+  /** Vista de solo lectura: únicamente tickets con estado "Cerrado" (historial). */
+  soloHistorial?: boolean;
 }
+
+const ID_ESTADO_CERRADO = 5;
 
 const ESTADOS_DISPONIBLES = [
   { id: 1, nombre: "Pendiente" },
@@ -56,7 +60,11 @@ const ESTADOS_DISPONIBLES = [
   { id: 5, nombre: "Cerrado" }
 ];
 
-export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({ usuario, soloAsignados = false }) => {
+export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
+  usuario,
+  soloAsignados = false,
+  soloHistorial = false,
+}) => {
   const [tickets, setTickets] = useState<TicketItem[]>([]);
   const [cargando, setCargando] = useState(true);
   const [filtroEstado, setFiltroEstado] = useState<number | null>(null);
@@ -70,22 +78,37 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({ usuario, sol
   const cargarTickets = async () => {
     setCargando(true);
     try {
+      // El backend identifica al usuario y su rol a partir del token (JWT)
       let url = "http://localhost:8000/api/tickets";
-      if (filtroEstado) {
+      // En el historial no se aplica el filtro de estado de la cabecera: siempre son los cerrados
+      if (filtroEstado && !soloHistorial) {
         url += `?estado_id=${filtroEstado}`;
       }
       const res = await fetch(url, { headers: cabecerasAuth() });
       if (res.ok) {
         let data = await res.json();
         if (Array.isArray(data)) {
-          if (soloAsignados) {
-            // Tickets Asignados: solo los que tiene este ejecutivo
-            data = data.filter((t: any) => t.ejecutivo && t.ejecutivo.id === usuario.id_usuario);
+          if (soloHistorial) {
+            // Historial: solo tickets cerrados. El ejecutivo ve los suyos; el admin, todos.
+            data = data.filter((t: any) => t.id_estado === ID_ESTADO_CERRADO);
+            if (usuario.rol_nombre === "Ejecutivo") {
+              data = data.filter((t: any) => t.ejecutivo && t.ejecutivo.id === usuario.id_usuario);
+            }
+          } else if (soloAsignados) {
+            // Tickets Asignados: los que tiene este ejecutivo, sin contar los ya cerrados
+            data = data.filter(
+              (t: any) =>
+                t.ejecutivo &&
+                t.ejecutivo.id === usuario.id_usuario &&
+                t.id_estado !== ID_ESTADO_CERRADO
+            );
           } else if (usuario.rol_nombre === "Ejecutivo") {
             // Bandeja de Tickets (Ejecutivo): solo los que todavía no tienen ejecutivo asignado
-            data = data.filter((t: any) => !t.ejecutivo);
+            data = data.filter((t: any) => !t.ejecutivo && t.id_estado !== ID_ESTADO_CERRADO);
+          } else {
+            // Administrador en "Supervisión de Tickets": ve todos los activos, sin los cerrados
+            data = data.filter((t: any) => t.id_estado !== ID_ESTADO_CERRADO);
           }
-          // Administrador en "Supervisión de Tickets": ve todos, sin filtrar
         }
         setTickets(data)
       }
@@ -98,7 +121,7 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({ usuario, sol
 
   useEffect(() => {
     cargarTickets();
-  }, [filtroEstado, soloAsignados]);
+  }, [filtroEstado, soloAsignados, soloHistorial]);
 
   const seleccionarTicket = async (ticket: TicketItem) => {
     setTicketSeleccionado(ticket);
@@ -247,26 +270,36 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({ usuario, sol
       {/* Cabecera Superior */}
       <div className="bg-white border-b border-slate-200 px-8 py-5 flex items-center justify-between shrink-0">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Bandeja de Tickets</h1>
+          <h1 className="text-2xl font-bold text-slate-900">
+            {soloHistorial
+              ? "Historial de Tickets"
+              : soloAsignados
+              ? "Tickets Asignados"
+              : "Bandeja de Tickets"}
+          </h1>
+          {soloHistorial && (
+            <p className="text-xs text-slate-500 mt-1">Tickets cerrados, en modo consulta.</p>
+          )}
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Filtro por estado */}
-          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-sm text-slate-600">
-            <Filter size={13} className="text-slate-400" />
-            <select
-              value={filtroEstado || ""}
-              onChange={(e) => setFiltroEstado(e.target.value ? Number(e.target.value) : null)}
-              className="bg-transparent focus:outline-none cursor-pointer"
-            >
-              <option value="">Todos los estados</option>
-              {ESTADOS_DISPONIBLES.map((est) => (
-                <option key={est.id} value={est.id}>
-                  {est.nombre}
-                </option>
-              ))}
-            </select>
-          </div>
+          {!soloHistorial && (
+            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-sm text-slate-600">
+              <Filter size={13} className="text-slate-400" />
+              <select
+                value={filtroEstado || ""}
+                onChange={(e) => setFiltroEstado(e.target.value ? Number(e.target.value) : null)}
+                className="bg-transparent focus:outline-none cursor-pointer"
+              >
+                <option value="">Todos los estados</option>
+                {ESTADOS_DISPONIBLES.filter((est) => est.id !== ID_ESTADO_CERRADO).map((est) => (
+                  <option key={est.id} value={est.id}>
+                    {est.nombre}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <button
             onClick={cargarTickets}
@@ -278,13 +311,12 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({ usuario, sol
         </div>
       </div>
 
-      {/* Contenido dividido en 2 columnas */}
       <div className="flex-1 flex overflow-hidden p-6 gap-6 max-w-7xl mx-auto w-full">
         {/* Columna Izquierda: Listado de Tickets */}
         <div className="w-1/3 flex flex-col bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-xs">
           <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
             <span className="text-sm font-semibold text-slate-600 uppercase tracking-wider">
-              Tickets Disponibles ({tickets.length})
+              {soloHistorial ? "Tickets Cerrados" : "Tickets Disponibles"} ({tickets.length})
             </span>
           </div>
 
@@ -297,9 +329,13 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({ usuario, sol
             ) : tickets.length === 0 ? (
               <div className="p-8 text-center space-y-2">
                 <Inbox size={32} className="mx-auto text-slate-300" />
-                <p className="text-xs font-medium text-slate-600">No hay tickets para mostrar</p>
+                <p className="text-xs font-medium text-slate-600">
+                  {soloHistorial ? "No hay tickets cerrados todavía" : "No hay tickets para mostrar"}
+                </p>
                 <p className="text-[11px] text-slate-400">
-                  Los casos escalados por clientes o por baja confianza del bot se listarán aquí.
+                  {soloHistorial
+                    ? "Los tickets que se cierren aparecerán aquí como historial."
+                    : "Los casos escalados por clientes o por baja confianza del bot se listarán aquí."}
                 </p>
               </div>
             ) : (
@@ -365,37 +401,39 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({ usuario, sol
                     <p className="text-sm text-slate-600 mt-1.5">{ticketSeleccionado.descripcion}</p>
                   </div>
 
-                  {/* Acciones de Asignación / Estado */}
-                  <div className="flex items-center gap-2 shrink-0">
-                    {!ticketSeleccionado.ejecutivo ? (
-                      <button
-                        onClick={handleTomarTicket}
-                        disabled={actualizandoEstado}
-                        className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-1.5 rounded-xl transition-all 
-                        shadow-xs disabled:opacity-50 cursor-pointer"
-                      >
-                        <UserCheck size={14} />
-                        <span>Tomar Ticket</span>
-                      </button>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <label className="text-[11px] font-medium text-slate-500">Estado:</label>
-                        <select
-                          value={ticketSeleccionado.id_estado}
-                          onChange={(e) => handleCambiarEstado(Number(e.target.value))}
+                  {/* Acciones de Asignación / Estado (no disponibles en el historial: es solo lectura) */}
+                  {!soloHistorial && (
+                    <div className="flex items-center gap-2 shrink-0">
+                      {!ticketSeleccionado.ejecutivo ? (
+                        <button
+                          onClick={handleTomarTicket}
                           disabled={actualizandoEstado}
-                          className="text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-slate-700 focus:outline-none focus:ring-1 
-                          focus:ring-blue-500 cursor-pointer disabled:opacity-50"
+                          className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-1.5 rounded-xl transition-all 
+                          shadow-xs disabled:opacity-50 cursor-pointer"
                         >
-                          {ESTADOS_DISPONIBLES.map((est) => (
-                            <option key={est.id} value={est.id}>
-                              {est.nombre}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-                  </div>
+                          <UserCheck size={14} />
+                          <span>Tomar Ticket</span>
+                        </button>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <label className="text-[11px] font-medium text-slate-500">Estado:</label>
+                          <select
+                            value={ticketSeleccionado.id_estado}
+                            onChange={(e) => handleCambiarEstado(Number(e.target.value))}
+                            disabled={actualizandoEstado}
+                            className="text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-slate-700 focus:outline-none focus:ring-1 
+                            focus:ring-blue-500 cursor-pointer disabled:opacity-50"
+                          >
+                            {ESTADOS_DISPONIBLES.map((est) => (
+                              <option key={est.id} value={est.id}>
+                                {est.nombre}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex items-center justify-between text-sm text-slate-500 pt-2 border-t border-slate-100">
@@ -464,26 +502,33 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({ usuario, sol
                 )}
               </div>
 
-              {/* Input para responder */}
-              <form onSubmit={handleEnviarMensaje} className="p-4 bg-white border-t border-slate-200 flex gap-2">
-                <input
-                  type="text"
-                  placeholder="Escribe una respuesta para el cliente..."
-                  value={nuevoMensaje}
-                  onChange={(e) => setNuevoMensaje(e.target.value)}
-                  disabled={enviando || ticketSeleccionado.id_estado === 5}
-                  className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
-                />
-                <button
-                  type="submit"
-                  disabled={enviando || !nuevoMensaje.trim() || ticketSeleccionado.id_estado === 5}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors 
-                  disabled:opacity-50 cursor-pointer"
-                >
-                  {enviando ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-                  <span>Responder</span>
-                </button>
-              </form>
+              {/* Input para responder (oculto en el historial: es de solo lectura) */}
+              {soloHistorial ? (
+                <div className="p-4 bg-slate-50 border-t border-slate-200 text-center text-xs text-slate-500">
+                  Este ticket está cerrado. Se muestra en modo consulta.
+                </div>
+              ) : (
+                <form onSubmit={handleEnviarMensaje} className="p-4 bg-white border-t border-slate-200 flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Escribe una respuesta para el cliente..."
+                    value={nuevoMensaje}
+                    onChange={(e) => setNuevoMensaje(e.target.value)}
+                    disabled={enviando || ticketSeleccionado.id_estado === 5}
+                    className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 
+                    disabled:opacity-50"
+                  />
+                  <button
+                    type="submit"
+                    disabled={enviando || !nuevoMensaje.trim() || ticketSeleccionado.id_estado === 5}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors 
+                    disabled:opacity-50 cursor-pointer"
+                  >
+                    {enviando ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                    <span>Responder</span>
+                  </button>
+                </form>
+              )}
             </>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-400">
