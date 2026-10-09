@@ -12,7 +12,7 @@ import {
   MessageSquare,
 } from "lucide-react";
 import type { Usuario } from "../types";
-import { cabecerasAuth } from "../utils/api";
+import { cabecerasAuth, API_URL } from "../utils/api";
 
 interface TicketItem {
   id_ticket: number;
@@ -79,7 +79,7 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
     setCargando(true);
     try {
       // El backend identifica al usuario y su rol a partir del token (JWT)
-      let url = "http://localhost:8000/api/tickets";
+      let url = `${API_URL}/api/tickets`;
       // En el historial no se aplica el filtro de estado de la cabecera: siempre son los cerrados
       if (filtroEstado && !soloHistorial) {
         url += `?estado_id=${filtroEstado}`;
@@ -127,7 +127,7 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
     setTicketSeleccionado(ticket);
     setCargandoDetalle(true);
     try {
-      const res = await fetch(`http://localhost:8000/api/tickets/${ticket.id_ticket}`, {
+      const res = await fetch(`${API_URL}/api/tickets/${ticket.id_ticket}`, {
         headers: cabecerasAuth()
       });
       if (res.ok) {
@@ -146,7 +146,7 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
     setActualizandoEstado(true);
     try {
       // id_estado 2 = En Proceso, asignándose a sí mismo
-      const res = await fetch(`http://localhost:8000/api/tickets/${ticketSeleccionado.id_ticket}/estado`, {
+      const res = await fetch(`${API_URL}/api/tickets/${ticketSeleccionado.id_ticket}/estado`, {
         method: "PATCH",
         headers: cabecerasAuth({ "Content-Type": "application/json" }),
         body: JSON.stringify({
@@ -185,7 +185,7 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
     if (!ticketSeleccionado || ticketSeleccionado.id_estado === nuevoEstadoId) return;
     setActualizandoEstado(true);
     try {
-      const res = await fetch(`http://localhost:8000/api/tickets/${ticketSeleccionado.id_ticket}/estado`, {
+      const res = await fetch(`${API_URL}/api/tickets/${ticketSeleccionado.id_ticket}/estado`, {
         method: "PATCH",
         headers: cabecerasAuth({ "Content-Type": "application/json" }),
         body: JSON.stringify({
@@ -218,7 +218,7 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
 
     setEnviando(true);
     try {
-      const res = await fetch(`http://localhost:8000/api/tickets/${ticketSeleccionado.id_ticket}/mensaje`, {
+      const res = await fetch(`${API_URL}/api/tickets/${ticketSeleccionado.id_ticket}/mensaje`, {
         method: "POST",
         headers: cabecerasAuth({ "Content-Type": "application/json" }),
         body: JSON.stringify({
@@ -277,9 +277,6 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
               ? "Tickets Asignados"
               : "Bandeja de Tickets"}
           </h1>
-          {soloHistorial && (
-            <p className="text-xs text-slate-500 mt-1">Tickets cerrados, en modo consulta.</p>
-          )}
         </div>
 
         <div className="flex items-center gap-3">

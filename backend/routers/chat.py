@@ -24,9 +24,6 @@ MSG_IA_NO_DISPONIBLE = (
 async def _validar_dueno_conversacion(
     conn, id_conversacion: int, usuario: UsuarioToken, bloquear_si_escalada: bool = False
 ):
-    """Verifica que la conversación exista y pertenezca al usuario autenticado.
-    Si bloquear_si_escalada es True, rechaza con 409 cuando la conversación ya
-    fue escalada a un ticket (no debe admitir más mensajes del cliente)."""
     conv = await conn.fetchrow(
         "SELECT id_conversacion, cliente_id, escalada FROM CONVERSACION WHERE id_conversacion = $1;",
         id_conversacion

@@ -1,3 +1,9 @@
+import asyncio
+import hashlib
+import os
+import secrets
+from datetime import datetime, timedelta, timezone
+from gmail_service import enviar_correo
 import logging
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form
@@ -20,7 +26,6 @@ from services import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/admin", tags=["Administracion y Métricas"])
-
 
 # =====================
 # Métricas y auditoría 
@@ -219,55 +224,151 @@ class CrearUsuarioRequest(BaseModel):
     nombre: str
     apellido: str
     correo: EmailStr
-    password: str
     rol: int
+
 
 
 @router.post("/usuarios", status_code=201)
 async def crear_usuario(
     body: CrearUsuarioRequest,
-    usuario: UsuarioToken = Depends(requiere_rol("Administrador"))
+    usuario: UsuarioToken = Depends(
+        requiere_rol("Administrador")
+    )
 ):
-    if len(body.password) < 8:
-        raise HTTPException(status_code=400, detail="La contraseña debe tener al menos 8 caracteres.")
-
     pool = obtener_db_pool()
+    correo = body.correo.strip().lower()
+
+    frontend_url = os.getenv("FRONTEND_URL")
+    if not frontend_url:
+        raise HTTPException(
+            status_code=500,
+            detail="Falta configurar FRONTEND_URL."
+        )
+
+    token = secrets.token_urlsafe(32)
+    token_hash = hashlib.sha256(
+        token.encode("utf-8")
+    ).hexdigest()
+
+    expiracion = datetime.now(
+        timezone.utc
+    ) + timedelta(minutes=30)
+
+    password_temporal = secrets.token_urlsafe(32)
+    password_hash = await asyncio.to_thread(
+        hashear_password,
+        password_temporal
+    )
+
     try:
         async with pool.acquire() as conn:
-            existente = await conn.fetchval(
-                "SELECT id_usuario FROM USUARIO WHERE correo = $1;",
-                body.correo.strip().lower()
-            )
-            if existente:
-                raise HTTPException(status_code=409, detail="Ya existe un usuario con ese correo.")
-
-            password_hash = hashear_password(body.password)
-
             async with conn.transaction():
+
                 nuevo = await conn.fetchrow(
                     """
-                    INSERT INTO USUARIO (nombre, apellido, correo, password, rol)
-                    VALUES ($1, $2, $3, $4, $5)
-                    RETURNING id_usuario, nombre, apellido, correo, rol;
+                    INSERT INTO USUARIO
+                    (
+                        nombre, apellido, correo,
+                        password, rol, cuenta_activada
+                    )
+                    VALUES ($1, $2, $3, $4, $5, FALSE)
+                    ON CONFLICT (correo) DO NOTHING
+                    RETURNING
+                        id_usuario, nombre,
+                        apellido, correo, rol;
                     """,
-                    body.nombre, body.apellido, body.correo.strip().lower(), password_hash, body.rol
+                    body.nombre,
+                    body.apellido,
+                    correo,
+                    password_hash,
+                    body.rol
+                )
+
+                if not nuevo:
+                    raise HTTPException(
+                        status_code=409,
+                        detail="Ya existe un usuario con ese correo."
+                    )
+
+                await conn.execute(
+                    """
+                    INSERT INTO TOKEN_ACTIVACION
+                    (
+                        usuario_id,
+                        token_hash,
+                        fecha_expiracion
+                    )
+                    VALUES ($1, $2, $3);
+                    """,
+                    nuevo["id_usuario"],
+                    token_hash,
+                    expiracion
                 )
 
                 await conn.execute(
                     """
-                    INSERT INTO log_auditoria (usuario_id, accion, detalle)
+                    INSERT INTO log_auditoria
+                    (usuario_id, accion, detalle)
                     VALUES ($1, 'CREATE_USUARIO', $2);
                     """,
                     usuario.id_usuario,
-                    f"Usuario creado: {nuevo['correo']} (id {nuevo['id_usuario']})"
+                    f"Usuario creado: {correo}"
                 )
 
-            return dict(nuevo)
+        # El correo se envía después del COMMIT
+        enlace = (
+            f"{frontend_url.rstrip('/')}"
+            f"/activar-cuenta?token={token}"
+        )
+
+        mensaje = (
+            f"Hola {body.nombre},\n\n"
+            "Un administrador ha creado tu cuenta "
+            "en SupportAI.\n\n"
+            f"Correo de acceso: {correo}\n\n"
+            "Para crear tu contraseña ingresa aquí:\n"
+            f"{enlace}\n\n"
+            "Este enlace vence en 30 minutos.\n\n"
+            "Equipo SupportAI"
+        )
+
+        correo_enviado = True
+
+        try:
+            await asyncio.to_thread(
+                enviar_correo,
+                correo,
+                "Bienvenido a SupportAI - Activa tu cuenta",
+                mensaje
+            )
+        except Exception:
+            correo_enviado = False
+            logger.exception(
+                "No se pudo enviar la invitación al usuario %s",
+                nuevo["id_usuario"]
+            )
+
+        return {
+            **dict(nuevo),
+            "cuenta_activada": False,
+            "correo_enviado": correo_enviado,
+            "mensaje": (
+                "Usuario creado. Invitación enviada."
+                if correo_enviado
+                else "Usuario creado, pero no se pudo enviar "
+                     "la invitación."
+            )
+        }
+
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error("Error en POST /api/admin/usuarios: %s", e, exc_info=True)
-        raise HTTPException(status_code=500, detail="Ocurrió un error al crear el usuario.")
+    except Exception:
+        logger.exception("Error al crear usuario")
+        raise HTTPException(
+            status_code=500,
+            detail="Ocurrió un error al crear el usuario."
+        )
+
 
 
 # ============================================================

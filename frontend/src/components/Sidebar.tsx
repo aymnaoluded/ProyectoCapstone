@@ -17,18 +17,23 @@ import {
   CheckCircle,
   Clock,
   Loader2,
+  LockKeyhole
 } from "lucide-react";
+
 import type { Usuario, ConversacionResumen } from "../types";
+import { API_URL } from "../utils/api";
 
 export type VistaApp =
   // Cliente
   | "chat"
   | "mis_tickets"
-  // Ejecutivo / Admin
+
+  // Ejecutivo / Administrador
   | "bandeja_tickets"
   | "tickets_asignados"
   | "historial_tickets"
-  // Admin
+
+  // Administrador
   | "admin_conocimiento"
   | "admin_usuarios"
   | "metricas"
@@ -43,71 +48,111 @@ interface SidebarProps {
   onSeleccionarConversacion?: (id: number) => void;
   onNuevaConversacion?: () => void;
   refreshHistorialTrigger?: number;
+
+  // Seguridad de la cuenta
+  mostrarSeguridad: boolean;
+  onCambiarPassword: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
   usuario,
-  vistaActiva,
+
+  // Conservamos la vista original de App.tsx
+  vistaActiva: vistaActual,
+
   setVistaActiva,
   onCerrarSesion,
   conversacionActivaId,
   onSeleccionarConversacion,
   onNuevaConversacion,
   refreshHistorialTrigger = 0,
+  mostrarSeguridad,
+  onCambiarPassword
 }) => {
-  const [conversaciones, setConversaciones] = useState<ConversacionResumen[]>([]);
-  const [cargandoHistorial, setCargandoHistorial] = useState(false);
+  const [conversaciones, setConversaciones] =
+    useState<ConversacionResumen[]>([]);
+
+  const [cargandoHistorial, setCargandoHistorial] =
+    useState(false);
+    
+  const vistaActiva: VistaApp | null = mostrarSeguridad
+    ? null
+    : vistaActual;
+
+  // ============================================================
+  // CARGAR HISTORIAL DE CONVERSACIONES
+  // ============================================================
 
   useEffect(() => {
     if (!usuario || usuario.rol_nombre !== "Cliente") return;
 
     const cargarHistorial = async () => {
       setCargandoHistorial(true);
+
       try {
         const token = localStorage.getItem("access_token");
+
         const res = await fetch(
-          `http://localhost:8000/api/chat/conversaciones?cliente_id=${usuario.id_usuario}`,
+          `${API_URL}/api/chat/conversaciones?cliente_id=${usuario.id_usuario}`,
           {
-            headers: token ? { Authorization: `Bearer ${token}` } : {},
+            headers: token
+              ? { Authorization: `Bearer ${token}` }
+              : {},
           }
         );
+
         if (res.ok) {
           const data = await res.json();
-          setConversaciones(Array.isArray(data) ? data : []);
+
+          setConversaciones(
+            Array.isArray(data) ? data : []
+          );
         }
       } catch (err) {
-        console.error("Error al cargar historial de conversaciones:", err);
+        console.error(
+          "Error al cargar historial de conversaciones:",
+          err
+        );
       } finally {
         setCargandoHistorial(false);
       }
     };
 
     cargarHistorial();
-  }, [usuario?.id_usuario, usuario?.rol_nombre, refreshHistorialTrigger]);
+  }, [
+    usuario?.id_usuario,
+    usuario?.rol_nombre,
+    refreshHistorialTrigger
+  ]);
 
-  // Si usuario no existe en memoria durante el render, previene el colapso del DOM
+
   if (!usuario) {
     return null;
   }
 
-  const categorizarFecha = (
-    fechaStr?: string
-  ): "Hoy" | "Ayer" | "Últimos 7 días" | "Anteriores" => {
+
+  const categorizarFecha = (fechaStr?: string): "Hoy" | "Ayer" | "Últimos 7 días" | "Anteriores" => {
     if (!fechaStr) return "Anteriores";
+
     try {
       const fecha = new Date(fechaStr.replace(" ", "T"));
+
       const ahora = new Date();
 
       const fechaDia = new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate());
+
       const hoyDia = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
 
       const diffTiempo = hoyDia.getTime() - fechaDia.getTime();
+
       const diffDias = Math.floor(diffTiempo / (1000 * 60 * 60 * 24));
 
       if (diffDias <= 0) return "Hoy";
       if (diffDias === 1) return "Ayer";
       if (diffDias <= 7) return "Últimos 7 días";
+
       return "Anteriores";
+
     } catch {
       return "Anteriores";
     }
@@ -115,34 +160,45 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const formatearHoraOFecha = (fechaStr?: string, grupo?: string): string => {
     if (!fechaStr) return "";
+
     try {
       const fecha = new Date(fechaStr.replace(" ", "T"));
-      const hora = fecha.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-      if (grupo === "Hoy") {
-        return hora;
-      }
-      if (grupo === "Ayer") {
-        return `Ayer ${hora}`;
-      }
+
+      const hora = fecha.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"});
+
+      if (grupo === "Hoy") {return hora;}
+
+      if (grupo === "Ayer") {return `Ayer ${hora}`;}
+
       const dia = String(fecha.getDate()).padStart(2, "0");
+
       const mes = String(fecha.getMonth() + 1).padStart(2, "0");
+
       return `${dia}/${mes} ${hora}`;
+
     } catch {
       return "";
     }
   };
 
-  const gruposOrden: ("Hoy" | "Ayer" | "Últimos 7 días" | "Anteriores")[] = [
+  const gruposOrden: (
+    | "Hoy"
+    | "Ayer"
+    | "Últimos 7 días"
+    | "Anteriores"
+  )[] = [
     "Hoy",
     "Ayer",
     "Últimos 7 días",
-    "Anteriores",
+    "Anteriores"
   ];
 
-  const grupos = gruposOrden.reduce<Record<string, ConversacionResumen[]>>(
+  const grupos = gruposOrden.reduce<
+    Record<string, ConversacionResumen[]>>(
     (acc, grupo) => {
       acc[grupo] = conversaciones.filter(
-        (c) => categorizarFecha(c.fecha_ultimo_mensaje || c.fecha_inicio) === grupo
+        (c) =>
+          categorizarFecha(c.fecha_ultimo_mensaje || c.fecha_inicio) === grupo
       );
       return acc;
     },
@@ -485,27 +541,62 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Perfil Footer Seguro */}
-      <div className="p-4 border-t border-slate-800 space-y-4 shrink-0 bg-[#111827]">
+      
+      {/* Perfil Footer Seguro */}
+      <div className="p-4 border-t border-slate-800 space-y-3 shrink-0 bg-[#111827]">
+        {/* CAMBIAR CONTRASEÑA */}
+        <button
+          type="button"
+          onClick={onCambiarPassword}
+          className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-sm font-medium rounded-xl transition-all cursor-pointer ${
+            mostrarSeguridad
+              ? "bg-blue-600 text-white shadow-sm shadow-blue-600/20"
+              : "text-slate-400 hover:text-white hover:bg-slate-800/60"
+          }`}
+        >
+          <LockKeyhole size={18} />
+
+          <span>
+            {mostrarSeguridad
+              ? "Volver al panel"
+              : "Cambiar contraseña"}
+          </span>
+
+          {mostrarSeguridad && (
+            <ChevronRight size={15} className="ml-auto" />
+          )}
+        </button>
+
+        {/* SEPARADOR */}
+        <div className="border-t border-slate-800/80" />
+
+        {/* DATOS DEL USUARIO */}
         <div className="flex items-center gap-3 px-2">
           <div className="w-9 h-9 rounded-xl bg-rose-500 text-white font-semibold text-sm flex items-center justify-center shrink-0">
             {inicialNombre}
           </div>
+
           <div className="overflow-hidden">
             <p className="text-base font-medium text-white truncate leading-tight">
               {usuario.nombre || "Usuario"} {usuario.apellido || ""}
             </p>
-            <p className="text-sm text-slate-400 truncate">{usuario.correo || ""}</p>
+
+            <p className="text-sm text-slate-400 truncate">
+              {usuario.correo || ""}
+            </p>
           </div>
         </div>
 
+        {/* CERRAR SESIÓN */}
         <button
+          type="button"
           onClick={onCerrarSesion}
-          className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 
-          rounded-xl transition-colors cursor-pointer"
+          className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 rounded-xl transition-colors cursor-pointer"
         >
           <LogOut size={18} />
           <span>Cerrar sesión</span>
         </button>
+
       </div>
     </aside>
   );

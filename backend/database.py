@@ -1,5 +1,4 @@
 import os
-# pyrefly: ignore [missing-import]
 import asyncpg
 from dotenv import load_dotenv
 

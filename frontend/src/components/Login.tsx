@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Sparkles, Lock, Mail, ArrowRight, AlertCircle, Loader2 } from "lucide-react";
 import type { Usuario } from "../types";
 import { guardarSesionSegura } from "../utils/storage";
+import { API_URL } from "../utils/api";
 
 interface LoginProps {
   onLoginSuccess: (user: Usuario) => void;
@@ -19,7 +20,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     setCargando(true);
 
     try {
-      const res = await fetch("http://localhost:8000/api/auth/login", {
+      const res = await fetch(`${API_URL}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ correo, password }),
@@ -118,6 +119,15 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition-all"
               />
             </div>
+          </div>
+          
+          <div className="flex justify-end">
+            <a
+              href="/recuperar-password"
+              className="text-xs sm:text-sm font-semibold text-blue-600 hover:text-blue-700 transition-colors"
+            >
+              ¿Olvidaste tu contraseña?
+            </a>
           </div>
 
           <button

@@ -10,21 +10,29 @@ import { LogAuditoria } from "./components/LogAuditoria";
 import { MisSolicitudes } from "./components/MisSolicitudes";
 import { BandejaEjecutivo } from "./components/BandejaEjecutivo";
 import { MetricasSistema } from "./components/MetricasSistema";
+import ActivarCuenta from "./components/ActivarCuenta"
+import RecuperarPassword from "./components/RecuperarPassword";
+import RestablecerPassword from "./components/RestablecerPassword";
+import CambiarPassword from "./components/CambiarPassword";
 import {
   obtenerSesionSegura,
   eliminarSesionSegura,
 } from "./utils/storage";
 import { tokenVigente } from "./utils/api";
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
 export default function App() {
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [vistaActiva, setVistaActivaState] = useState<VistaApp>("chat");
   const [conversacionActivaId, setConversacionActivaId] = useState<number | null>(null);
   const [refreshHistorialTrigger, setRefreshHistorialTrigger] = useState(0);
+  const [mostrarSeguridad, setMostrarSeguridad] = useState(false);
 
   const setVistaActiva = (nuevaVista: VistaApp) => {
-    setVistaActivaState(nuevaVista);
-    localStorage.setItem("vistaActiva", nuevaVista);
+  setMostrarSeguridad(false);
+  setVistaActivaState(nuevaVista);
+  localStorage.setItem("vistaActiva", nuevaVista);
   };
 
   const limpiarSesionLocal = () => {
@@ -43,7 +51,7 @@ export default function App() {
 
     try {
       const token = localStorage.getItem("access_token");
-      const res = await fetch("http://localhost:8000/api/chat/nueva", {
+      const res = await fetch(`${API_URL}/api/chat/nueva`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -117,7 +125,7 @@ export default function App() {
       }
 
       const token = localStorage.getItem("access_token");
-      fetch("http://localhost:8000/api/admin/usuarios/heartbeat", {
+      fetch(`${API_URL}/api/admin/usuarios/heartbeat`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -146,7 +154,7 @@ export default function App() {
     const token = localStorage.getItem("access_token");
     if (token) {
       try {
-        await fetch("http://localhost:8000/api/admin/usuarios/desconectar", {
+        await fetch(`${API_URL}/api/admin/usuarios/desconectar`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -159,53 +167,106 @@ export default function App() {
     limpiarSesionLocal();
   };
 
+  // Ruta pública para activar cuentas desde Gmail
+  if (window.location.pathname === "/activar-cuenta") {
+    return <ActivarCuenta />;
+  }
+
+  if (window.location.pathname === "/recuperar-password") {
+  return <RecuperarPassword />;
+  }
+
+  if (window.location.pathname === "/restablecer-password") {
+  return <RestablecerPassword />;
+  }
+
   if (!usuario) {
     return <Login onLoginSuccess={handleLogin} />;
   }
 
-  return (
-    <div className="flex h-screen w-screen bg-slate-100 overflow-hidden font-sans">
-      <Sidebar
-        usuario={usuario}
-        vistaActiva={vistaActiva}
-        setVistaActiva={setVistaActiva}
-        onCerrarSesion={handleCerrarSesion}
-        conversacionActivaId={conversacionActivaId}
-        onSeleccionarConversacion={handleSeleccionarConversacion}
-        onNuevaConversacion={handleNuevaConversacion}
-        refreshHistorialTrigger={refreshHistorialTrigger}
-      />
 
-      <main className="flex-1 flex flex-col h-full overflow-hidden bg-white">
-        {/* VISTAS CLIENTE */}
-        {vistaActiva === "chat" && (
-          <Chat
-            usuario={usuario}
-            conversacionIdProp={conversacionActivaId}
-            onConversacionCreada={handleConversacionCreada}
-            onConversacionActualizada={handleConversacionActualizada}
-            onNuevaConversacion={handleNuevaConversacion}
-          />
-        )}
-        {vistaActiva === "mis_tickets" && <MisSolicitudes usuario={usuario} />}
+return (
+  <div className="flex h-screen w-screen bg-slate-100 overflow-hidden font-sans">
+    <Sidebar
+      usuario={usuario}
+      vistaActiva={vistaActiva}
+      setVistaActiva={setVistaActiva}
+      onCerrarSesion={handleCerrarSesion}
+      conversacionActivaId={conversacionActivaId}
+      onSeleccionarConversacion={handleSeleccionarConversacion}
+      onNuevaConversacion={handleNuevaConversacion}
+      refreshHistorialTrigger={refreshHistorialTrigger}
+      mostrarSeguridad={mostrarSeguridad}
+      onCambiarPassword={() =>
+        setMostrarSeguridad((anterior) => !anterior)
+      }
+    />
 
-        {/* BANDEJA DE TICKETS (Ejecutivo y Administrador) */}
-        {vistaActiva === "bandeja_tickets" && (
-          <BandejaEjecutivo usuario={usuario} />
-        )}
-        {vistaActiva === "tickets_asignados" && (
-          <BandejaEjecutivo usuario={usuario} soloAsignados={true}/>
-        )}
-        {vistaActiva === "historial_tickets" && (
-          <BandejaEjecutivo usuario={usuario} soloHistorial={true}/>
-        )}
+    <main className="flex-1 flex flex-col h-full overflow-hidden bg-white">
+      {/* CONTENIDO PRINCIPAL */}
+      {mostrarSeguridad ? (
 
-        {/* VISTAS ADMINISTRADOR */}
-        {vistaActiva === "admin_conocimiento" && <BaseConocimiento usuario={usuario} />}
-        {vistaActiva === "admin_usuarios" && <GestionUsuarios />}
-        {vistaActiva === "metricas" && <MetricasSistema />}
-        {vistaActiva === "auditoria" && <LogAuditoria />}
-      </main>
-    </div>
-  );
+        /* VISTA DE SEGURIDAD */
+        <CambiarPassword
+          onPasswordCambiada={limpiarSesionLocal}
+        />
+
+      ) : (
+        <>
+          {/* VISTAS CLIENTE */}
+          {vistaActiva === "chat" && (
+            <Chat
+              usuario={usuario}
+              conversacionIdProp={conversacionActivaId}
+              onConversacionCreada={handleConversacionCreada}
+              onConversacionActualizada={handleConversacionActualizada}
+              onNuevaConversacion={handleNuevaConversacion}
+            />
+          )}
+
+          {vistaActiva === "mis_tickets" && (
+            <MisSolicitudes usuario={usuario} />
+          )}
+
+          {/* BANDEJA DE TICKETS (Ejecutivo y Administrador) */}
+          {vistaActiva === "bandeja_tickets" && (
+            <BandejaEjecutivo usuario={usuario} />
+          )}
+
+          {vistaActiva === "tickets_asignados" && (
+            <BandejaEjecutivo
+              usuario={usuario}
+              soloAsignados={true}
+            />
+          )}
+
+          {vistaActiva === "historial_tickets" && (
+            <BandejaEjecutivo
+              usuario={usuario}
+              soloHistorial={true}
+            />
+          )}
+
+          {/* VISTAS ADMINISTRADOR */}
+          {vistaActiva === "admin_conocimiento" && (
+            <BaseConocimiento usuario={usuario} />
+          )}
+
+          {vistaActiva === "admin_usuarios" && (
+            <GestionUsuarios />
+          )}
+
+          {vistaActiva === "metricas" && (
+            <MetricasSistema />
+          )}
+
+          {vistaActiva === "auditoria" && (
+            <LogAuditoria />
+          )}
+        </>
+      )}
+
+    </main>
+  </div>
+);
 }
