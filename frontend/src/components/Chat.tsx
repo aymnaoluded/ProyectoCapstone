@@ -188,6 +188,11 @@ export const Chat: React.FC<ChatProps> = ({
         if (res.status === 409) {
           setYaEscalado(true);
         }
+        if (res.status === 429) {
+          // Límite de mensajes por minuto: se muestra el aviso del servidor
+          const errorData = await res.json().catch(() => null);
+          throw new Error(errorData?.detail || "Enviaste muchos mensajes seguidos. Espera un momento.");
+        }
         throw new Error("Error en la respuesta del asistente");
       }
 
@@ -213,14 +218,16 @@ export const Chat: React.FC<ChatProps> = ({
       } else if (onConversacionActualizada) {
         onConversacionActualizada();
       }
-    } catch {
+    } catch (err) {
+      const esLimite = err instanceof Error && err.message.startsWith("Enviaste muchos mensajes");
       setMensajes((prev) => [
         ...prev,
         {
           id: (Date.now() + 1).toString(),
           emisor: "bot",
-          texto:
-            "Ocurrió un error al contactar el servidor. Por favor intenta nuevamente.",
+          texto: esLimite
+            ? err.message
+            : "Ocurrió un error al contactar el servidor. Por favor intenta nuevamente.",
           hora: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         },
       ]);
@@ -612,6 +619,7 @@ export const Chat: React.FC<ChatProps> = ({
               <input
                 type="text"
                 disabled={cargando}
+                maxLength={2000}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Haz una pregunta sobre los documentos indexados..."
@@ -658,6 +666,7 @@ export const Chat: React.FC<ChatProps> = ({
                 <input
                   type="text"
                   required
+                  maxLength={200}
                   value={tituloTicket}
                   onChange={(e) => setTituloTicket(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -669,6 +678,7 @@ export const Chat: React.FC<ChatProps> = ({
                 <textarea
                   rows={4}
                   required
+                  maxLength={5000}
                   value={descTicket}
                   onChange={(e) => setDescTicket(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"

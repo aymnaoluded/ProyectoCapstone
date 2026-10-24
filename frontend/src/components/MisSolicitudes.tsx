@@ -325,6 +325,7 @@ export const MisSolicitudes: React.FC<MisSolicitudesProps> = ({ usuario }) => {
                 <input
                   type="text"
                   placeholder="Escribe un mensaje para el ejecutivo..."
+                  maxLength={5000}
                   value={nuevoMensaje}
                   onChange={(e) => setNuevoMensaje(e.target.value)}
                   disabled={enviando || ticketSeleccionado.id_estado === 4 || ticketSeleccionado.id_estado === 5}

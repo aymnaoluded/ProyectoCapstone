@@ -1,10 +1,11 @@
 import logging
+import os
 from typing import Optional, List
 from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from database import obtener_db_pool
 from services import generar_embedding_consulta, responder_gemini
-from .auth import get_usuario_actual, UsuarioToken
+from .auth import get_usuario_actual, UsuarioToken, LimitadorIntentos
 
 logger = logging.getLogger(__name__)
 
@@ -12,6 +13,14 @@ router = APIRouter(prefix="/api/chat", tags=["Chat y RAG"])
 
 UMBRAL_ALTA_CONFIANZA = 0.80
 UMBRAL_MEDIA_CONFIANZA = 0.60
+
+MAX_LARGO_MENSAJE = 2000
+
+# Límite de mensajes por usuario para no agotar la cuota de Gemini
+CHAT_MAX_MENSAJES = int(os.getenv("CHAT_MAX_MENSAJES", "10"))
+CHAT_VENTANA_SEGUNDOS = int(os.getenv("CHAT_VENTANA_SEGUNDOS", "60"))
+
+_limitador_chat = LimitadorIntentos(CHAT_MAX_MENSAJES, CHAT_VENTANA_SEGUNDOS)
 
 ROLES_STAFF = ("Administrador", "Ejecutivo")
 
@@ -107,7 +116,7 @@ async def crear_nueva_conversacion(usuario: UsuarioToken = Depends(get_usuario_a
 
 
 class ChatRequest(BaseModel):
-    mensaje: str
+    mensaje: str = Field(..., max_length=MAX_LARGO_MENSAJE)
     conversacion_id: Optional[int] = None
 
 
@@ -130,6 +139,16 @@ class ChatResponse(BaseModel):
 async def chat_rag(body: ChatRequest, usuario: UsuarioToken = Depends(get_usuario_actual)):
     if not body.mensaje.strip():
         raise HTTPException(status_code=400, detail="El mensaje no puede estar vacío.")
+
+    clave_limitador = str(usuario.id_usuario)
+    espera = _limitador_chat.segundos_restantes(clave_limitador)
+    if espera > 0:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Enviaste muchos mensajes seguidos. Espera {espera} segundos antes de volver a preguntar.",
+            headers={"Retry-After": str(espera)}
+        )
+    _limitador_chat.registrar_fallo(clave_limitador)
 
     pool = obtener_db_pool()
     try:

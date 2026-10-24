@@ -509,6 +509,7 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
                   <input
                     type="text"
                     placeholder="Escribe una respuesta para el cliente..."
+                    maxLength={5000}
                     value={nuevoMensaje}
                     onChange={(e) => setNuevoMensaje(e.target.value)}
                     disabled={enviando || ticketSeleccionado.id_estado === 5}

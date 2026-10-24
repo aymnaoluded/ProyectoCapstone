@@ -1,7 +1,7 @@
 import logging
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Query, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from database import obtener_db_pool
 from .auth import get_usuario_actual, requiere_rol, UsuarioToken
 
@@ -14,10 +14,13 @@ ROL_EJECUTIVO = "Ejecutivo"
 ROL_CLIENTE = "Cliente"
 ROLES_STAFF = (ROL_ADMIN, ROL_EJECUTIVO)
 
+MAX_LARGO_TITULO = 200  # igual que TICKET.titulo VARCHAR(200)
+MAX_LARGO_TEXTO = 5000
+
 
 class CrearTicketRequest(BaseModel):
-    titulo: str
-    descripcion: str
+    titulo: str = Field(..., max_length=MAX_LARGO_TITULO)
+    descripcion: str = Field(..., max_length=MAX_LARGO_TEXTO)
     conversacion_id: Optional[int] = None
 
 
@@ -27,7 +30,7 @@ class ActualizarEstadoTicketRequest(BaseModel):
 
 
 class ResponderTicketRequest(BaseModel):
-    contenido: str
+    contenido: str = Field(..., max_length=MAX_LARGO_TEXTO)
 
 
 def _validar_acceso_ticket(usuario: UsuarioToken, cliente_id_ticket: int) -> None:
