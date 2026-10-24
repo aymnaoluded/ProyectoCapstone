@@ -393,15 +393,17 @@ async def heartbeat_usuario(usuario: UsuarioToken = Depends(get_usuario_actual))
 
 @router.post("/usuarios/desconectar")
 async def desconectar_usuario(usuario: UsuarioToken = Depends(get_usuario_actual)):
-    """Limpia el estado al cerrar sesión y registra el evento de LOGOUT en auditoría."""
+    """Limpia el estado al cerrar sesión, invalida el token y registra el evento de LOGOUT en auditoría."""
     pool = obtener_db_pool()
     try:
         async with pool.acquire() as conn:
             async with conn.transaction():
+                # Subir version_sesion invalida el JWT actual (get_usuario_actual compara la versión)
                 await conn.execute(
                     """
-                    UPDATE USUARIO 
-                    SET ultima_conexion = NOW() - INTERVAL '10 minutes' 
+                    UPDATE USUARIO
+                    SET ultima_conexion = NOW() - INTERVAL '10 minutes',
+                        version_sesion = version_sesion + 1
                     WHERE id_usuario = $1;
                     """,
                     usuario.id_usuario
