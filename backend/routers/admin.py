@@ -7,7 +7,7 @@ from gmail_service import enviar_correo
 import logging
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from database import obtener_db_pool
 from .auth import get_usuario_actual, requiere_rol, UsuarioToken
 from .documentos import (
@@ -220,9 +220,42 @@ async def listar_usuarios(usuario: UsuarioToken = Depends(requiere_rol("Administ
         raise HTTPException(status_code=500, detail="Ocurrió un error al listar los usuarios.")
 
 
+@router.get("/ejecutivos")
+async def listar_ejecutivos_asignables(usuario: UsuarioToken = Depends(requiere_rol("Administrador"))):
+    """Personal al que se le puede asignar un ticket: Ejecutivos y Administradores con la cuenta activada."""
+    pool = obtener_db_pool()
+    try:
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT
+                    u.id_usuario,
+                    u.nombre || ' ' || u.apellido AS nombre,
+                    r.nombre AS rol_nombre
+                FROM USUARIO u
+                INNER JOIN ROL r ON u.rol = r.id_rol
+                WHERE r.nombre IN ('Ejecutivo', 'Administrador')
+                  AND u.cuenta_activada = TRUE
+                ORDER BY r.nombre DESC, u.nombre ASC;
+                """
+            )
+
+        return [
+            {
+                "id_usuario": r["id_usuario"],
+                "nombre": r["nombre"],
+                "rol_nombre": r["rol_nombre"]
+            }
+            for r in rows
+        ]
+    except Exception as e:
+        logger.error("Error en GET /api/admin/ejecutivos: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Ocurrió un error al listar los ejecutivos.")
+
+
 class CrearUsuarioRequest(BaseModel):
-    nombre: str
-    apellido: str
+    nombre: str = Field(..., max_length=100)  # igual que USUARIO.nombre VARCHAR(100)
+    apellido: str = Field(..., max_length=100)
     correo: EmailStr
     rol: int
 
@@ -237,6 +270,14 @@ async def crear_usuario(
 ):
     pool = obtener_db_pool()
     correo = body.correo.strip().lower()
+    nombre = body.nombre.strip()
+    apellido = body.apellido.strip()
+
+    if not nombre or not apellido:
+        raise HTTPException(
+            status_code=400,
+            detail="El nombre y el apellido no pueden estar vacíos."
+        )
 
     frontend_url = os.getenv("FRONTEND_URL")
     if not frontend_url:
@@ -264,6 +305,16 @@ async def crear_usuario(
         async with pool.acquire() as conn:
             async with conn.transaction():
 
+                rol_existe = await conn.fetchval(
+                    "SELECT 1 FROM ROL WHERE id_rol = $1;",
+                    body.rol
+                )
+                if not rol_existe:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Rol inválido."
+                    )
+
                 nuevo = await conn.fetchrow(
                     """
                     INSERT INTO USUARIO
@@ -277,8 +328,8 @@ async def crear_usuario(
                         id_usuario, nombre,
                         apellido, correo, rol;
                     """,
-                    body.nombre,
-                    body.apellido,
+                    nombre,
+                    apellido,
                     correo,
                     password_hash,
                     body.rol
@@ -322,7 +373,7 @@ async def crear_usuario(
         )
 
         mensaje = (
-            f"Hola {body.nombre},\n\n"
+            f"Hola {nombre},\n\n"
             "Un administrador ha creado tu cuenta "
             "en SupportAI.\n\n"
             f"Correo de acceso: {correo}\n\n"
