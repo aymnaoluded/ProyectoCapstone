@@ -17,6 +17,10 @@ ROLES_STAFF = (ROL_ADMIN, ROL_EJECUTIVO)
 MAX_LARGO_TITULO = 200  # igual que TICKET.titulo VARCHAR(200)
 MAX_LARGO_TEXTO = 5000
 
+# IDs de ESTADO_TICKET
+ID_ESTADO_RESUELTO = 4
+ID_ESTADO_CERRADO = 5
+
 
 class CrearTicketRequest(BaseModel):
     titulo: str = Field(..., max_length=MAX_LARGO_TITULO)
@@ -284,12 +288,38 @@ async def actualizar_estado_ticket(
     try:
         async with pool.acquire() as conn:
             async with conn.transaction():
-                existe = await conn.fetchrow(
-                    "SELECT 1 FROM TICKET WHERE id_ticket = $1;",
+                # FOR UPDATE evita que dos ejecutivos tomen el mismo ticket al mismo tiempo
+                ticket = await conn.fetchrow(
+                    "SELECT ejecutivo_asignado, estado FROM TICKET WHERE id_ticket = $1 FOR UPDATE;",
                     id_ticket
                 )
-                if not existe:
+                if not ticket:
                     raise HTTPException(status_code=404, detail="Ticket no encontrado")
+
+                # Un ticket cerrado solo lo puede reabrir un Administrador
+                if (
+                    ticket["estado"] == ID_ESTADO_CERRADO
+                    and body.id_estado != ID_ESTADO_CERRADO
+                    and usuario.rol != ROL_ADMIN
+                ):
+                    raise HTTPException(
+                        status_code=403,
+                        detail="Este ticket está cerrado. Solo un administrador puede reabrirlo."
+                    )
+
+                # Un Ejecutivo solo gestiona sus propios tickets; uno sin asignar primero debe tomarlo
+                if usuario.rol == ROL_EJECUTIVO:
+                    asignado = ticket["ejecutivo_asignado"]
+                    if asignado is not None and asignado != usuario.id_usuario:
+                        raise HTTPException(
+                            status_code=403,
+                            detail="Este ticket está asignado a otro ejecutivo."
+                        )
+                    if asignado is None and not body.ejecutivo_id:
+                        raise HTTPException(
+                            status_code=403,
+                            detail="Primero debes tomar el ticket."
+                        )
 
                 estado_row = await conn.fetchrow(
                     "SELECT estado FROM ESTADO_TICKET WHERE id_estado = $1;",
@@ -299,6 +329,28 @@ async def actualizar_estado_ticket(
                     raise HTTPException(status_code=400, detail="Estado inválido")
 
                 if body.ejecutivo_id:
+                    # Un Ejecutivo solo puede asignarse a sí mismo; el Administrador puede asignar a cualquiera del staff
+                    if usuario.rol == ROL_EJECUTIVO and body.ejecutivo_id != usuario.id_usuario:
+                        raise HTTPException(
+                            status_code=403,
+                            detail="Solo puedes asignarte tickets a ti mismo."
+                        )
+
+                    rol_asignado = await conn.fetchval(
+                        """
+                        SELECT r.nombre
+                        FROM USUARIO u
+                        INNER JOIN ROL r ON u.rol = r.id_rol
+                        WHERE u.id_usuario = $1 AND u.cuenta_activada = TRUE;
+                        """,
+                        body.ejecutivo_id
+                    )
+                    if rol_asignado not in ROLES_STAFF:
+                        raise HTTPException(
+                            status_code=400,
+                            detail="El usuario indicado no es un ejecutivo o administrador activo."
+                        )
+
                     await conn.execute(
                         """
                         UPDATE TICKET 
@@ -349,13 +401,31 @@ async def responder_ticket(
         async with pool.acquire() as conn:
             async with conn.transaction():
                 ticket = await conn.fetchrow(
-                    "SELECT cliente FROM TICKET WHERE id_ticket = $1;",
+                    "SELECT cliente, ejecutivo_asignado, estado FROM TICKET WHERE id_ticket = $1;",
                     id_ticket
                 )
                 if not ticket:
                     raise HTTPException(status_code=404, detail="Ticket no encontrado")
 
                 _validar_acceso_ticket(usuario, ticket["cliente"])
+
+                # Mismas reglas que la interfaz: cerrado no admite mensajes; resuelto, solo del personal
+                if ticket["estado"] == ID_ESTADO_CERRADO:
+                    raise HTTPException(
+                        status_code=409,
+                        detail="Este ticket está cerrado y ya no admite mensajes."
+                    )
+                if ticket["estado"] == ID_ESTADO_RESUELTO and usuario.rol == ROL_CLIENTE:
+                    raise HTTPException(
+                        status_code=409,
+                        detail="Este ticket fue marcado como resuelto. Si necesitas más ayuda, crea una nueva solicitud."
+                    )
+
+                if usuario.rol == ROL_EJECUTIVO and ticket["ejecutivo_asignado"] != usuario.id_usuario:
+                    raise HTTPException(
+                        status_code=403,
+                        detail="Solo puedes responder tickets asignados a ti. Toma el ticket primero."
+                    )
 
                 row = await conn.fetchrow(
                     """

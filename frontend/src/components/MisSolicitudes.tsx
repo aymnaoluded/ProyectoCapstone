@@ -238,9 +238,10 @@ export const MisSolicitudes: React.FC<MisSolicitudesProps> = ({ usuario }) => {
               {/* Encabezado del ticket seleccionado */}
               <div className="p-5 border-b border-slate-200 bg-white space-y-3 shrink-0">
                 <div className="flex items-start justify-between gap-4">
-                  <div>
+                  {/* min-w-0 + overflow-wrap: un texto largo sin espacios no desborda la tarjeta */}
+                  <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-slate-900">
+                      <span className="text-sm font-bold text-slate-900 [overflow-wrap:anywhere]">
                         Ticket #{ticketSeleccionado.id_ticket}: {ticketSeleccionado.titulo}
                       </span>
                       <span
@@ -251,7 +252,7 @@ export const MisSolicitudes: React.FC<MisSolicitudesProps> = ({ usuario }) => {
                         {ticketSeleccionado.estado}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-500 mt-1">{ticketSeleccionado.descripcion}</p>
+                    <p className="text-xs text-slate-500 mt-1 [overflow-wrap:anywhere]">{ticketSeleccionado.descripcion}</p>
                   </div>
 
                   {ticketSeleccionado.calificacion && (
@@ -306,7 +307,7 @@ export const MisSolicitudes: React.FC<MisSolicitudesProps> = ({ usuario }) => {
                           {esMio ? "Tú" : m.autor_nombre} · {m.fecha}
                         </span>
                         <div
-                          className={`rounded-2xl px-4 py-2.5 text-xs leading-relaxed ${
+                          className={`rounded-2xl px-4 py-2.5 text-xs leading-relaxed [overflow-wrap:anywhere] ${
                             esMio
                               ? "bg-blue-600 text-white rounded-br-xs shadow-xs"
                               : "bg-white text-slate-800 border border-slate-200/80 rounded-bl-xs shadow-xs"

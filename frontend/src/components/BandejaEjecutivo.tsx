@@ -43,6 +43,12 @@ interface MensajeTicket {
   autor_rol: number;
 }
 
+interface PersonalAsignable {
+  id_usuario: number;
+  nombre: string;
+  rol_nombre: string;
+}
+
 interface BandejaEjecutivoProps {
   usuario: Usuario;
   soloAsignados?: boolean;
@@ -50,6 +56,8 @@ interface BandejaEjecutivoProps {
   soloHistorial?: boolean;
 }
 
+const ID_ESTADO_PENDIENTE = 1;
+const ID_ESTADO_EN_PROCESO = 2;
 const ID_ESTADO_CERRADO = 5;
 
 const ESTADOS_DISPONIBLES = [
@@ -74,6 +82,24 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
   const [nuevoMensaje, setNuevoMensaje] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [actualizandoEstado, setActualizandoEstado] = useState(false);
+  const [personalAsignable, setPersonalAsignable] = useState<PersonalAsignable[]>([]);
+
+  const esAdmin = usuario.rol_nombre === "Administrador";
+
+  // Muestra el mensaje de error del backend (por ejemplo, un 403 si el ticket ya no es de este ejecutivo)
+  const mostrarErrorApi = async (res: Response, porDefecto: string) => {
+    const errorData = await res.json().catch(() => null);
+    alert(typeof errorData?.detail === "string" ? errorData.detail : porDefecto);
+  };
+
+  // Solo el Administrador puede asignar tickets a otras personas
+  useEffect(() => {
+    if (!esAdmin || soloHistorial) return;
+    fetch(`${API_URL}/api/admin/ejecutivos`, { headers: cabecerasAuth() })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => setPersonalAsignable(Array.isArray(data) ? data : []))
+      .catch((err) => console.error("Error al cargar ejecutivos:", err));
+  }, [esAdmin, soloHistorial]);
 
   const cargarTickets = async () => {
     setCargando(true);
@@ -173,6 +199,11 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
             // Bandeja de Tickets (Ejecutivo), que solo lista los sin asignar: al tomarlo, sale de la lista
             : prev.filter((t) => t.id_ticket !== ticketSeleccionado.id_ticket)
         );
+      } else {
+        // Por ejemplo, otro ejecutivo lo tomó antes: se avisa y se recarga la bandeja
+        await mostrarErrorApi(res, "No se pudo tomar el ticket.");
+        setTicketSeleccionado(null);
+        cargarTickets();
       }
     } catch (err) {
       console.error("Error al tomar ticket:", err);
@@ -204,9 +235,50 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
         setTickets((prev) =>
           prev.map((t) => (t.id_ticket === ticketSeleccionado.id_ticket ? datosActualizados : t))
         );
+      } else {
+        await mostrarErrorApi(res, "No se pudo actualizar el estado del ticket.");
       }
     } catch (err) {
       console.error("Error al actualizar estado:", err);
+    } finally {
+      setActualizandoEstado(false);
+    }
+  };
+
+  const handleAsignar = async (ejecutivoId: number) => {
+    if (!ticketSeleccionado || ticketSeleccionado.ejecutivo?.id === ejecutivoId) return;
+    const persona = personalAsignable.find((p) => p.id_usuario === ejecutivoId);
+    // Si estaba Pendiente pasa a En Proceso (ya tiene responsable); si no, se mantiene su estado
+    const nuevoEstadoId =
+      ticketSeleccionado.id_estado === ID_ESTADO_PENDIENTE ? ID_ESTADO_EN_PROCESO : ticketSeleccionado.id_estado;
+    setActualizandoEstado(true);
+    try {
+      const res = await fetch(`${API_URL}/api/tickets/${ticketSeleccionado.id_ticket}/estado`, {
+        method: "PATCH",
+        headers: cabecerasAuth({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          id_estado: nuevoEstadoId,
+          ejecutivo_id: ejecutivoId
+        })
+      });
+
+      if (res.ok) {
+        const estadoObj = ESTADOS_DISPONIBLES.find((e) => e.id === nuevoEstadoId);
+        const datosActualizados: TicketItem = {
+          ...ticketSeleccionado,
+          id_estado: nuevoEstadoId,
+          estado: estadoObj?.nombre || ticketSeleccionado.estado,
+          ejecutivo: { id: ejecutivoId, nombre: persona?.nombre || "Ejecutivo" }
+        };
+        setTicketSeleccionado(datosActualizados);
+        setTickets((prev) =>
+          prev.map((t) => (t.id_ticket === ticketSeleccionado.id_ticket ? datosActualizados : t))
+        );
+      } else {
+        await mostrarErrorApi(res, "No se pudo asignar el ticket.");
+      }
+    } catch (err) {
+      console.error("Error al asignar ticket:", err);
     } finally {
       setActualizandoEstado(false);
     }
@@ -240,6 +312,8 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
           }
         ]);
         setNuevoMensaje("");
+      } else {
+        await mostrarErrorApi(res, "No se pudo enviar el mensaje.");
       }
     } catch (err) {
       console.error("Error al enviar mensaje:", err);
@@ -382,9 +456,10 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
               {/* Encabezado y Barra de Acción del Ticket */}
               <div className="p-5 border-b border-slate-200 bg-white space-y-4 shrink-0">
                 <div className="flex items-start justify-between gap-4">
-                  <div>
+                  {/* min-w-0 + overflow-wrap: un texto largo sin espacios no empuja fuera de vista los controles */}
+                  <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <h2 className="text-base font-bold text-slate-900">
+                      <h2 className="text-base font-bold text-slate-900 [overflow-wrap:anywhere]">
                         #{ticketSeleccionado.id_ticket} - {ticketSeleccionado.titulo}
                       </h2>
                       <span
@@ -395,29 +470,56 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
                         {ticketSeleccionado.estado}
                       </span>
                     </div>
-                    <p className="text-sm text-slate-600 mt-1.5">{ticketSeleccionado.descripcion}</p>
+                    <p className="text-sm text-slate-600 mt-1.5 [overflow-wrap:anywhere]">{ticketSeleccionado.descripcion}</p>
                   </div>
 
                   {/* Acciones de Asignación / Estado (no disponibles en el historial: es solo lectura) */}
                   {!soloHistorial && (
                     <div className="flex items-center gap-2 shrink-0">
+                      {/* El Administrador puede asignar el ticket a cualquier ejecutivo activo */}
+                      {esAdmin && (
+                        <div className="flex items-center gap-2">
+                          <label className="text-[11px] font-medium text-slate-500">Asignado a:</label>
+                          <select
+                            value={ticketSeleccionado.ejecutivo?.id ?? ""}
+                            onChange={(e) => handleAsignar(Number(e.target.value))}
+                            disabled={actualizandoEstado || personalAsignable.length === 0}
+                            className="text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-slate-700 focus:outline-none focus:ring-1
+                            focus:ring-blue-500 cursor-pointer disabled:opacity-50"
+                          >
+                            <option value="" disabled>
+                              Sin asignar
+                            </option>
+                            {personalAsignable.map((p) => (
+                              <option key={p.id_usuario} value={p.id_usuario}>
+                                {p.id_usuario === usuario.id_usuario ? `${p.nombre} (yo)` : p.nombre}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+
+                      {/* Sin responsable: el Ejecutivo lo toma (el Admin usa el selector). Con responsable: se cambia el estado */}
                       {!ticketSeleccionado.ejecutivo ? (
-                        <button
-                          onClick={handleTomarTicket}
-                          disabled={actualizandoEstado}
-                          className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-1.5 rounded-xl transition-all 
-                          shadow-xs disabled:opacity-50 cursor-pointer"
-                        >
-                          <UserCheck size={14} />
-                          <span>Tomar Ticket</span>
-                        </button>
+                        !esAdmin && (
+                          <button
+                            onClick={handleTomarTicket}
+                            disabled={actualizandoEstado}
+                            className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-1.5 rounded-xl transition-all
+                            shadow-xs disabled:opacity-50 cursor-pointer"
+                          >
+                            <UserCheck size={14} />
+                            <span>Tomar Ticket</span>
+                          </button>
+                        )
                       ) : (
                         <div className="flex items-center gap-2">
                           <label className="text-[11px] font-medium text-slate-500">Estado:</label>
                           <select
                             value={ticketSeleccionado.id_estado}
                             onChange={(e) => handleCambiarEstado(Number(e.target.value))}
-                            disabled={actualizandoEstado}
+                            // Un ticket cerrado solo lo puede reabrir el Administrador
+                            disabled={actualizandoEstado || (!esAdmin && ticketSeleccionado.id_estado === ID_ESTADO_CERRADO)}
                             className="text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-slate-700 focus:outline-none focus:ring-1 
                             focus:ring-blue-500 cursor-pointer disabled:opacity-50"
                           >
@@ -485,7 +587,7 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
                           {esMio ? "Tú" : m.autor_nombre} · {m.fecha}
                         </span>
                         <div
-                          className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+                          className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed [overflow-wrap:anywhere] ${
                             esMio
                               ? "bg-blue-600 text-white rounded-br-xs shadow-xs"
                               : "bg-white text-slate-800 border border-slate-200/80 rounded-bl-xs shadow-xs"
@@ -503,6 +605,11 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
               {soloHistorial ? (
                 <div className="p-4 bg-slate-50 border-t border-slate-200 text-center text-xs text-slate-500">
                   Este ticket está cerrado. Se muestra en modo consulta.
+                </div>
+              ) : !esAdmin && ticketSeleccionado.ejecutivo?.id !== usuario.id_usuario ? (
+                // El Ejecutivo solo responde los tickets asignados a él
+                <div className="p-4 bg-slate-50 border-t border-slate-200 text-center text-xs text-slate-500">
+                  Toma el ticket para poder responder al cliente.
                 </div>
               ) : (
                 <form onSubmit={handleEnviarMensaje} className="p-4 bg-white border-t border-slate-200 flex gap-2">
