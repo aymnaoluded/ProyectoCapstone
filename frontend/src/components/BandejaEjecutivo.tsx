@@ -10,6 +10,7 @@ import {
   UserCheck,
   Star,
   MessageSquare,
+  RotateCcw,
 } from "lucide-react";
 import type { Usuario } from "../types";
 import { cabecerasAuth, API_URL } from "../utils/api";
@@ -245,6 +246,35 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
     }
   };
 
+  // Solo el Administrador reabre tickets cerrados (el backend rechaza a los demás roles)
+  const handleReabrir = async () => {
+    if (!ticketSeleccionado) return;
+    if (!window.confirm(`¿Reabrir el ticket #${ticketSeleccionado.id_ticket}? Volverá a la bandeja de tickets activos.`)) return;
+
+    // Con responsable vuelve a En Proceso; sin responsable, a Pendiente para que alguien lo tome
+    const nuevoEstadoId = ticketSeleccionado.ejecutivo ? ID_ESTADO_EN_PROCESO : ID_ESTADO_PENDIENTE;
+    setActualizandoEstado(true);
+    try {
+      const res = await fetch(`${API_URL}/api/tickets/${ticketSeleccionado.id_ticket}/estado`, {
+        method: "PATCH",
+        headers: cabecerasAuth({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ id_estado: nuevoEstadoId })
+      });
+
+      if (res.ok) {
+        // Deja de estar cerrado: sale del historial
+        setTickets((prev) => prev.filter((t) => t.id_ticket !== ticketSeleccionado.id_ticket));
+        setTicketSeleccionado(null);
+      } else {
+        await mostrarErrorApi(res, "No se pudo reabrir el ticket.");
+      }
+    } catch (err) {
+      console.error("Error al reabrir ticket:", err);
+    } finally {
+      setActualizandoEstado(false);
+    }
+  };
+
   const handleAsignar = async (ejecutivoId: number) => {
     if (!ticketSeleccionado || ticketSeleccionado.ejecutivo?.id === ejecutivoId) return;
     const persona = personalAsignable.find((p) => p.id_usuario === ejecutivoId);
@@ -472,6 +502,19 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
                     </div>
                     <p className="text-sm text-slate-600 mt-1.5 [overflow-wrap:anywhere]">{ticketSeleccionado.descripcion}</p>
                   </div>
+
+                  {/* Historial: es de solo lectura, salvo el botón para que el Administrador reabra el ticket */}
+                  {soloHistorial && esAdmin && (
+                    <button
+                      onClick={handleReabrir}
+                      disabled={actualizandoEstado}
+                      className="flex items-center gap-1.5 shrink-0 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-semibold
+                      px-3 py-1.5 rounded-xl transition-all shadow-xs disabled:opacity-50 cursor-pointer"
+                    >
+                      <RotateCcw size={14} />
+                      <span>Reabrir ticket</span>
+                    </button>
+                  )}
 
                   {/* Acciones de Asignación / Estado (no disponibles en el historial: es solo lectura) */}
                   {!soloHistorial && (
