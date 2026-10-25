@@ -446,7 +446,8 @@ export const Chat: React.FC<ChatProps> = ({
                   </div>
                 )}
 
-                <div className="space-y-1 max-w-[85%] sm:max-w-[75%]">
+                {/* min-w-0 + overflow-wrap: un texto largo sin espacios no desborda la burbuja ni el chat */}
+                <div className="space-y-1 max-w-[85%] sm:max-w-[75%] min-w-0">
                   <div
                     className={`p-4 rounded-2xl text-[13.5px] leading-relaxed shadow-xs ${
                       m.emisor === "user"
@@ -454,7 +455,7 @@ export const Chat: React.FC<ChatProps> = ({
                         : "bg-white text-slate-800 border border-slate-200/80 rounded-tl-xs"
                     }`}
                   >
-                    <div className="whitespace-pre-wrap">{m.texto}</div>
+                    <div className="whitespace-pre-wrap [overflow-wrap:anywhere]">{m.texto}</div>
 
                     {/* Botón contextual de escalamiento si el bot tiene dudas */}
                     {m.emisor === "bot" && m.escalarEjecutivo && !finalizado && !yaEscalado && (
@@ -505,7 +506,7 @@ export const Chat: React.FC<ChatProps> = ({
                             <span className="font-semibold text-slate-700">
                               Fragmento #{f.id_fragmento} ({Math.round(f.similitud * 100)}%):
                             </span>
-                            <p className="italic text-slate-600 mt-0.5">"{f.extracto}"</p>
+                            <p className="italic text-slate-600 mt-0.5 [overflow-wrap:anywhere]">"{f.extracto}"</p>
                           </div>
                         ))}
                       </div>
