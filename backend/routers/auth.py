@@ -163,12 +163,8 @@ def generar_hash_token(token: str) -> str:
 
 
 def obtener_frontend_url() -> str:
-    frontend_url = os.getenv("FRONTEND_URL", "").strip()
-
-    if not frontend_url:
-        raise RuntimeError("Falta configurar FRONTEND_URL.")
-
-    return frontend_url.rstrip("/")
+    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173").strip()
+    return (frontend_url or "http://localhost:5173").rstrip("/")
 
 
 def crear_access_token(usuario_id: int, rol_nombre: str, version_sesion: int) -> str:

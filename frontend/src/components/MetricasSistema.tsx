@@ -9,7 +9,9 @@ import {
   Loader2,
   AlertTriangle,
   CheckCircle2,
-  Ticket
+  Ticket,
+  Mail,
+  Send,
 } from "lucide-react";
 
 interface MetricasData {
@@ -38,6 +40,70 @@ export const MetricasSistema: React.FC = () => {
   const [metricas, setMetricas] = useState<MetricasData | null>(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Diagnóstico de integración Gmail (OAuth 2.0)
+  const [estadoGmail, setEstadoGmail] = useState<any>(null);
+  const [cargandoGmail, setCargandoGmail] = useState(false);
+  const [destinatarioPrueba, setDestinatarioPrueba] = useState("");
+  const [enviandoPrueba, setEnviandoPrueba] = useState(false);
+  const [resultadoPrueba, setResultadoPrueba] = useState<{ exito: boolean; mensaje: string } | null>(null);
+
+  const consultarEstadoGmail = async () => {
+    setCargandoGmail(true);
+    try {
+      const token = localStorage.getItem("access_token");
+      const res = await fetch("http://localhost:8000/api/admin/gmail/estado", {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setEstadoGmail(data);
+      }
+    } catch (err) {
+      console.error("Error al consultar estado de Gmail:", err);
+    } finally {
+      setCargandoGmail(false);
+    }
+  };
+
+  const handleProbarGmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!destinatarioPrueba.trim()) return;
+
+    setEnviandoPrueba(true);
+    setResultadoPrueba(null);
+    try {
+      const token = localStorage.getItem("access_token");
+      const res = await fetch("http://localhost:8000/api/admin/gmail/probar", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ destinatario: destinatarioPrueba.trim() }),
+      });
+      const data = await res.json();
+      if (res.ok && data.exito) {
+        setResultadoPrueba({
+          exito: true,
+          mensaje: data.mensaje || "Correo de prueba enviado con éxito.",
+        });
+        setDestinatarioPrueba("");
+      } else {
+        setResultadoPrueba({
+          exito: false,
+          mensaje: data.detail || "No se pudo despachar el correo de prueba.",
+        });
+      }
+    } catch (err: any) {
+      setResultadoPrueba({
+        exito: false,
+        mensaje: err.message || "Error de red al intentar enviar correo.",
+      });
+    } finally {
+      setEnviandoPrueba(false);
+    }
+  };
 
   const cargarMetricas = async () => {
     setCargando(true);
@@ -68,6 +134,7 @@ export const MetricasSistema: React.FC = () => {
 
   useEffect(() => {
     cargarMetricas();
+    consultarEstadoGmail();
   }, []);
 
   if (cargando && !metricas) {
@@ -265,6 +332,150 @@ export const MetricasSistema: React.FC = () => {
                   );
                 })
               )}
+            </div>
+          </div>
+        </div>
+
+        {/* Diagnóstico de Integración Gmail API (OAuth 2.0) */}
+        <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div className="flex items-center gap-2">
+              <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
+                <Mail size={18} />
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-slate-800">
+                  Estado de la Integración Gmail API (OAuth 2.0)
+                </h2>
+                <p className="text-[11px] text-slate-400">
+                  Servicio de notificaciones, invitaciones y recuperación de contraseñas
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={consultarEstadoGmail}
+              disabled={cargandoGmail}
+              title="Refrescar estado de Gmail"
+              className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+            >
+              <RefreshCw size={14} className={cargandoGmail ? "animate-spin text-blue-600" : ""} />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-1">
+            {/* Estado y Diagnóstico */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100 text-xs">
+                <span className="font-semibold text-slate-600">Estado de Operación:</span>
+                {estadoGmail?.simulado ? (
+                  <span className="px-2.5 py-1 rounded-full font-bold text-[10px] bg-amber-100 text-amber-800 flex items-center gap-1">
+                    <AlertTriangle size={12} />
+                    <span>Modo Simulación (Desarrollo)</span>
+                  </span>
+                ) : estadoGmail?.exito ? (
+                  <span className="px-2.5 py-1 rounded-full font-bold text-[10px] bg-emerald-100 text-emerald-800 flex items-center gap-1">
+                    <CheckCircle2 size={12} />
+                    <span>Conexión OAuth 2.0 Activa</span>
+                  </span>
+                ) : (
+                  <span className="px-2.5 py-1 rounded-full font-bold text-[10px] bg-slate-200 text-slate-700">
+                    Consultando...
+                  </span>
+                )}
+              </div>
+
+              <div className="space-y-2 text-xs">
+                <div className="flex justify-between py-1 border-b border-slate-50">
+                  <span className="text-slate-500">Remitente configurado:</span>
+                  <span className="font-semibold text-slate-800">
+                    {estadoGmail?.detalles?.remitente || "Sin configurar"}
+                  </span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-slate-50">
+                  <span className="text-slate-500">Client ID:</span>
+                  <span className="font-mono text-[11px] text-slate-700">
+                    {estadoGmail?.detalles?.client_id_enmascarado || "No configurado"}
+                  </span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-slate-50">
+                  <span className="text-slate-500">Refresh Token (OAuth 2.0):</span>
+                  <span className="font-semibold">
+                    {estadoGmail?.detalles?.refresh_token_presente ? (
+                      <span className="text-emerald-600">Configurado ✓</span>
+                    ) : (
+                      <span className="text-amber-600">No detectado</span>
+                    )}
+                  </span>
+                </div>
+              </div>
+
+              {estadoGmail?.simulado && (
+                <div className="p-3 bg-amber-50/70 border border-amber-200/80 rounded-xl text-[11px] text-amber-800 leading-relaxed">
+                  <strong>Nota para producción:</strong> Para despachar correos reales, configura en tu archivo <code className="bg-amber-100/70 px-1 py-0.5 rounded font-mono">backend/.env</code> las variables <code className="font-mono">GMAIL_CLIENT_ID</code>, <code className="font-mono">GMAIL_CLIENT_SECRET</code>, <code className="font-mono">GMAIL_REFRESH_TOKEN</code> y <code className="font-mono">GMAIL_SENDER</code>.
+                </div>
+              )}
+            </div>
+
+            {/* Herramienta de Envío de Prueba */}
+            <div className="bg-slate-50/70 p-4 rounded-xl border border-slate-100 flex flex-col justify-between space-y-3">
+              <div>
+                <h3 className="text-xs font-bold text-slate-800 flex items-center gap-1.5 mb-1">
+                  <Send size={14} className="text-blue-600" />
+                  Prueba de Envío en Vivo
+                </h3>
+                <p className="text-[11px] text-slate-500 leading-snug">
+                  Verifica que los correos electrónicos se envíen y reciban correctamente sin salir de la plataforma.
+                </p>
+              </div>
+
+              {resultadoPrueba && (
+                <div
+                  className={`p-2.5 rounded-xl border text-xs flex items-start gap-2 ${
+                    resultadoPrueba.exito
+                      ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                      : "bg-rose-50 border-rose-200 text-rose-800"
+                  }`}
+                >
+                  {resultadoPrueba.exito ? (
+                    <CheckCircle2 size={15} className="text-emerald-600 shrink-0 mt-0.5" />
+                  ) : (
+                    <AlertTriangle size={15} className="text-rose-600 shrink-0 mt-0.5" />
+                  )}
+                  <span className="leading-snug">{resultadoPrueba.mensaje}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleProbarGmail} className="space-y-2">
+                <div>
+                  <input
+                    type="email"
+                    required
+                    placeholder="ejemplo@correo.com"
+                    value={destinatarioPrueba}
+                    onChange={(e) => setDestinatarioPrueba(e.target.value)}
+                    disabled={enviandoPrueba}
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={enviandoPrueba || !destinatarioPrueba.trim()}
+                  className="w-full flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-semibold py-2 px-3 rounded-xl transition-all shadow-xs shadow-blue-500/20 cursor-pointer"
+                >
+                  {enviandoPrueba ? (
+                    <>
+                      <Loader2 size={13} className="animate-spin" />
+                      <span>Despachando correo de prueba...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send size={13} />
+                      <span>Enviar Correo de Verificación</span>
+                    </>
+                  )}
+                </button>
+              </form>
             </div>
           </div>
         </div>

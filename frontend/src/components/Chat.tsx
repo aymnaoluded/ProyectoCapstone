@@ -13,10 +13,10 @@ import {
   X,
   Loader2,
   Plus,
-  BookOpen,
+  BookOpen
 } from "lucide-react";
 import type { Mensaje, Usuario, ConversacionDetalle } from "../types";
-import { cabecerasAuth } from "../utils/api";
+import { cabecerasAuth, API_URL } from "../utils/api";
 
 interface ChatProps {
   usuario: Usuario;
@@ -51,10 +51,9 @@ export const Chat: React.FC<ChatProps> = ({
   const [finalizado, setFinalizado] = useState(false);
   const [calificacion, setCalificacion] = useState<number | null>(null);
   const [calificacionEnviada, setCalificacionEnviada] = useState(false);
-  // true si esta conversación ya generó un ticket (evita escalar dos veces el mismo chat)
   const [yaEscalado, setYaEscalado] = useState(false);
 
-  // Estado para modal de escalamiento a ticket
+  // Modal de escalamiento
   const [modalEscalar, setModalEscalar] = useState(false);
   const [tituloTicket, setTituloTicket] = useState("");
   const [descTicket, setDescTicket] = useState("");
@@ -62,10 +61,8 @@ export const Chat: React.FC<ChatProps> = ({
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Efecto para cargar conversación existente cuando cambia conversacionIdProp
   useEffect(() => {
     if (!conversacionIdProp) {
-      // Nueva conversación en blanco
       setConversacionId(null);
       setConversacionInfo(null);
       setMensajes([
@@ -84,12 +81,11 @@ export const Chat: React.FC<ChatProps> = ({
       return;
     }
 
-    // Cargar historial de conversación seleccionada
     const cargarConversacion = async () => {
       setCargandoHistorial(true);
       try {
         const res = await fetch(
-          `http://localhost:8000/api/chat/conversaciones/${conversacionIdProp}`,
+          `${API_URL}/api/chat/conversaciones/${conversacionIdProp}`,
           { headers: cabecerasAuth() }
         );
         if (!res.ok) throw new Error("Error al cargar la conversación");
@@ -139,8 +135,7 @@ export const Chat: React.FC<ChatProps> = ({
 
   const abrirModalEscalar = (motivoSugerido?: string) => {
     setTituloTicket(
-      motivoSugerido ||
-        `Consulta escalada desde chat #${conversacionId || "general"}`
+      motivoSugerido || `Consulta escalada desde chat #${conversacionId || "general"}`
     );
 
     const contextoConversacion = mensajes
@@ -150,8 +145,7 @@ export const Chat: React.FC<ChatProps> = ({
       .join("\n\n");
 
     setDescTicket(
-      contextoConversacion ||
-        "El cliente requiere atención personalizada de un ejecutivo humano."
+      contextoConversacion || "El cliente requiere atención personalizada de un ejecutivo humano."
     );
     setModalEscalar(true);
   };
@@ -175,7 +169,7 @@ export const Chat: React.FC<ChatProps> = ({
     const esPrimeraPregunta = !conversacionId;
 
     try {
-      const res = await fetch("http://localhost:8000/api/chat", {
+      const res = await fetch(`${API_URL}/api/chat`, {
         method: "POST",
         headers: cabecerasAuth({ "Content-Type": "application/json" }),
         body: JSON.stringify({
@@ -207,7 +201,6 @@ export const Chat: React.FC<ChatProps> = ({
 
       setMensajes((prev) => [...prev, nuevoMsgBot]);
 
-      // Notificar para que el historial en el sidebar se actualice con nuevo chat o nuevo timestamp
       if (esPrimeraPregunta && onConversacionCreada) {
         onConversacionCreada(data.conversacion_id);
       } else if (onConversacionActualizada) {
@@ -219,8 +212,7 @@ export const Chat: React.FC<ChatProps> = ({
         {
           id: (Date.now() + 1).toString(),
           emisor: "bot",
-          texto:
-            "Ocurrió un error al contactar el servidor. Por favor intenta nuevamente.",
+          texto: "Ocurrió un error al contactar el servidor. Por favor intenta nuevamente.",
           hora: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         },
       ]);
@@ -235,7 +227,7 @@ export const Chat: React.FC<ChatProps> = ({
 
     setEscalando(true);
     try {
-      const res = await fetch("http://localhost:8000/api/tickets", {
+      const res = await fetch(`${API_URL}/api/tickets`, {
         method: "POST",
         headers: cabecerasAuth({ "Content-Type": "application/json" }),
         body: JSON.stringify({
@@ -260,7 +252,6 @@ export const Chat: React.FC<ChatProps> = ({
         ]);
         if (onConversacionActualizada) onConversacionActualizada();
       } else if (res.status === 409) {
-        // Ya existía un ticket para esta conversación (por ejemplo, escalada en otra pestaña)
         const errorData = await res.json().catch(() => null);
         setYaEscalado(true);
         setModalEscalar(false);
@@ -282,7 +273,7 @@ export const Chat: React.FC<ChatProps> = ({
     }
 
     try {
-      await fetch("http://localhost:8000/api/chat/finalizar", {
+      await fetch(`${API_URL}/api/chat/finalizar`, {
         method: "POST",
         headers: cabecerasAuth({ "Content-Type": "application/json" }),
         body: JSON.stringify({ conversacion_id: conversacionId }),
@@ -303,7 +294,7 @@ export const Chat: React.FC<ChatProps> = ({
     }
 
     try {
-      await fetch("http://localhost:8000/api/chat/finalizar", {
+      await fetch(`${API_URL}/api/chat/finalizar`, {
         method: "POST",
         headers: cabecerasAuth({ "Content-Type": "application/json" }),
         body: JSON.stringify({
@@ -319,64 +310,62 @@ export const Chat: React.FC<ChatProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-[#f8fafc] overflow-hidden">
-      {/* Cabecera del Chat */}
-      <div className="bg-white border-b border-slate-200/80 px-6 py-3.5 flex items-center justify-between shrink-0 shadow-xs">
+    <div className="flex-1 flex flex-col h-full bg-transparent overflow-hidden relative">
+      {/* Cabecera del Chat - Liquid Glass Bar */}
+      <div className="liquid-glass border-b border-[var(--border-glass)] px-5 py-3.5 flex items-center justify-between shrink-0 shadow-xs z-10">
         <div className="flex items-center gap-3 overflow-hidden">
-          <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs shrink-0">
-            <Sparkles size={18} />
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#007AFF] to-[#5856D6] text-white flex items-center justify-center shadow-md shadow-blue-500/20 shrink-0 ring-1 ring-white/20">
+            <Sparkles size={20} />
           </div>
           <div className="overflow-hidden">
             <div className="flex items-center gap-2">
-              <h2 className="text-base font-bold text-slate-800 truncate">
+              <h2 className="text-sm font-semibold tracking-tight text-[var(--text-primary)] truncate">
                 {conversacionInfo?.titulo || "Soporte Virtual IA"}
               </h2>
               {conversacionId && (
-                <span className="text-[11px] font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                <span className="text-[10px] font-semibold text-[var(--accent-primary)] bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded-full">
                   #{conversacionId}
                 </span>
               )}
             </div>
-            <p className="text-[14px] font-medium flex items-center gap-1.5 truncate">
+            <p className="text-xs font-medium flex items-center gap-1.5 truncate mt-0.5">
               {finalizado ? (
-                <span className="text-slate-500 flex items-center gap-1">
-                  <BookOpen size={12} className="text-slate-400" />
+                <span className="text-[var(--text-tertiary)] flex items-center gap-1">
+                  <BookOpen size={12} />
                   Modo lectura · Conversación finalizada
                 </span>
               ) : (
-                <span className="text-emerald-600 flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                  En línea · RAG habilitado
+                <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  En línea · Asistente con IA & RAG
                 </span>
               )}
             </p>
           </div>
         </div>
 
-        {/* Acciones superiores */}
+        {/* Acciones superiores con estilo Glass Pill */}
         <div className="flex items-center gap-2">
           {!finalizado && (
             <>
               {yaEscalado ? (
-                <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/70 px-3 py-1.5 rounded-xl">
+                <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-full">
                   <CheckCircle size={14} />
-                  <span className="hidden md:inline">Ya escalado a un ejecutivo</span>
+                  <span className="hidden sm:inline">Escalado a ejecutivo</span>
                 </span>
               ) : (
                 <button
                   onClick={() => abrirModalEscalar("Solicitud directa de atención con ejecutivo")}
-                  className="flex items-center gap-1.5 text-xs font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200/70 
-                  px-3 py-1.5 rounded-xl transition-all cursor-pointer"
+                  className="flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 px-3 py-1.5 rounded-full transition-all cursor-pointer shadow-xs active:scale-95"
                 >
                   <Headphones size={14} />
-                  <span className="hidden md:inline">Hablar con ejecutivo</span>
+                  <span className="hidden sm:inline">Hablar con ejecutivo</span>
                 </button>
               )}
 
               <button
                 onClick={handleFinalizarConversacion}
-                className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/80 
-                px-3 py-1.5 rounded-xl transition-all cursor-pointer"
+                className="flex items-center gap-1.5 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] liquid-glass border border-[var(--border-glass)] hover:bg-[var(--bg-card-hover)] px-3 py-1.5 rounded-full transition-all cursor-pointer shadow-xs active:scale-95"
               >
                 <CheckCircle size={14} />
                 <span>Finalizar</span>
@@ -387,22 +376,21 @@ export const Chat: React.FC<ChatProps> = ({
       </div>
 
       {/* Área del Hilo Centralizado */}
-      <div className="flex-1 overflow-y-auto px-4 py-6">
+      <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 apple-scrollbar">
         <div className="max-w-3xl mx-auto space-y-5">
-          {/* Banner si el chat está finalizado en modo lectura */}
+          {/* Banner si el chat está finalizado */}
           {finalizado && !cargandoHistorial && (
-            <div className="bg-gradient-to-r from-slate-50 to-blue-50/40 border border-slate-200/90 rounded-2xl p-4 flex flex-col sm:flex-row items-start 
-            sm:items-center justify-between gap-3 shadow-xs">
+            <div className="liquid-glass border border-[var(--border-glass)] rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm animate-fade-in">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
-                  <CheckCircle size={16} />
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                  <CheckCircle size={18} />
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-slate-800">
+                  <p className="text-xs font-semibold text-[var(--text-primary)]">
                     Conversación finalizada{" "}
                     {conversacionInfo?.fecha_fin ? `el ${conversacionInfo.fecha_fin}` : ""}
                   </p>
-                  <p className="text-[11px] text-slate-500">
+                  <p className="text-[11px] text-[var(--text-secondary)]">
                     Estás visualizando este chat en modo consulta histórica.
                   </p>
                 </div>
@@ -411,11 +399,10 @@ export const Chat: React.FC<ChatProps> = ({
               {onNuevaConversacion && (
                 <button
                   onClick={onNuevaConversacion}
-                  className="text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 px-3.5 py-1.5 rounded-xl transition-all shadow-xs cursor-pointer 
-                  flex items-center gap-1 shrink-0"
+                  className="apple-btn-primary text-xs font-semibold px-4 py-2 rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5 shrink-0"
                 >
-                  <Plus size={13} />
-                  <span>Iniciar nuevo chat</span>
+                  <Plus size={14} />
+                  <span>Nuevo chat</span>
                 </button>
               )}
             </div>
@@ -423,57 +410,56 @@ export const Chat: React.FC<ChatProps> = ({
 
           {/* Estado de Carga del Historial */}
           {cargandoHistorial ? (
-            <div className="flex flex-col items-center justify-center py-16 space-y-3 text-slate-400">
-              <Loader2 size={24} className="animate-spin text-blue-600" />
-              <p className="text-xs">Cargando conversación...</p>
+            <div className="flex flex-col items-center justify-center py-20 space-y-3 text-[var(--text-tertiary)]">
+              <Loader2 size={26} className="animate-spin text-[var(--accent-primary)]" />
+              <p className="text-xs font-medium">Recuperando conversación...</p>
             </div>
           ) : (
             mensajes.map((m) => (
               <div
                 key={m.id}
-                className={`flex gap-3.5 ${m.emisor === "user" ? "justify-end" : "justify-start"}`}
+                className={`flex gap-3.5 ${m.emisor === "user" ? "justify-end" : "justify-start"} animate-scale-up`}
               >
                 {m.emisor === "bot" && (
-                  <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5">
+                  <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#007AFF] to-[#5856D6] text-white flex items-center justify-center shrink-0 shadow-sm mt-0.5 ring-1 ring-white/20">
                     <Sparkles size={15} />
                   </div>
                 )}
 
                 <div className="space-y-1 max-w-[85%] sm:max-w-[75%]">
                   <div
-                    className={`p-4 rounded-2xl text-[13.5px] leading-relaxed shadow-xs ${
+                    className={`p-4 rounded-2xl text-[13.5px] leading-relaxed ${
                       m.emisor === "user"
-                        ? "bg-blue-600 text-white rounded-br-xs"
-                        : "bg-white text-slate-800 border border-slate-200/80 rounded-tl-xs"
+                        ? "bg-gradient-to-r from-[#007AFF] to-[#0A84FF] text-white shadow-md shadow-blue-500/20 rounded-br-xs"
+                        : "liquid-glass border border-[var(--border-glass)] text-[var(--text-primary)] rounded-tl-xs shadow-xs"
                     }`}
                   >
                     <div className="whitespace-pre-wrap">{m.texto}</div>
 
-                    {/* Botón contextual de escalamiento si el bot tiene dudas */}
+                    {/* Botón contextual de escalamiento */}
                     {m.emisor === "bot" && m.escalarEjecutivo && !finalizado && !yaEscalado && (
-                      <div className="mt-3 pt-3 border-t border-slate-100">
+                      <div className="mt-3 pt-3 border-t border-[var(--border-subtle)]">
                         <button
                           onClick={() => abrirModalEscalar("Duda no resuelta por la IA")}
-                          className="w-full flex items-center justify-center gap-2 py-2 px-3 text-xs font-semibold text-amber-900 bg-amber-50 hover:bg-amber-100 border 
-                          border-amber-200 rounded-xl transition-colors cursor-pointer"
+                          className="w-full flex items-center justify-center gap-2 py-2 px-3 text-xs font-medium text-amber-800 dark:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 rounded-xl transition-all cursor-pointer active:scale-98"
                         >
-                          <Headphones size={13} />
-                          <span>¿Esta respuesta no resuelve tu problema? Escalar con un ejecutivo</span>
+                          <Headphones size={14} />
+                          <span>¿No resuelve tu duda? Escalar con un ejecutivo humano</span>
                         </button>
                       </div>
                     )}
 
-                    {/* Insignia de Confianza (solo bot) */}
+                    {/* Insignia de Confianza estilo Apple */}
                     {m.emisor === "bot" && m.nivelConfianza && (
-                      <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px]">
+                      <div className="mt-3 pt-2.5 border-t border-[var(--border-subtle)] flex items-center justify-between text-[11px]">
                         <div className="flex items-center gap-1.5 font-medium">
                           {m.nivelConfianza === "ALTA" ? (
-                            <span className="text-emerald-600 flex items-center gap-1">
-                              <ShieldCheck size={13} /> Alta Confianza ({Math.round((m.scoreMaximo || 0) * 100)}%)
+                            <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                              <ShieldCheck size={14} /> Alta Confianza ({Math.round((m.scoreMaximo || 0) * 100)}%)
                             </span>
                           ) : (
-                            <span className="text-amber-600 flex items-center gap-1">
-                              <AlertTriangle size={13} /> Confianza Parcial ({Math.round((m.scoreMaximo || 0) * 100)}%)
+                            <span className="text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                              <AlertTriangle size={14} /> Confianza Parcial ({Math.round((m.scoreMaximo || 0) * 100)}%)
                             </span>
                           )}
                         </div>
@@ -481,24 +467,24 @@ export const Chat: React.FC<ChatProps> = ({
                         {m.fuentes && m.fuentes.length > 0 && (
                           <button
                             onClick={() => toggleFuentes(m.id)}
-                            className="text-slate-400 hover:text-slate-700 flex items-center gap-0.5 text-[11px] transition-colors cursor-pointer"
+                            className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] flex items-center gap-1 text-[11px] transition-colors cursor-pointer"
                           >
                             <span>{m.fuentes.length} fuentes</span>
-                            {mostrarFuentes[m.id] ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                            {mostrarFuentes[m.id] ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
                           </button>
                         )}
                       </div>
                     )}
 
-                    {/* Despliegue de fuentes RAG */}
+                    {/* Despliegue de fuentes RAG en Glass card */}
                     {mostrarFuentes[m.id] && m.fuentes && (
-                      <div className="mt-2 space-y-1.5 bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
+                      <div className="mt-2.5 space-y-1.5 bg-[var(--bg-surface-elevated)] p-3 rounded-xl border border-[var(--border-subtle)]">
                         {m.fuentes.map((f) => (
-                          <div key={f.id_fragmento} className="text-[11px] text-slate-500">
-                            <span className="font-semibold text-slate-700">
+                          <div key={f.id_fragmento} className="text-[11px] text-[var(--text-secondary)]">
+                            <span className="font-semibold text-[var(--text-primary)]">
                               Fragmento #{f.id_fragmento} ({Math.round(f.similitud * 100)}%):
                             </span>
-                            <p className="italic text-slate-600 mt-0.5">"{f.extracto}"</p>
+                            <p className="italic text-[var(--text-secondary)] mt-0.5">"{f.extracto}"</p>
                           </div>
                         ))}
                       </div>
@@ -506,7 +492,7 @@ export const Chat: React.FC<ChatProps> = ({
                   </div>
 
                   <span
-                    className={`text-[10px] text-slate-400 block px-1.5 ${
+                    className={`text-[10px] text-[var(--text-tertiary)] block px-1.5 ${
                       m.emisor === "user" ? "text-right" : "text-left"
                     }`}
                   >
@@ -515,7 +501,7 @@ export const Chat: React.FC<ChatProps> = ({
                 </div>
 
                 {m.emisor === "user" && (
-                  <div className="w-8 h-8 rounded-xl bg-slate-800 text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5">
+                  <div className="w-8 h-8 rounded-xl bg-[var(--bg-surface-elevated)] border border-[var(--border-glass)] text-[var(--text-secondary)] flex items-center justify-center shrink-0 shadow-xs mt-0.5">
                     <User size={15} />
                   </div>
                 )}
@@ -523,26 +509,31 @@ export const Chat: React.FC<ChatProps> = ({
             ))
           )}
 
+          {/* Indicador de escritura animado Apple */}
           {cargando && (
-            <div className="flex gap-3.5 justify-start">
-              <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 animate-pulse mt-0.5">
-                <Sparkles size={15} />
+            <div className="flex gap-3.5 justify-start animate-fade-in">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#007AFF] to-[#5856D6] text-white flex items-center justify-center shrink-0 shadow-sm mt-0.5 ring-1 ring-white/20">
+                <Sparkles size={15} className="animate-spin" />
               </div>
-              <div className="bg-white border border-slate-200/80 rounded-2xl rounded-tl-xs px-4 py-3 text-xs text-slate-500 shadow-xs flex items-center gap-2">
-                <Loader2 size={13} className="animate-spin text-blue-600" />
-                <span>Consultando en base de conocimiento...</span>
+              <div className="liquid-glass border border-[var(--border-glass)] rounded-2xl rounded-tl-xs px-4 py-3 text-xs text-[var(--text-secondary)] shadow-xs flex items-center gap-2.5">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-[var(--accent-primary)] animate-bounce" style={{ animationDelay: "0ms" }}></span>
+                  <span className="w-2 h-2 rounded-full bg-[var(--accent-primary)] animate-bounce" style={{ animationDelay: "150ms" }}></span>
+                  <span className="w-2 h-2 rounded-full bg-[var(--accent-primary)] animate-bounce" style={{ animationDelay: "300ms" }}></span>
+                </div>
+                <span className="font-medium text-[11px]">Consultando en base de conocimiento...</span>
               </div>
             </div>
           )}
 
           {/* Tarjeta de Calificación al finalizar */}
           {finalizado && !cargandoHistorial && (
-            <div className="bg-white border border-slate-200/80 rounded-2xl p-6 text-center max-w-md mx-auto my-4 space-y-3 shadow-sm">
-              <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center mx-auto">
-                <CheckCircle size={22} />
+            <div className="liquid-glass-elevated border border-[var(--border-glass)] rounded-3xl p-6 text-center max-w-md mx-auto my-6 space-y-3 shadow-lg">
+              <div className="w-12 h-12 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-2xl flex items-center justify-center mx-auto shadow-xs">
+                <CheckCircle size={26} />
               </div>
-              <h3 className="text-sm font-bold text-slate-800">Conversación finalizada</h3>
-              <p className="text-xs text-slate-500">¿Cómo evaluarías la atención del asistente?</p>
+              <h3 className="text-sm font-bold text-[var(--text-primary)]">Conversación finalizada</h3>
+              <p className="text-xs text-[var(--text-secondary)]">¿Cómo evaluarías la atención del asistente inteligente?</p>
 
               {!calificacionEnviada ? (
                 <div className="flex justify-center gap-2 pt-2">
@@ -550,17 +541,17 @@ export const Chat: React.FC<ChatProps> = ({
                     <button
                       key={est}
                       onClick={() => enviarCalificacion(est)}
-                      className="p-1 text-slate-300 hover:text-amber-400 hover:scale-110 transition-all cursor-pointer"
+                      className="p-1.5 text-[var(--text-tertiary)] hover:text-amber-400 hover:scale-125 active:scale-95 transition-all cursor-pointer"
                     >
                       <Star
-                        size={22}
+                        size={24}
                         className={calificacion && calificacion >= est ? "fill-amber-400 text-amber-400" : ""}
                       />
                     </button>
                   ))}
                 </div>
               ) : (
-                <div className="text-xs text-emerald-700 bg-emerald-50 py-1.5 px-3 rounded-xl inline-block font-semibold">
+                <div className="text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 py-2 px-4 rounded-xl inline-block font-semibold">
                   ¡Gracias por calificar con {calificacion} estrellas!
                 </div>
               )}
@@ -571,19 +562,18 @@ export const Chat: React.FC<ChatProps> = ({
         </div>
       </div>
 
-      {/* Input de Mensaje fijado al pie */}
-      <div className="bg-white border-t border-slate-200/80 p-4 shrink-0">
+      {/* Input de Mensaje Flotante estilo Cápsula Apple */}
+      <div className="p-4 sm:p-5 shrink-0 relative z-10">
         <div className="max-w-3xl mx-auto">
           {finalizado ? (
-            <div className="flex items-center justify-between gap-4 bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 text-xs text-slate-500">
-              <span className="font-medium text-slate-600">
+            <div className="liquid-glass border border-[var(--border-glass)] rounded-2xl px-5 py-3.5 text-xs text-[var(--text-secondary)] flex items-center justify-between gap-4 shadow-sm">
+              <span className="font-medium text-[var(--text-secondary)]">
                 Esta conversación ha concluido. Puedes iniciar una nueva consulta en cualquier momento.
               </span>
               {onNuevaConversacion && (
                 <button
                   onClick={onNuevaConversacion}
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-xl transition-all shadow-xs cursor-pointer flex items-center 
-                  gap-1.5 shrink-0"
+                  className="apple-btn-primary px-4 py-2 rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5 shrink-0 text-xs font-semibold"
                 >
                   <Plus size={14} />
                   <span>Nueva consulta</span>
@@ -591,16 +581,15 @@ export const Chat: React.FC<ChatProps> = ({
               )}
             </div>
           ) : yaEscalado ? (
-            <div className="flex items-center justify-between gap-4 bg-amber-50 border border-amber-200 rounded-2xl px-5 py-3 text-xs text-amber-800">
+            <div className="liquid-glass border border-amber-500/20 rounded-2xl px-5 py-3.5 text-xs text-amber-800 dark:text-amber-300 flex items-center justify-between gap-4 shadow-sm bg-amber-500/5">
               <span className="font-medium flex items-center gap-2">
-                <Headphones size={15} className="shrink-0" />
-                Esta conversación fue escalada a un ticket. Sigue el caso y responde desde "Mis solicitudes".
+                <Headphones size={16} className="shrink-0 text-amber-600 dark:text-amber-400" />
+                Esta conversación fue escalada a un ticket. Puedes seguir su avance en "Mis Solicitudes".
               </span>
               {onNuevaConversacion && (
                 <button
                   onClick={onNuevaConversacion}
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-xl transition-all shadow-xs cursor-pointer flex items-center 
-                  gap-1.5 shrink-0"
+                  className="apple-btn-primary px-4 py-2 rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5 shrink-0 text-xs font-semibold"
                 >
                   <Plus size={14} />
                   <span>Nueva consulta</span>
@@ -614,79 +603,84 @@ export const Chat: React.FC<ChatProps> = ({
                 disabled={cargando}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Haz una pregunta sobre los documentos indexados..."
-                className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 pl-4 pr-12 text-xs sm:text-sm text-slate-800 placeholder-slate-400 
-                focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition-all disabled:opacity-50"
+                placeholder="Escribe tu consulta sobre los documentos..."
+                className="liquid-input w-full rounded-2xl py-3.5 pl-5 pr-14 text-sm text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:outline-none transition-all shadow-sm"
               />
               <button
                 type="submit"
                 disabled={cargando || !input.trim()}
-                className="absolute right-2 w-8 h-8 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white flex items-center justify-center 
-                transition-all shadow-xs cursor-pointer"
+                aria-label="Enviar mensaje"
+                className="absolute right-2 w-9 h-9 rounded-xl bg-[var(--accent-primary)] hover:brightness-110 active:scale-95 disabled:opacity-40 text-white flex items-center justify-center transition-all shadow-sm shadow-blue-500/25 cursor-pointer"
               >
-                <Send size={14} />
+                <Send size={15} />
               </button>
             </form>
           )}
         </div>
       </div>
 
-      {/* Modal de Escalamiento a Ticket */}
+      {/* Modal de Escalamiento a Ticket estilo iOS Sheet */}
       {modalEscalar && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="liquid-glass-elevated border border-[var(--border-glass)] rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl space-y-4 animate-scale-up">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-amber-600">
-                <Headphones size={20} />
-                <h2 className="text-base font-bold text-slate-900">Escalar a un ejecutivo</h2>
+              <div className="flex items-center gap-2.5 text-amber-600 dark:text-amber-400">
+                <div className="w-9 h-9 rounded-xl bg-amber-500/10 flex items-center justify-center border border-amber-500/20">
+                  <Headphones size={20} />
+                </div>
+                <h2 className="text-base font-bold text-[var(--text-primary)]">Escalar a un ejecutivo</h2>
               </div>
               <button
                 onClick={() => setModalEscalar(false)}
-                className="text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                className="p-1 rounded-full text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)] transition-colors cursor-pointer"
               >
                 <X size={18} />
               </button>
             </div>
 
-            <p className="text-xs text-slate-500">
-              Generaremos un ticket formal para que nuestro equipo continúe tu atención.
+            <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+              Generaremos un ticket formal para que nuestro equipo continúe tu atención de manera personalizada.
             </p>
 
-            <form onSubmit={handleEscalarTicket} className="space-y-3">
+            <form onSubmit={handleEscalarTicket} className="space-y-3.5">
               <div>
-                <label className="text-xs font-medium text-slate-700 block mb-1">Título del caso</label>
+                <label className="text-xs font-semibold text-[var(--text-secondary)] block mb-1">
+                  Título del caso
+                </label>
                 <input
                   type="text"
                   required
                   value={tituloTicket}
                   onChange={(e) => setTituloTicket(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="liquid-input w-full rounded-xl px-3.5 py-2.5 text-sm text-[var(--text-primary)] focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="text-xs font-medium text-slate-700 block mb-1">Descripción / Contexto</label>
+                <label className="text-xs font-semibold text-[var(--text-secondary)] block mb-1">
+                  Descripción / Contexto
+                </label>
                 <textarea
                   rows={4}
                   required
                   value={descTicket}
                   onChange={(e) => setDescTicket(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="liquid-input w-full rounded-xl p-3 text-xs text-[var(--text-primary)] focus:outline-none resize-none"
                 />
               </div>
 
-              <div className="pt-2 flex justify-end gap-2">
+              <div className="pt-2 flex justify-end gap-2.5">
                 <button
                   type="button"
                   onClick={() => setModalEscalar(false)}
-                  className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+                  className="px-4 py-2 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)] rounded-xl transition-all cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={escalando}
-                  className="bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-xs font-semibold px-4 py-2 rounded-xl transition-colors cursor-pointer"
+                  className="apple-btn-primary text-xs font-semibold px-4 py-2.5 rounded-xl transition-all cursor-pointer shadow-sm disabled:opacity-50"
                 >
                   {escalando ? "Creando ticket..." : "Confirmar y Escalar"}
                 </button>

@@ -17,6 +17,8 @@ async def iniciar_db_pool():
     async with pool.acquire() as conn:
         await conn.execute("ALTER TABLE CONVERSACION ADD COLUMN IF NOT EXISTS calificacion INTEGER;")
         await conn.execute("ALTER TABLE CONVERSACION ADD COLUMN IF NOT EXISTS titulo VARCHAR(255);")
+        await conn.execute("ALTER TABLE DOCUMENTO ADD COLUMN IF NOT EXISTS hash_archivo VARCHAR(64);")
+        await conn.execute("CREATE INDEX IF NOT EXISTS idx_documento_hash ON DOCUMENTO(hash_archivo);")
 
 async def cerrar_db_pool():
     global pool

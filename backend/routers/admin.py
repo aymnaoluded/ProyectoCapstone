@@ -3,7 +3,12 @@ import hashlib
 import os
 import secrets
 from datetime import datetime, timedelta, timezone
-from gmail_service import enviar_correo
+from gmail_service import (
+    enviar_correo,
+    obtener_estado_configuracion,
+    probar_conexion_gmail,
+    listar_correos_recientes,
+)
 import logging
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form
@@ -593,3 +598,86 @@ async def actualizar_documento(
     except Exception as e:
         logger.error("Error en PUT /documentos/%s: %s", id_documento, e, exc_info=True)
         raise HTTPException(status_code=500, detail="Ocurrió un error al actualizar el documento.")
+
+
+# ==========================================
+# DIAGNÓSTICO Y GESTIÓN DE LA API DE GMAIL
+# ==========================================
+
+class ProbarGmailRequest(BaseModel):
+    destinatario: EmailStr
+
+
+@router.get("/gmail/estado")
+async def consultar_estado_gmail(
+    usuario: UsuarioToken = Depends(requiere_rol("Administrador"))
+):
+    """
+    Comprueba el estado de configuración y autenticación OAuth 2.0 de Gmail,
+    permitiendo diagnosticar si las credenciales y el refresh token están activos.
+    """
+    resultado_conexion = await asyncio.to_thread(probar_conexion_gmail)
+    return resultado_conexion
+
+
+@router.post("/gmail/probar")
+async def enviar_correo_prueba(
+    body: ProbarGmailRequest,
+    usuario: UsuarioToken = Depends(requiere_rol("Administrador"))
+):
+    """
+    Envía un correo de prueba para verificar el correcto funcionamiento
+    del flujo de despacho y la validez de los permisos de Gmail.
+    """
+    destinatario = body.destinatario.strip().lower()
+    asunto = "SupportAI - Verificación de Integración Gmail"
+    mensaje = (
+        "¡Hola!\n\n"
+        "Este es un mensaje de prueba generado desde la plataforma SupportAI "
+        "para certificar que la integración con la API de Gmail (OAuth 2.0) "
+        "funciona de manera exitosa y estable.\n\n"
+        f"Fecha y hora de despacho: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}\n"
+        f"Solicitado por el administrador ID #{usuario.id_usuario}.\n\n"
+        "Equipo SupportAI"
+    )
+
+    try:
+        resultado = await asyncio.to_thread(enviar_correo, destinatario, asunto, mensaje)
+
+        pool = obtener_db_pool()
+        async with pool.acquire() as conn:
+            await conn.execute(
+                """
+                INSERT INTO log_auditoria (usuario_id, accion, detalle)
+                VALUES ($1, 'PRUEBA_GMAIL', $2);
+                """,
+                usuario.id_usuario,
+                f"Prueba de correo a {destinatario}: estado {resultado.get('estado')}"
+            )
+
+        return {
+            "exito": True,
+            "mensaje": f"Correo de prueba despachado a {destinatario}",
+            "resultado": resultado
+        }
+    except Exception as e:
+        logger.error("Error al enviar correo de prueba a %s: %s", destinatario, e)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Fallo al enviar correo mediante Gmail: {str(e)}"
+        )
+
+
+@router.get("/gmail/mensajes")
+async def consultar_correos_recientes(
+    usuario: UsuarioToken = Depends(requiere_rol("Administrador"))
+):
+    """
+    Obtiene los correos recientes recibidos en la bandeja de entrada para verificar
+    si la cuenta configurada tiene capacidad de recepción y lectura.
+    """
+    mensajes = await asyncio.to_thread(listar_correos_recientes, 5)
+    return {
+        "total": len(mensajes),
+        "mensajes": mensajes
+    }
