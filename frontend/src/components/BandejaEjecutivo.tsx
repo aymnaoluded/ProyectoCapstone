@@ -11,6 +11,7 @@ import {
   Star,
   MessageSquare,
   RotateCcw,
+  X,
 } from "lucide-react";
 import type { Usuario } from "../types";
 import { cabecerasAuth, API_URL } from "../utils/api";
@@ -84,6 +85,7 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
   const [enviando, setEnviando] = useState(false);
   const [actualizandoEstado, setActualizandoEstado] = useState(false);
   const [personalAsignable, setPersonalAsignable] = useState<PersonalAsignable[]>([]);
+  const [modalReabrir, setModalReabrir] = useState(false);
 
   const esAdmin = usuario.rol_nombre === "Administrador";
 
@@ -249,7 +251,6 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
   // Solo el Administrador reabre tickets cerrados (el backend rechaza a los demás roles)
   const handleReabrir = async () => {
     if (!ticketSeleccionado) return;
-    if (!window.confirm(`¿Reabrir el ticket #${ticketSeleccionado.id_ticket}? Volverá a la bandeja de tickets activos.`)) return;
 
     // Con responsable vuelve a En Proceso; sin responsable, a Pendiente para que alguien lo tome
     const nuevoEstadoId = ticketSeleccionado.ejecutivo ? ID_ESTADO_EN_PROCESO : ID_ESTADO_PENDIENTE;
@@ -272,6 +273,7 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
       console.error("Error al reabrir ticket:", err);
     } finally {
       setActualizandoEstado(false);
+      setModalReabrir(false);
     }
   };
 
@@ -500,13 +502,16 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
                         {ticketSeleccionado.estado}
                       </span>
                     </div>
-                    <p className="text-sm text-slate-600 mt-1.5 [overflow-wrap:anywhere]">{ticketSeleccionado.descripcion}</p>
+                    {/* Alto máximo con scroll: una descripción larga no debe tapar el hilo ni el formulario de respuesta */}
+                    <p className="text-sm text-slate-600 mt-1.5 [overflow-wrap:anywhere] whitespace-pre-wrap max-h-28 overflow-y-auto pr-2">
+                      {ticketSeleccionado.descripcion}
+                    </p>
                   </div>
 
                   {/* Historial: es de solo lectura, salvo el botón para que el Administrador reabra el ticket */}
                   {soloHistorial && esAdmin && (
                     <button
-                      onClick={handleReabrir}
+                      onClick={() => setModalReabrir(true)}
                       disabled={actualizandoEstado}
                       className="flex items-center gap-1.5 shrink-0 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-semibold
                       px-3 py-1.5 rounded-xl transition-all shadow-xs disabled:opacity-50 cursor-pointer"
@@ -689,6 +694,64 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
           )}
         </div>
       </div>
+
+      {/* Modal de confirmación para reabrir (mismo estilo que el modal de escalamiento del chat) */}
+      {modalReabrir && ticketSeleccionado && (
+        <div
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 flex items-center justify-center p-4"
+          onClick={() => !actualizandoEstado && setModalReabrir(false)}
+        >
+          <div
+            className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-blue-600">
+                <RotateCcw size={20} />
+                <h2 className="text-base font-bold text-slate-900">
+                  Reabrir ticket #{ticketSeleccionado.id_ticket}
+                </h2>
+              </div>
+              <button
+                onClick={() => setModalReabrir(false)}
+                disabled={actualizandoEstado}
+                className="text-slate-400 hover:text-slate-600 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <p className="text-sm font-medium text-slate-800 [overflow-wrap:anywhere]">{ticketSeleccionado.titulo}</p>
+
+            <p className="text-xs text-slate-500">
+              {ticketSeleccionado.ejecutivo
+                ? `El ticket volverá a la bandeja de activos en estado "En Proceso", asignado a ${ticketSeleccionado.ejecutivo.nombre}.`
+                : 'El ticket volverá a la bandeja de activos en estado "Pendiente", para que un ejecutivo lo tome.'}
+            </p>
+
+            <div className="pt-2 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setModalReabrir(false)}
+                disabled={actualizandoEstado}
+                className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleReabrir}
+                disabled={actualizandoEstado}
+                className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-semibold px-4 py-2 rounded-xl transition-colors cursor-pointer
+                flex items-center gap-1.5"
+              >
+                {actualizandoEstado ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
+                <span>{actualizandoEstado ? "Reabriendo..." : "Reabrir ticket"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -252,7 +252,10 @@ export const MisSolicitudes: React.FC<MisSolicitudesProps> = ({ usuario }) => {
                         {ticketSeleccionado.estado}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-500 mt-1 [overflow-wrap:anywhere]">{ticketSeleccionado.descripcion}</p>
+                    {/* Alto máximo con scroll: una descripción larga no debe tapar el hilo ni el formulario de respuesta */}
+                    <p className="text-xs text-slate-500 mt-1 [overflow-wrap:anywhere] whitespace-pre-wrap max-h-28 overflow-y-auto pr-2">
+                      {ticketSeleccionado.descripcion}
+                    </p>
                   </div>
 
                   {ticketSeleccionado.calificacion && (
