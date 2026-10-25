@@ -14,6 +14,7 @@ import ActivarCuenta from "./components/ActivarCuenta"
 import RecuperarPassword from "./components/RecuperarPassword";
 import RestablecerPassword from "./components/RestablecerPassword";
 import CambiarPassword from "./components/CambiarPassword";
+import PaginaNoEncontrada from "./components/PaginaNoEncontrada";
 import {
   obtenerSesionSegura,
   eliminarSesionSegura,
@@ -21,6 +22,9 @@ import {
 import { tokenVigente } from "./utils/api";
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+// Rutas que existen; cualquier otra muestra la página 404
+const RUTAS_VALIDAS = ["/", "/activar-cuenta", "/recuperar-password", "/restablecer-password"];
 
 export default function App() {
   const [usuario, setUsuario] = useState<Usuario | null>(null);
@@ -167,16 +171,22 @@ export default function App() {
     limpiarSesionLocal();
   };
 
+  // Una barra final ("/recuperar-password/") se trata como la misma ruta
+  const rutaActual = window.location.pathname.replace(/\/+$/, "") || "/";
+  if (!RUTAS_VALIDAS.includes(rutaActual)) {
+    return <PaginaNoEncontrada />;
+  }
+
   // Ruta pública para activar cuentas desde Gmail
-  if (window.location.pathname === "/activar-cuenta") {
+  if (rutaActual === "/activar-cuenta") {
     return <ActivarCuenta />;
   }
 
-  if (window.location.pathname === "/recuperar-password") {
+  if (rutaActual === "/recuperar-password") {
   return <RecuperarPassword />;
   }
 
-  if (window.location.pathname === "/restablecer-password") {
+  if (rutaActual === "/restablecer-password") {
   return <RestablecerPassword />;
   }
 
