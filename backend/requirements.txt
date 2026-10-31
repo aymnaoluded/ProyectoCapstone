@@ -5,11 +5,13 @@ asyncpg
 cohere
 google-genai
 langchain-text-splitters
-pypdf
+pypdf>=6.21.4
 python-docx
 python-dotenv
-python-jose
+PyJWT>=2.10
 email-validator
 google-api-python-client
 google-auth-httplib2
 google-auth-oauthlib
+# Dependencia indirecta (librerías de Google): mínimo sin vulnerabilidades conocidas
+pyasn1>=0.6.5
