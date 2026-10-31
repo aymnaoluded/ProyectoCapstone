@@ -51,6 +51,35 @@ export const MisSolicitudes: React.FC<MisSolicitudesProps> = ({ usuario }) => {
   const [cargandoDetalle, setCargandoDetalle] = useState(false);
   const [nuevoMensaje, setNuevoMensaje] = useState("");
   const [enviando, setEnviando] = useState(false);
+  const [modalCerrar, setModalCerrar] = useState(false);
+  const [cerrando, setCerrando] = useState(false);
+  const [errorCerrar, setErrorCerrar] = useState<string | null>(null);
+
+  // Solo el cliente puede cerrar su ticket; después solo un administrador puede reabrirlo
+  const handleCerrarTicket = async () => {
+    if (!ticketSeleccionado) return;
+    setCerrando(true);
+    setErrorCerrar(null);
+    try {
+      const res = await fetch(`${API_URL}/api/tickets/${ticketSeleccionado.id_ticket}/cerrar`, {
+        method: "POST",
+        headers: cabecerasAuth(),
+      });
+      const data = await res.json().catch(() => null);
+      if (res.ok) {
+        const actualizado: TicketItem = { ...ticketSeleccionado, id_estado: 5, estado: "Cerrado" };
+        setTicketSeleccionado(actualizado);
+        setTickets((prev) => prev.map((t) => (t.id_ticket === actualizado.id_ticket ? actualizado : t)));
+        setModalCerrar(false);
+      } else {
+        setErrorCerrar(typeof data?.detail === "string" ? data.detail : "No se pudo cerrar el ticket.");
+      }
+    } catch {
+      setErrorCerrar("Error de conexión al cerrar el ticket.");
+    } finally {
+      setCerrando(false);
+    }
+  };
 
   const cargarTickets = async () => {
     setCargando(true);
@@ -245,9 +274,10 @@ export const MisSolicitudes: React.FC<MisSolicitudesProps> = ({ usuario }) => {
               {/* Encabezado del ticket seleccionado */}
               <div className="p-5 sm:p-6 border-b border-[var(--border-subtle)] bg-[var(--bg-surface-elevated)]/20 space-y-3 shrink-0">
                 <div className="flex items-start justify-between gap-4">
-                  <div>
+                  {/* min-w-0 + overflow-wrap + alto máximo: un texto largo no desborda ni tapa el hilo y el formulario */}
+                  <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-base font-bold text-[var(--text-primary)] tracking-tight">
+                      <span className="text-base font-bold text-[var(--text-primary)] tracking-tight [overflow-wrap:anywhere]">
                         Ticket #{ticketSeleccionado.id_ticket}: {ticketSeleccionado.titulo}
                       </span>
                       <span
@@ -258,19 +288,36 @@ export const MisSolicitudes: React.FC<MisSolicitudesProps> = ({ usuario }) => {
                         {ticketSeleccionado.estado}
                       </span>
                     </div>
-                    <p className="text-xs text-[var(--text-secondary)] mt-1.5 leading-relaxed">
+                    <p className="text-xs text-[var(--text-secondary)] mt-1.5 leading-relaxed [overflow-wrap:anywhere] whitespace-pre-wrap max-h-28 overflow-y-auto pr-2">
                       {ticketSeleccionado.descripcion}
                     </p>
                   </div>
 
-                  {ticketSeleccionado.calificacion && (
-                    <div className="flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-full shrink-0">
-                      <Star size={13} className="text-amber-500 fill-amber-400" />
-                      <span className="text-xs font-bold text-amber-700 dark:text-amber-400">
-                        {ticketSeleccionado.calificacion}/5
-                      </span>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-2 shrink-0">
+                    {ticketSeleccionado.calificacion && (
+                      <div className="flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-full shrink-0">
+                        <Star size={13} className="text-amber-500 fill-amber-400" />
+                        <span className="text-xs font-bold text-amber-700 dark:text-amber-400">
+                          {ticketSeleccionado.calificacion}/5
+                        </span>
+                      </div>
+                    )}
+
+                    {/* El cliente es el único que puede cerrar su ticket */}
+                    {ticketSeleccionado.id_estado !== 5 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setErrorCerrar(null);
+                          setModalCerrar(true);
+                        }}
+                        className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl border border-[var(--border-glass)] text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)] transition-colors cursor-pointer"
+                      >
+                        <CheckCircle2 size={14} className="text-emerald-600 dark:text-emerald-400" />
+                        <span>Cerrar ticket</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-6 text-xs text-[var(--text-secondary)] pt-2 border-t border-[var(--border-subtle)]">
@@ -363,6 +410,61 @@ export const MisSolicitudes: React.FC<MisSolicitudesProps> = ({ usuario }) => {
           )}
         </div>
       </div>
+
+      {/* Modal de confirmación para cerrar el ticket */}
+      {modalCerrar && ticketSeleccionado && (
+        <div
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 flex items-center justify-center p-4"
+          onClick={() => !cerrando && setModalCerrar(false)}
+        >
+          <div
+            className="liquid-glass-card bg-[var(--bg-surface-solid)] rounded-3xl max-w-md w-full p-6 shadow-xl space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2">
+              <CheckCircle2 size={20} className="text-emerald-600 dark:text-emerald-400" />
+              <h2 className="text-base font-bold text-[var(--text-primary)]">
+                Cerrar ticket #{ticketSeleccionado.id_ticket}
+              </h2>
+            </div>
+
+            <p className="text-sm font-medium text-[var(--text-primary)] [overflow-wrap:anywhere]">
+              {ticketSeleccionado.titulo}
+            </p>
+            <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+              Cierra el ticket cuando tu problema esté resuelto. Ya no podrás enviar mensajes y, si necesitas
+              reabrirlo, deberás pedírselo a un administrador.
+            </p>
+
+            {errorCerrar && (
+              <div role="alert" className="flex items-start gap-2 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-400">
+                <AlertCircle size={16} className="shrink-0 mt-0.5" />
+                <span className="text-xs font-medium">{errorCerrar}</span>
+              </div>
+            )}
+
+            <div className="pt-2 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setModalCerrar(false)}
+                disabled={cerrando}
+                className="px-4 py-2 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-card-hover)] rounded-xl transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleCerrarTicket}
+                disabled={cerrando}
+                className="apple-btn-primary px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all disabled:opacity-50 cursor-pointer"
+              >
+                {cerrando ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+                <span>{cerrando ? "Cerrando..." : "Cerrar ticket"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

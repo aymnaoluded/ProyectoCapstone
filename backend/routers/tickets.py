@@ -283,12 +283,15 @@ async def actualizar_estado_ticket(
     body: ActualizarEstadoTicketRequest,
     usuario: UsuarioToken = Depends(requiere_rol(ROL_EJECUTIVO, ROL_ADMIN))
 ):
-    """Actualiza el estado del ticket (solo Ejecutivos y Administradores), asigna ejecutivo si corresponde y audita"""
+    """
+    Cambia el estado del ticket (Ejecutivos y Administradores) y, solo el Administrador, asigna el responsable.
+    Cerrar es exclusivo del cliente (POST /{id_ticket}/cerrar) y reabrir es exclusivo del Administrador.
+    """
     pool = obtener_db_pool()
     try:
         async with pool.acquire() as conn:
             async with conn.transaction():
-                # FOR UPDATE evita que dos ejecutivos tomen el mismo ticket al mismo tiempo
+                # FOR UPDATE evita que dos cambios simultáneos sobre el mismo ticket se pisen
                 ticket = await conn.fetchrow(
                     "SELECT ejecutivo_asignado, estado FROM TICKET WHERE id_ticket = $1 FOR UPDATE;",
                     id_ticket
@@ -307,18 +310,32 @@ async def actualizar_estado_ticket(
                         detail="Este ticket está cerrado. Solo un administrador puede reabrirlo."
                     )
 
-                # Un Ejecutivo solo gestiona sus propios tickets; uno sin asignar primero debe tomarlo
+                # Solo el cliente dueño cierra su ticket (lo hace desde POST /{id_ticket}/cerrar)
+                if body.id_estado == ID_ESTADO_CERRADO and ticket["estado"] != ID_ESTADO_CERRADO:
+                    raise HTTPException(
+                        status_code=403,
+                        detail="Solo el cliente puede cerrar su ticket."
+                    )
+
+                # Solo el Administrador asigna tickets a los ejecutivos
+                if body.ejecutivo_id and usuario.rol != ROL_ADMIN:
+                    raise HTTPException(
+                        status_code=403,
+                        detail="Solo el administrador puede asignar tickets."
+                    )
+
+                # Un Ejecutivo solo gestiona los tickets que el Administrador le asignó
                 if usuario.rol == ROL_EJECUTIVO:
                     asignado = ticket["ejecutivo_asignado"]
-                    if asignado is not None and asignado != usuario.id_usuario:
+                    if asignado is None:
+                        raise HTTPException(
+                            status_code=403,
+                            detail="Este ticket aún no tiene responsable. El administrador debe asignarlo."
+                        )
+                    if asignado != usuario.id_usuario:
                         raise HTTPException(
                             status_code=403,
                             detail="Este ticket está asignado a otro ejecutivo."
-                        )
-                    if asignado is None and not body.ejecutivo_id:
-                        raise HTTPException(
-                            status_code=403,
-                            detail="Primero debes tomar el ticket."
                         )
 
                 estado_row = await conn.fetchrow(
@@ -329,13 +346,7 @@ async def actualizar_estado_ticket(
                     raise HTTPException(status_code=400, detail="Estado inválido")
 
                 if body.ejecutivo_id:
-                    # Un Ejecutivo solo puede asignarse a sí mismo; el Administrador puede asignar a cualquiera del staff
-                    if usuario.rol == ROL_EJECUTIVO and body.ejecutivo_id != usuario.id_usuario:
-                        raise HTTPException(
-                            status_code=403,
-                            detail="Solo puedes asignarte tickets a ti mismo."
-                        )
-
+                    # El responsable debe ser un Ejecutivo o Administrador con la cuenta activada
                     rol_asignado = await conn.fetchval(
                         """
                         SELECT r.nombre
@@ -384,6 +395,48 @@ async def actualizar_estado_ticket(
     except Exception as e:
         logger.error("Error en PATCH /api/tickets/%s/estado: %s", id_ticket, e, exc_info=True)
         raise HTTPException(status_code=500, detail="Ocurrió un error al actualizar el estado del ticket.")
+
+
+@router.post("/{id_ticket}/cerrar")
+async def cerrar_ticket(
+    id_ticket: int,
+    usuario: UsuarioToken = Depends(requiere_rol(ROL_CLIENTE))
+):
+    """El cliente cierra su propio ticket. Es la única forma de cerrar un ticket; reabrirlo es exclusivo del Administrador."""
+    pool = obtener_db_pool()
+    try:
+        async with pool.acquire() as conn:
+            async with conn.transaction():
+                ticket = await conn.fetchrow(
+                    "SELECT cliente, estado FROM TICKET WHERE id_ticket = $1 FOR UPDATE;",
+                    id_ticket
+                )
+                if not ticket:
+                    raise HTTPException(status_code=404, detail="Ticket no encontrado")
+                if ticket["cliente"] != usuario.id_usuario:
+                    raise HTTPException(status_code=403, detail="Solo puedes cerrar tus propios tickets.")
+                if ticket["estado"] == ID_ESTADO_CERRADO:
+                    raise HTTPException(status_code=409, detail="Este ticket ya está cerrado.")
+
+                await conn.execute(
+                    "UPDATE TICKET SET estado = $1 WHERE id_ticket = $2;",
+                    ID_ESTADO_CERRADO, id_ticket
+                )
+                await conn.execute(
+                    """
+                    INSERT INTO log_auditoria (usuario_id, accion, detalle)
+                    VALUES ($1, 'CIERRE_TICKET', $2);
+                    """,
+                    usuario.id_usuario,
+                    f"Ticket #{id_ticket} cerrado por el cliente"
+                )
+
+        return {"status": "cerrado", "id_estado": ID_ESTADO_CERRADO, "nuevo_estado": "Cerrado"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error en POST /api/tickets/%s/cerrar: %s", id_ticket, e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Ocurrió un error al cerrar el ticket.")
 
 
 @router.post("/{id_ticket}/mensaje")

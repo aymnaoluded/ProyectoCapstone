@@ -7,7 +7,6 @@ import {
   RefreshCw,
   Loader2,
   Filter,
-  UserCheck,
   Star,
   MessageSquare,
   ChevronRight,
@@ -162,48 +161,6 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
       console.error("Error al cargar detalle del ticket:", err);
     } finally {
       setCargandoDetalle(false);
-    }
-  };
-
-  const handleTomarTicket = async () => {
-    if (!ticketSeleccionado) return;
-    setActualizandoEstado(true);
-    try {
-      const res = await fetch(`${API_URL}/api/tickets/${ticketSeleccionado.id_ticket}/estado`, {
-        method: "PATCH",
-        headers: cabecerasAuth({ "Content-Type": "application/json" }),
-        body: JSON.stringify({
-          id_estado: 2,
-          ejecutivo_id: usuario.id_usuario
-        })
-      });
-
-      if (res.ok) {
-        const datosActualizados: TicketItem = {
-          ...ticketSeleccionado,
-          id_estado: 2,
-          estado: "En Proceso",
-          ejecutivo: {
-            id: usuario.id_usuario,
-            nombre: `${usuario.nombre} ${usuario.apellido}`
-          }
-        };
-        setTicketSeleccionado(datosActualizados);
-        setTickets((prev) =>
-          soloAsignados || usuario.rol_nombre === "Administrador"
-            ? prev.map((t) => (t.id_ticket === ticketSeleccionado.id_ticket ? datosActualizados : t))
-            : prev.filter((t) => t.id_ticket !== ticketSeleccionado.id_ticket)
-        );
-      } else {
-        // Por ejemplo, otro ejecutivo lo tomó antes: se avisa y se recarga la bandeja
-        await mostrarErrorApi(res, "No se pudo tomar el ticket.");
-        setTicketSeleccionado(null);
-        cargarTickets();
-      }
-    } catch (err) {
-      console.error("Error al tomar ticket:", err);
-    } finally {
-      setActualizandoEstado(false);
     }
   };
 
@@ -509,7 +466,8 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
                         {ticketSeleccionado.estado}
                       </span>
                     </div>
-                    <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                    {/* Alto máximo con scroll: una descripción larga no debe tapar el hilo ni el formulario de respuesta */}
+                    <p className="text-xs text-[var(--text-secondary)] leading-relaxed [overflow-wrap:anywhere] whitespace-pre-wrap max-h-28 overflow-y-auto pr-2">
                       {ticketSeleccionado.descripcion}
                     </p>
                   </div>
@@ -540,16 +498,13 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
                         </div>
                       )}
 
-                      {/* Sin responsable: el Ejecutivo lo toma (el Admin usa el selector). Con responsable: se cambia el estado */}
+                      {/* Sin responsable: solo el Admin lo asigna (con el selector). Con responsable: se cambia el estado */}
                       {!ticketSeleccionado.ejecutivo ? (
-                        <button
-                          onClick={handleTomarTicket}
-                          disabled={actualizandoEstado}
-                          className="apple-btn-primary flex items-center gap-1.5 text-xs font-semibold px-4 py-2 rounded-xl transition-all shadow-sm disabled:opacity-50 cursor-pointer"
-                        >
-                          <UserCheck size={14} />
-                          <span>Tomar Ticket</span>
-                        </button>
+                        !esAdmin && (
+                          <span className="text-[11px] font-semibold text-[var(--text-secondary)] px-3 py-1.5 rounded-xl border border-[var(--border-glass)]">
+                            Pendiente de asignación
+                          </span>
+                        )
                       ) : (
                         <div className="flex items-center gap-2">
                           <label className="text-[11px] font-semibold text-[var(--text-secondary)]">
@@ -561,7 +516,10 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
                             disabled={actualizandoEstado}
                             className="text-xs font-semibold liquid-glass border border-[var(--border-glass)] rounded-xl px-3 py-1.5 text-[var(--text-primary)] focus:outline-none cursor-pointer disabled:opacity-50"
                           >
-                            {ESTADOS_DISPONIBLES.map((est) => (
+                            {/* "Cerrado" no se ofrece: cerrar un ticket es exclusivo del cliente */}
+                            {ESTADOS_DISPONIBLES.filter(
+                              (est) => est.id !== ID_ESTADO_CERRADO || ticketSeleccionado.id_estado === ID_ESTADO_CERRADO
+                            ).map((est) => (
                               <option
                                 key={est.id}
                                 value={est.id}
@@ -612,7 +570,7 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
                     <MessageSquare size={32} className="mx-auto opacity-40" />
                     <p className="text-xs font-semibold text-[var(--text-secondary)]">No hay mensajes previos</p>
                     <p className="text-[11px] max-w-xs mx-auto">
-                      Toma el caso y envía tu primera respuesta para asistir al cliente.
+                      Envía la primera respuesta para asistir al cliente.
                     </p>
                   </div>
                 ) : (
@@ -651,7 +609,7 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
               ) : !esAdmin && ticketSeleccionado.ejecutivo?.id !== usuario.id_usuario ? (
                 // El Ejecutivo solo responde los tickets asignados a él
                 <div className="p-4 bg-slate-50 border-t border-slate-200 text-center text-xs text-slate-500">
-                  Toma el ticket para poder responder al cliente.
+                  Podrás responder al cliente cuando el administrador te asigne este ticket.
                 </div>
               ) : (
                 <form onSubmit={handleEnviarMensaje} className="p-4 border-t border-[var(--border-subtle)] bg-[var(--bg-surface-elevated)]/40 flex gap-2.5 shrink-0">
