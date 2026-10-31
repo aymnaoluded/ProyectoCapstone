@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+/* "dark:" sigue el botón de tema de la app (clase .dark en <html>), no el tema del navegador/sistema.
+   Sin esto, con el navegador en modo oscuro se aplicaban colores oscuros sobre el tema claro. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @layer base {
   :root {
     /* MODO CLARO - PALETA APPLE / LIQUID GLASS */
@@ -40,6 +44,13 @@
 
     --backdrop-blur: blur(24px) saturate(180%);
     --font-apple: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+
+    /* Usadas por los componentes y no definidas antes: sin ellas el navegador dejaba
+       fondos transparentes (texto blanco invisible) y bordes del color del texto */
+    --accent-primary: #007AFF;
+    --accent-danger: #FF3B30;
+    --border-subtle: rgba(0, 0, 0, 0.08);
+    --bg-card-hover: rgba(0, 0, 0, 0.04);
   }
 
   .dark {
@@ -80,6 +91,11 @@
     --glass-shadow-modal: 0 30px 70px -10px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.15);
 
     --backdrop-blur: blur(28px) saturate(190%);
+
+    --accent-primary: #0A84FF;
+    --accent-danger: #FF453A;
+    --border-subtle: rgba(255, 255, 255, 0.10);
+    --bg-card-hover: rgba(255, 255, 255, 0.08);
   }
 
   body {

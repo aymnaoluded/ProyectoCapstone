@@ -9,7 +9,8 @@ from datetime import datetime, timedelta, timezone
 from math import ceil
 from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from jose import jwt, JWTError
+import jwt
+from jwt import InvalidTokenError
 from pydantic import BaseModel, Field, EmailStr
 from database import obtener_db_pool
 from security import (
@@ -199,7 +200,8 @@ async def get_usuario_actual(
         if (not isinstance(version_token, int) or isinstance(version_token, bool)):
             raise ValueError("Versión inválida")
 
-    except (JWTError, KeyError, ValueError, TypeError):
+    # InvalidTokenError cubre firma inválida, token mal formado y token expirado
+    except (InvalidTokenError, KeyError, ValueError, TypeError):
         raise HTTPException(status_code=401, detail=("Token inválido o expirado. Vuelve a iniciar sesión."))
     
 

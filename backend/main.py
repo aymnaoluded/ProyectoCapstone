@@ -1,10 +1,14 @@
 import os
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from database import iniciar_db_pool, cerrar_db_pool
 from routers import auth, documentos, chat, tickets, admin
+
+# "produccion" oculta la documentación de la API y activa HSTS; por defecto, "desarrollo"
+ENTORNO = os.getenv("ENTORNO", "desarrollo").strip().lower()
+ES_PRODUCCION = ENTORNO == "produccion"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -13,7 +17,14 @@ async def lifespan(app: FastAPI):
     yield
     await cerrar_db_pool()
 
-app = FastAPI(title="SupportAI API", lifespan=lifespan)
+# En producción no se publica el mapa de endpoints (/docs, /redoc, /openapi.json)
+app = FastAPI(
+    title="SupportAI API",
+    lifespan=lifespan,
+    docs_url=None if ES_PRODUCCION else "/docs",
+    redoc_url=None if ES_PRODUCCION else "/redoc",
+    openapi_url=None if ES_PRODUCCION else "/openapi.json",
+)
 
 ORIGENES_PERMITIDOS = [
     "http://localhost:5173",
@@ -33,6 +44,32 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+RUTAS_DOCUMENTACION = ("/docs", "/redoc", "/openapi.json")
+
+@app.middleware("http")
+async def cabeceras_seguridad(request: Request, call_next):
+    """Agrega cabeceras de seguridad HTTP a todas las respuestas."""
+    response = await call_next(request)
+
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+
+    # La API solo devuelve JSON: no debe ejecutar nada. Swagger (/docs) carga scripts, por eso se excluye
+    if not request.url.path.startswith(RUTAS_DOCUMENTACION):
+        response.headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'"
+
+    # Tickets, conversaciones y datos de usuarios no deben quedar en la caché del navegador
+    if request.url.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-store"
+
+    # HSTS solo tiene sentido con HTTPS, que existe en producción
+    if ES_PRODUCCION:
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+
+    return response
 
 app.include_router(auth.router)
 app.include_router(documentos.router)

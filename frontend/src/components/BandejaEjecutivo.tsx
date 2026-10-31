@@ -7,11 +7,12 @@ import {
   RefreshCw,
   Loader2,
   Filter,
-  UserCheck,
   Star,
   MessageSquare,
   ChevronRight,
-  ShieldAlert
+  ShieldAlert,
+  RotateCcw,
+  X
 } from "lucide-react";
 import type { Usuario } from "../types";
 import { cabecerasAuth, API_URL } from "../utils/api";
@@ -45,12 +46,20 @@ interface MensajeTicket {
   autor_rol: number;
 }
 
+interface PersonalAsignable {
+  id_usuario: number;
+  nombre: string;
+  rol_nombre: string;
+}
+
 interface BandejaEjecutivoProps {
   usuario: Usuario;
   soloAsignados?: boolean;
   soloHistorial?: boolean;
 }
 
+const ID_ESTADO_PENDIENTE = 1;
+const ID_ESTADO_EN_PROCESO = 2;
 const ID_ESTADO_CERRADO = 5;
 
 const ESTADOS_DISPONIBLES = [
@@ -75,6 +84,25 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
   const [nuevoMensaje, setNuevoMensaje] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [actualizandoEstado, setActualizandoEstado] = useState(false);
+  const [personalAsignable, setPersonalAsignable] = useState<PersonalAsignable[]>([]);
+  const [modalReabrir, setModalReabrir] = useState(false);
+
+  const esAdmin = usuario.rol_nombre === "Administrador";
+
+  // Muestra el mensaje de error del backend (por ejemplo, un 403 si el ticket ya no es de este ejecutivo)
+  const mostrarErrorApi = async (res: Response, porDefecto: string) => {
+    const errorData = await res.json().catch(() => null);
+    alert(typeof errorData?.detail === "string" ? errorData.detail : porDefecto);
+  };
+
+  // Solo el Administrador puede asignar tickets a otras personas
+  useEffect(() => {
+    if (!esAdmin || soloHistorial) return;
+    fetch(`${API_URL}/api/admin/ejecutivos`, { headers: cabecerasAuth() })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => setPersonalAsignable(Array.isArray(data) ? data : []))
+      .catch((err) => console.error("Error al cargar ejecutivos:", err));
+  }, [esAdmin, soloHistorial]);
 
   const cargarTickets = async () => {
     setCargando(true);
@@ -136,43 +164,6 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
     }
   };
 
-  const handleTomarTicket = async () => {
-    if (!ticketSeleccionado) return;
-    setActualizandoEstado(true);
-    try {
-      const res = await fetch(`${API_URL}/api/tickets/${ticketSeleccionado.id_ticket}/estado`, {
-        method: "PATCH",
-        headers: cabecerasAuth({ "Content-Type": "application/json" }),
-        body: JSON.stringify({
-          id_estado: 2,
-          ejecutivo_id: usuario.id_usuario
-        })
-      });
-
-      if (res.ok) {
-        const datosActualizados: TicketItem = {
-          ...ticketSeleccionado,
-          id_estado: 2,
-          estado: "En Proceso",
-          ejecutivo: {
-            id: usuario.id_usuario,
-            nombre: `${usuario.nombre} ${usuario.apellido}`
-          }
-        };
-        setTicketSeleccionado(datosActualizados);
-        setTickets((prev) =>
-          soloAsignados || usuario.rol_nombre === "Administrador"
-            ? prev.map((t) => (t.id_ticket === ticketSeleccionado.id_ticket ? datosActualizados : t))
-            : prev.filter((t) => t.id_ticket !== ticketSeleccionado.id_ticket)
-        );
-      }
-    } catch (err) {
-      console.error("Error al tomar ticket:", err);
-    } finally {
-      setActualizandoEstado(false);
-    }
-  };
-
   const handleCambiarEstado = async (nuevoEstadoId: number) => {
     if (!ticketSeleccionado || ticketSeleccionado.id_estado === nuevoEstadoId) return;
     setActualizandoEstado(true);
@@ -196,9 +187,79 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
         setTickets((prev) =>
           prev.map((t) => (t.id_ticket === ticketSeleccionado.id_ticket ? datosActualizados : t))
         );
+      } else {
+        await mostrarErrorApi(res, "No se pudo actualizar el estado del ticket.");
       }
     } catch (err) {
       console.error("Error al actualizar estado:", err);
+    } finally {
+      setActualizandoEstado(false);
+    }
+  };
+
+  // Solo el Administrador reabre tickets cerrados (el backend rechaza a los demás roles)
+  const handleReabrir = async () => {
+    if (!ticketSeleccionado) return;
+
+    // Con responsable vuelve a En Proceso; sin responsable, a Pendiente para que alguien lo tome
+    const nuevoEstadoId = ticketSeleccionado.ejecutivo ? ID_ESTADO_EN_PROCESO : ID_ESTADO_PENDIENTE;
+    setActualizandoEstado(true);
+    try {
+      const res = await fetch(`${API_URL}/api/tickets/${ticketSeleccionado.id_ticket}/estado`, {
+        method: "PATCH",
+        headers: cabecerasAuth({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ id_estado: nuevoEstadoId })
+      });
+
+      if (res.ok) {
+        // Deja de estar cerrado: sale del historial
+        setTickets((prev) => prev.filter((t) => t.id_ticket !== ticketSeleccionado.id_ticket));
+        setTicketSeleccionado(null);
+      } else {
+        await mostrarErrorApi(res, "No se pudo reabrir el ticket.");
+      }
+    } catch (err) {
+      console.error("Error al reabrir ticket:", err);
+    } finally {
+      setActualizandoEstado(false);
+      setModalReabrir(false);
+    }
+  };
+
+  const handleAsignar = async (ejecutivoId: number) => {
+    if (!ticketSeleccionado || ticketSeleccionado.ejecutivo?.id === ejecutivoId) return;
+    const persona = personalAsignable.find((p) => p.id_usuario === ejecutivoId);
+    // Si estaba Pendiente pasa a En Proceso (ya tiene responsable); si no, se mantiene su estado
+    const nuevoEstadoId =
+      ticketSeleccionado.id_estado === ID_ESTADO_PENDIENTE ? ID_ESTADO_EN_PROCESO : ticketSeleccionado.id_estado;
+    setActualizandoEstado(true);
+    try {
+      const res = await fetch(`${API_URL}/api/tickets/${ticketSeleccionado.id_ticket}/estado`, {
+        method: "PATCH",
+        headers: cabecerasAuth({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          id_estado: nuevoEstadoId,
+          ejecutivo_id: ejecutivoId
+        })
+      });
+
+      if (res.ok) {
+        const estadoObj = ESTADOS_DISPONIBLES.find((e) => e.id === nuevoEstadoId);
+        const datosActualizados: TicketItem = {
+          ...ticketSeleccionado,
+          id_estado: nuevoEstadoId,
+          estado: estadoObj?.nombre || ticketSeleccionado.estado,
+          ejecutivo: { id: ejecutivoId, nombre: persona?.nombre || "Ejecutivo" }
+        };
+        setTicketSeleccionado(datosActualizados);
+        setTickets((prev) =>
+          prev.map((t) => (t.id_ticket === ticketSeleccionado.id_ticket ? datosActualizados : t))
+        );
+      } else {
+        await mostrarErrorApi(res, "No se pudo asignar el ticket.");
+      }
+    } catch (err) {
+      console.error("Error al asignar ticket:", err);
     } finally {
       setActualizandoEstado(false);
     }
@@ -232,6 +293,8 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
           }
         ]);
         setNuevoMensaje("");
+      } else {
+        await mostrarErrorApi(res, "No se pudo enviar el mensaje.");
       }
     } catch (err) {
       console.error("Error al enviar mensaje:", err);
@@ -403,7 +466,8 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
                         {ticketSeleccionado.estado}
                       </span>
                     </div>
-                    <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                    {/* Alto máximo con scroll: una descripción larga no debe tapar el hilo ni el formulario de respuesta */}
+                    <p className="text-xs text-[var(--text-secondary)] leading-relaxed [overflow-wrap:anywhere] whitespace-pre-wrap max-h-28 overflow-y-auto pr-2">
                       {ticketSeleccionado.descripcion}
                     </p>
                   </div>
@@ -411,15 +475,36 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
                   {/* Acciones de Asignación / Estado */}
                   {!soloHistorial && (
                     <div className="flex items-center gap-2 shrink-0">
+                      {/* El Administrador puede asignar el ticket a cualquier ejecutivo activo */}
+                      {esAdmin && (
+                        <div className="flex items-center gap-2">
+                          <label className="text-[11px] font-medium text-slate-500">Asignado a:</label>
+                          <select
+                            value={ticketSeleccionado.ejecutivo?.id ?? ""}
+                            onChange={(e) => handleAsignar(Number(e.target.value))}
+                            disabled={actualizandoEstado || personalAsignable.length === 0}
+                            className="text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-slate-700 focus:outline-none focus:ring-1
+                            focus:ring-blue-500 cursor-pointer disabled:opacity-50"
+                          >
+                            <option value="" disabled>
+                              Sin asignar
+                            </option>
+                            {personalAsignable.map((p) => (
+                              <option key={p.id_usuario} value={p.id_usuario}>
+                                {p.id_usuario === usuario.id_usuario ? `${p.nombre} (yo)` : p.nombre}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+
+                      {/* Sin responsable: solo el Admin lo asigna (con el selector). Con responsable: se cambia el estado */}
                       {!ticketSeleccionado.ejecutivo ? (
-                        <button
-                          onClick={handleTomarTicket}
-                          disabled={actualizandoEstado}
-                          className="apple-btn-primary flex items-center gap-1.5 text-xs font-semibold px-4 py-2 rounded-xl transition-all shadow-sm disabled:opacity-50 cursor-pointer"
-                        >
-                          <UserCheck size={14} />
-                          <span>Tomar Ticket</span>
-                        </button>
+                        !esAdmin && (
+                          <span className="text-[11px] font-semibold text-[var(--text-secondary)] px-3 py-1.5 rounded-xl border border-[var(--border-glass)]">
+                            Pendiente de asignación
+                          </span>
+                        )
                       ) : (
                         <div className="flex items-center gap-2">
                           <label className="text-[11px] font-semibold text-[var(--text-secondary)]">
@@ -431,7 +516,10 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
                             disabled={actualizandoEstado}
                             className="text-xs font-semibold liquid-glass border border-[var(--border-glass)] rounded-xl px-3 py-1.5 text-[var(--text-primary)] focus:outline-none cursor-pointer disabled:opacity-50"
                           >
-                            {ESTADOS_DISPONIBLES.map((est) => (
+                            {/* "Cerrado" no se ofrece: cerrar un ticket es exclusivo del cliente */}
+                            {ESTADOS_DISPONIBLES.filter(
+                              (est) => est.id !== ID_ESTADO_CERRADO || ticketSeleccionado.id_estado === ID_ESTADO_CERRADO
+                            ).map((est) => (
                               <option
                                 key={est.id}
                                 value={est.id}
@@ -482,7 +570,7 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
                     <MessageSquare size={32} className="mx-auto opacity-40" />
                     <p className="text-xs font-semibold text-[var(--text-secondary)]">No hay mensajes previos</p>
                     <p className="text-[11px] max-w-xs mx-auto">
-                      Toma el caso y envía tu primera respuesta para asistir al cliente.
+                      Envía la primera respuesta para asistir al cliente.
                     </p>
                   </div>
                 ) : (
@@ -518,11 +606,17 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
                 <div className="p-4 bg-[var(--bg-surface-elevated)]/30 border-t border-[var(--border-subtle)] text-center text-xs text-[var(--text-tertiary)] font-medium">
                   Este ticket se encuentra cerrado. Se muestra en modo de solo lectura.
                 </div>
+              ) : !esAdmin && ticketSeleccionado.ejecutivo?.id !== usuario.id_usuario ? (
+                // El Ejecutivo solo responde los tickets asignados a él
+                <div className="p-4 bg-slate-50 border-t border-slate-200 text-center text-xs text-slate-500">
+                  Podrás responder al cliente cuando el administrador te asigne este ticket.
+                </div>
               ) : (
                 <form onSubmit={handleEnviarMensaje} className="p-4 border-t border-[var(--border-subtle)] bg-[var(--bg-surface-elevated)]/40 flex gap-2.5 shrink-0">
                   <input
                     type="text"
                     placeholder="Escribe una respuesta para el cliente..."
+                    maxLength={5000}
                     value={nuevoMensaje}
                     onChange={(e) => setNuevoMensaje(e.target.value)}
                     disabled={enviando || ticketSeleccionado.id_estado === 5}
@@ -552,6 +646,64 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
           )}
         </div>
       </div>
+
+      {/* Modal de confirmación para reabrir (mismo estilo que el modal de escalamiento del chat) */}
+      {modalReabrir && ticketSeleccionado && (
+        <div
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 flex items-center justify-center p-4"
+          onClick={() => !actualizandoEstado && setModalReabrir(false)}
+        >
+          <div
+            className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-blue-600">
+                <RotateCcw size={20} />
+                <h2 className="text-base font-bold text-slate-900">
+                  Reabrir ticket #{ticketSeleccionado.id_ticket}
+                </h2>
+              </div>
+              <button
+                onClick={() => setModalReabrir(false)}
+                disabled={actualizandoEstado}
+                className="text-slate-400 hover:text-slate-600 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <p className="text-sm font-medium text-slate-800 [overflow-wrap:anywhere]">{ticketSeleccionado.titulo}</p>
+
+            <p className="text-xs text-slate-500">
+              {ticketSeleccionado.ejecutivo
+                ? `El ticket volverá a la bandeja de activos en estado "En Proceso", asignado a ${ticketSeleccionado.ejecutivo.nombre}.`
+                : 'El ticket volverá a la bandeja de activos en estado "Pendiente", para que un ejecutivo lo tome.'}
+            </p>
+
+            <div className="pt-2 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setModalReabrir(false)}
+                disabled={actualizandoEstado}
+                className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleReabrir}
+                disabled={actualizandoEstado}
+                className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-semibold px-4 py-2 rounded-xl transition-colors cursor-pointer
+                flex items-center gap-1.5"
+              >
+                {actualizandoEstado ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
+                <span>{actualizandoEstado ? "Reabriendo..." : "Reabrir ticket"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

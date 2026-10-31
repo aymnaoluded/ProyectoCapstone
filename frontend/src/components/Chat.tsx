@@ -182,6 +182,11 @@ export const Chat: React.FC<ChatProps> = ({
         if (res.status === 409) {
           setYaEscalado(true);
         }
+        if (res.status === 429) {
+          // Límite de mensajes por minuto: se muestra el aviso del servidor
+          const errorData = await res.json().catch(() => null);
+          throw new Error(errorData?.detail || "Enviaste muchos mensajes seguidos. Espera un momento.");
+        }
         throw new Error("Error en la respuesta del asistente");
       }
 
@@ -206,13 +211,14 @@ export const Chat: React.FC<ChatProps> = ({
       } else if (onConversacionActualizada) {
         onConversacionActualizada();
       }
-    } catch {
+    } catch (err) {
+      const esLimite = err instanceof Error && err.message.startsWith("Enviaste muchos mensajes");
       setMensajes((prev) => [
         ...prev,
         {
           id: (Date.now() + 1).toString(),
           emisor: "bot",
-          texto: "Ocurrió un error al contactar el servidor. Por favor intenta nuevamente.",
+          texto: esLimite ? err.message : "Ocurrió un error al contactar el servidor. Por favor intenta nuevamente.",
           hora: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         },
       ]);
@@ -426,7 +432,8 @@ export const Chat: React.FC<ChatProps> = ({
                   </div>
                 )}
 
-                <div className="space-y-1 max-w-[85%] sm:max-w-[75%]">
+                {/* min-w-0 + overflow-wrap: un texto largo sin espacios no desborda la burbuja ni el chat */}
+                <div className="space-y-1 max-w-[85%] sm:max-w-[75%] min-w-0">
                   <div
                     className={`p-4 rounded-2xl text-[13.5px] leading-relaxed ${
                       m.emisor === "user"
@@ -434,7 +441,7 @@ export const Chat: React.FC<ChatProps> = ({
                         : "liquid-glass border border-[var(--border-glass)] text-[var(--text-primary)] rounded-tl-xs shadow-xs"
                     }`}
                   >
-                    <div className="whitespace-pre-wrap">{m.texto}</div>
+                    <div className="whitespace-pre-wrap [overflow-wrap:anywhere]">{m.texto}</div>
 
                     {/* Botón contextual de escalamiento */}
                     {m.emisor === "bot" && m.escalarEjecutivo && !finalizado && !yaEscalado && (
@@ -601,6 +608,7 @@ export const Chat: React.FC<ChatProps> = ({
               <input
                 type="text"
                 disabled={cargando}
+                maxLength={2000}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Escribe tu consulta sobre los documentos..."
@@ -650,6 +658,7 @@ export const Chat: React.FC<ChatProps> = ({
                 <input
                   type="text"
                   required
+                  maxLength={200}
                   value={tituloTicket}
                   onChange={(e) => setTituloTicket(e.target.value)}
                   className="liquid-input w-full rounded-xl px-3.5 py-2.5 text-sm text-[var(--text-primary)] focus:outline-none"
@@ -663,6 +672,7 @@ export const Chat: React.FC<ChatProps> = ({
                 <textarea
                   rows={4}
                   required
+                  maxLength={5000}
                   value={descTicket}
                   onChange={(e) => setDescTicket(e.target.value)}
                   className="liquid-input w-full rounded-xl p-3 text-xs text-[var(--text-primary)] focus:outline-none resize-none"

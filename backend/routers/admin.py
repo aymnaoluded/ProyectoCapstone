@@ -225,6 +225,39 @@ async def listar_usuarios(usuario: UsuarioToken = Depends(requiere_rol("Administ
         raise HTTPException(status_code=500, detail="Ocurrió un error al listar los usuarios.")
 
 
+@router.get("/ejecutivos")
+async def listar_ejecutivos_asignables(usuario: UsuarioToken = Depends(requiere_rol("Administrador"))):
+    """Personal al que se le puede asignar un ticket: Ejecutivos y Administradores con la cuenta activada."""
+    pool = obtener_db_pool()
+    try:
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT
+                    u.id_usuario,
+                    u.nombre || ' ' || u.apellido AS nombre,
+                    r.nombre AS rol_nombre
+                FROM USUARIO u
+                INNER JOIN ROL r ON u.rol = r.id_rol
+                WHERE r.nombre IN ('Ejecutivo', 'Administrador')
+                  AND u.cuenta_activada = TRUE
+                ORDER BY r.nombre DESC, u.nombre ASC;
+                """
+            )
+
+        return [
+            {
+                "id_usuario": r["id_usuario"],
+                "nombre": r["nombre"],
+                "rol_nombre": r["rol_nombre"]
+            }
+            for r in rows
+        ]
+    except Exception as e:
+        logger.error("Error en GET /api/admin/ejecutivos: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Ocurrió un error al listar los ejecutivos.")
+
+
 class CrearUsuarioRequest(BaseModel):
     nombre: str
     apellido: str
@@ -242,6 +275,14 @@ async def crear_usuario(
 ):
     pool = obtener_db_pool()
     correo = body.correo.strip().lower()
+
+    # Nombre y apellido sin espacios sobrantes, no vacíos y dentro del largo de la BD (VARCHAR(100))
+    body.nombre = body.nombre.strip()
+    body.apellido = body.apellido.strip()
+    if not body.nombre or not body.apellido:
+        raise HTTPException(status_code=400, detail="El nombre y el apellido no pueden estar vacíos.")
+    if len(body.nombre) > 100 or len(body.apellido) > 100:
+        raise HTTPException(status_code=400, detail="El nombre y el apellido no pueden superar los 100 caracteres.")
 
     frontend_url = os.getenv("FRONTEND_URL")
     if not frontend_url:
@@ -268,6 +309,14 @@ async def crear_usuario(
     try:
         async with pool.acquire() as conn:
             async with conn.transaction():
+
+                # El rol debe existir en la tabla ROL (si no, la BD respondería con un error 500)
+                rol_existe = await conn.fetchval(
+                    "SELECT 1 FROM ROL WHERE id_rol = $1;",
+                    body.rol
+                )
+                if not rol_existe:
+                    raise HTTPException(status_code=400, detail="Rol inválido.")
 
                 nuevo = await conn.fetchrow(
                     """
@@ -409,6 +458,11 @@ async def desconectar_usuario(usuario: UsuarioToken = Depends(get_usuario_actual
                     SET ultima_conexion = NOW() - INTERVAL '10 minutes' 
                     WHERE id_usuario = $1;
                     """,
+                    usuario.id_usuario
+                )
+                # Invalida el JWT actual: get_usuario_actual compara la versión del token con la de la BD
+                await conn.execute(
+                    "UPDATE USUARIO SET version_sesion = version_sesion + 1 WHERE id_usuario = $1;",
                     usuario.id_usuario
                 )
                 await conn.execute(

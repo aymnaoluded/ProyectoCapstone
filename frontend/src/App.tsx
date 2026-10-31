@@ -17,14 +17,22 @@ import CambiarPassword from "./components/CambiarPassword";
 import { TopBar } from "./components/TopBar";
 import { MobileNav } from "./components/MobileNav";
 import { ThemeProvider } from "./context/ThemeContext";
+import PaginaNoEncontrada from "./components/PaginaNoEncontrada";
 import {
   obtenerSesionSegura,
   eliminarSesionSegura,
 } from "./utils/storage";
 import { tokenVigente, API_URL } from "./utils/api";
 
+// Rutas que existen; cualquier otra muestra la página 404
+const RUTAS_VALIDAS = ["/", "/activar-cuenta", "/recuperar-password", "/restablecer-password"];
+
 export default function App() {
-  const [usuario, setUsuario] = useState<Usuario | null>(null);
+  // La sesión se recupera antes del primer render: así al recargar no aparece el login por un instante
+  const [usuario, setUsuario] = useState<Usuario | null>(() => {
+    const guardado = obtenerSesionSegura<Usuario>("user_session");
+    return guardado && guardado.rol_nombre && tokenVigente() ? guardado : null;
+  });
   const [vistaActiva, setVistaActivaState] = useState<VistaApp>("chat");
   const [conversacionActivaId, setConversacionActivaId] = useState<number | null>(null);
   const [refreshHistorialTrigger, setRefreshHistorialTrigger] = useState(0);
@@ -165,6 +173,15 @@ export default function App() {
     }
     limpiarSesionLocal();
   };
+
+  // Cualquier dirección que no sea una ruta de la aplicación muestra la página 404
+  if (!RUTAS_VALIDAS.includes(window.location.pathname)) {
+    return (
+      <ThemeProvider>
+        <PaginaNoEncontrada />
+      </ThemeProvider>
+    );
+  }
 
   // Rutas públicas de activación y restablecimiento
   if (window.location.pathname === "/activar-cuenta") {
