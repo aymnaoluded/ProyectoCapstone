@@ -187,8 +187,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
         `}
       >
         {/* Cabecera estilo macOS */}
-        <div className="p-4 pb-3 flex items-center justify-between border-b border-[var(--border-subtle)]">
-          <div className="flex items-center gap-3 overflow-hidden">
+        {/* Contraído (76px): logo y botón no caben en una fila, se apilan centrados para no cortar el logo */}
+        <div
+          className={`border-b border-[var(--border-subtle)] flex items-center ${
+            colapsado ? "flex-col gap-2 px-2 py-3" : "p-4 pb-3 justify-between"
+          }`}
+        >
+          <div className="flex items-center gap-3 overflow-hidden shrink-0">
             <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#007AFF] to-[#5856D6] flex items-center justify-center text-white shadow-md shadow-blue-500/25 shrink-0 ring-1 ring-white/20">
               <Bot size={22} className="animate-pulse" />
             </div>
