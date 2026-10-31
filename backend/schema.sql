@@ -54,8 +54,11 @@ CREATE TABLE DOCUMENTO (
     ruta_archivo  VARCHAR(255) NOT NULL,
     fecha_carga   TIMESTAMP NOT NULL DEFAULT NOW(),
     admin_id      INT NOT NULL REFERENCES USUARIO(id_usuario),
-    activo        BOOLEAN NOT NULL DEFAULT TRUE
+    activo        BOOLEAN NOT NULL DEFAULT TRUE,
+    hash_archivo  VARCHAR(64)  -- SHA-256 del archivo, para detectar duplicados en la carga masiva
 );
+
+CREATE INDEX IF NOT EXISTS idx_documento_hash ON DOCUMENTO(hash_archivo);
 
 CREATE TABLE FRAGMENTO (
     id_fragmento  SERIAL PRIMARY KEY,

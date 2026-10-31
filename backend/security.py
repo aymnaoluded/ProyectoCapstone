@@ -50,7 +50,8 @@ def verificar_password(password: str, hash_guardado: str) -> bool:
         return False
 
     if not es_hash_valido(hash_guardado):
-        return False
+        # Compatibilidad con contraseñas legadas en texto plano para permitir migración automática
+        return hmac.compare_digest(password, hash_guardado)
 
     salt, hash_esperado = hash_guardado.split("$")
     hash_calculado = hashlib.pbkdf2_hmac(

@@ -10,8 +10,10 @@ import {
   UserCheck,
   Star,
   MessageSquare,
+  ChevronRight,
+  ShieldAlert,
   RotateCcw,
-  X,
+  X
 } from "lucide-react";
 import type { Usuario } from "../types";
 import { cabecerasAuth, API_URL } from "../utils/api";
@@ -54,7 +56,6 @@ interface PersonalAsignable {
 interface BandejaEjecutivoProps {
   usuario: Usuario;
   soloAsignados?: boolean;
-  /** Vista de solo lectura: únicamente tickets con estado "Cerrado" (historial). */
   soloHistorial?: boolean;
 }
 
@@ -107,9 +108,7 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
   const cargarTickets = async () => {
     setCargando(true);
     try {
-      // El backend identifica al usuario y su rol a partir del token (JWT)
       let url = `${API_URL}/api/tickets`;
-      // En el historial no se aplica el filtro de estado de la cabecera: siempre son los cerrados
       if (filtroEstado && !soloHistorial) {
         url += `?estado_id=${filtroEstado}`;
       }
@@ -118,13 +117,11 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
         let data = await res.json();
         if (Array.isArray(data)) {
           if (soloHistorial) {
-            // Historial: solo tickets cerrados. El ejecutivo ve los suyos; el admin, todos.
             data = data.filter((t: any) => t.id_estado === ID_ESTADO_CERRADO);
             if (usuario.rol_nombre === "Ejecutivo") {
               data = data.filter((t: any) => t.ejecutivo && t.ejecutivo.id === usuario.id_usuario);
             }
           } else if (soloAsignados) {
-            // Tickets Asignados: los que tiene este ejecutivo, sin contar los ya cerrados
             data = data.filter(
               (t: any) =>
                 t.ejecutivo &&
@@ -132,14 +129,12 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
                 t.id_estado !== ID_ESTADO_CERRADO
             );
           } else if (usuario.rol_nombre === "Ejecutivo") {
-            // Bandeja de Tickets (Ejecutivo): solo los que todavía no tienen ejecutivo asignado
             data = data.filter((t: any) => !t.ejecutivo && t.id_estado !== ID_ESTADO_CERRADO);
           } else {
-            // Administrador en "Supervisión de Tickets": ve todos los activos, sin los cerrados
             data = data.filter((t: any) => t.id_estado !== ID_ESTADO_CERRADO);
           }
         }
-        setTickets(data)
+        setTickets(data);
       }
     } catch (err) {
       console.error("Error al cargar la bandeja de tickets:", err);
@@ -161,7 +156,7 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
       });
       if (res.ok) {
         const data = await res.json();
-        setMensajes(data.mensajes);
+        setMensajes(data.mensajes || []);
       }
     } catch (err) {
       console.error("Error al cargar detalle del ticket:", err);
@@ -174,7 +169,6 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
     if (!ticketSeleccionado) return;
     setActualizandoEstado(true);
     try {
-      // id_estado 2 = En Proceso, asignándose a sí mismo
       const res = await fetch(`${API_URL}/api/tickets/${ticketSeleccionado.id_ticket}/estado`, {
         method: "PATCH",
         headers: cabecerasAuth({ "Content-Type": "application/json" }),
@@ -197,9 +191,7 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
         setTicketSeleccionado(datosActualizados);
         setTickets((prev) =>
           soloAsignados || usuario.rol_nombre === "Administrador"
-            // Tickets Asignados, o Administrador viendo todos: se actualiza en la lista
             ? prev.map((t) => (t.id_ticket === ticketSeleccionado.id_ticket ? datosActualizados : t))
-            // Bandeja de Tickets (Ejecutivo), que solo lista los sin asignar: al tomarlo, sale de la lista
             : prev.filter((t) => t.id_ticket !== ticketSeleccionado.id_ticket)
         );
       } else {
@@ -357,46 +349,59 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
   const getBadgeEstado = (estado: string) => {
     switch (estado.toLowerCase()) {
       case "pendiente":
-        return "bg-amber-50 text-amber-700 border-amber-200/80";
+        return "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20";
       case "en proceso":
-        return "bg-blue-50 text-blue-700 border-blue-200/80";
+        return "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20";
       case "en espera":
-        return "bg-purple-50 text-purple-700 border-purple-200/80";
+        return "bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/20";
       case "resuelto":
-        return "bg-emerald-50 text-emerald-700 border-emerald-200/80";
+        return "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20";
       case "cerrado":
-        return "bg-slate-100 text-slate-700 border-slate-200";
+        return "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border-zinc-500/20";
       default:
-        return "bg-slate-50 text-slate-600 border-slate-200";
+        return "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border-zinc-500/20";
     }
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-[#f8fafc] overflow-hidden">
-      {/* Cabecera Superior */}
-      <div className="bg-white border-b border-slate-200 px-8 py-5 flex items-center justify-between shrink-0">
+    <div className="flex-1 flex flex-col h-full bg-transparent overflow-hidden">
+      {/* Cabecera Superior Glass */}
+      <div className="liquid-glass border-b border-[var(--border-glass)] px-6 sm:px-8 py-4 flex flex-wrap items-center justify-between gap-3 shrink-0 shadow-xs">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[var(--text-primary)]">
             {soloHistorial
               ? "Historial de Tickets"
               : soloAsignados
               ? "Tickets Asignados"
               : "Bandeja de Tickets"}
           </h1>
+          <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+            {soloHistorial
+              ? "Consulta histórica de casos resueltos y archivados"
+              : soloAsignados
+              ? "Casos asignados directamente a tu atención"
+              : "Casos activos escalados esperando respuesta"}
+          </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           {!soloHistorial && (
-            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-sm text-slate-600">
-              <Filter size={13} className="text-slate-400" />
+            <div className="flex items-center gap-2 liquid-glass border border-[var(--border-glass)] rounded-2xl px-3 py-1.5 text-xs text-[var(--text-secondary)] shadow-xs">
+              <Filter size={13} className="text-[var(--text-tertiary)]" />
               <select
                 value={filtroEstado || ""}
                 onChange={(e) => setFiltroEstado(e.target.value ? Number(e.target.value) : null)}
-                className="bg-transparent focus:outline-none cursor-pointer"
+                className="bg-transparent focus:outline-none cursor-pointer text-xs font-medium text-[var(--text-primary)]"
               >
-                <option value="">Todos los estados</option>
+                <option value="" className="bg-[var(--bg-surface)] text-[var(--text-primary)]">
+                  Todos los estados
+                </option>
                 {ESTADOS_DISPONIBLES.filter((est) => est.id !== ID_ESTADO_CERRADO).map((est) => (
-                  <option key={est.id} value={est.id}>
+                  <option
+                    key={est.id}
+                    value={est.id}
+                    className="bg-[var(--bg-surface)] text-[var(--text-primary)]"
+                  >
                     {est.nombre}
                   </option>
                 ))}
@@ -407,38 +412,39 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
           <button
             onClick={cargarTickets}
             title="Recargar bandeja"
-            className="p-2 text-slate-500 hover:text-slate-800 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
+            className="p-2.5 rounded-xl liquid-glass border border-[var(--border-glass)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)] transition-all cursor-pointer shadow-xs active:scale-95"
           >
-            <RefreshCw size={15} className={cargando ? "animate-spin text-blue-600" : ""} />
+            <RefreshCw size={15} className={cargando ? "animate-spin text-[var(--accent-primary)]" : ""} />
           </button>
         </div>
       </div>
 
-      <div className="flex-1 flex overflow-hidden p-6 gap-6 max-w-7xl mx-auto w-full">
+      {/* Contenido dividido en 2 paneles estilo Liquid Glass */}
+      <div className="flex-1 flex flex-col md:flex-row overflow-hidden p-4 sm:p-6 gap-5 max-w-7xl mx-auto w-full">
         {/* Columna Izquierda: Listado de Tickets */}
-        <div className="w-1/3 flex flex-col bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-xs">
-          <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-            <span className="text-sm font-semibold text-slate-600 uppercase tracking-wider">
+        <div className="w-full md:w-80 lg:w-96 flex flex-col liquid-glass-card rounded-3xl overflow-hidden shrink-0 h-64 md:h-auto">
+          <div className="p-4 border-b border-[var(--border-subtle)] bg-[var(--bg-surface-elevated)]/30 flex items-center justify-between">
+            <span className="text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">
               {soloHistorial ? "Tickets Cerrados" : "Tickets Disponibles"} ({tickets.length})
             </span>
           </div>
 
-          <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
+          <div className="flex-1 overflow-y-auto divide-y divide-[var(--border-subtle)] apple-scrollbar">
             {cargando && tickets.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-slate-400 space-y-2">
-                <Loader2 className="animate-spin text-blue-600" size={20} />
-                <p className="text-xs">Cargando bandeja de soporte...</p>
+              <div className="flex flex-col items-center justify-center py-16 text-[var(--text-tertiary)] space-y-2">
+                <Loader2 className="animate-spin text-[var(--accent-primary)]" size={24} />
+                <p className="text-xs font-medium">Cargando bandeja...</p>
               </div>
             ) : tickets.length === 0 ? (
-              <div className="p-8 text-center space-y-2">
-                <Inbox size={32} className="mx-auto text-slate-300" />
-                <p className="text-xs font-medium text-slate-600">
-                  {soloHistorial ? "No hay tickets cerrados todavía" : "No hay tickets para mostrar"}
+              <div className="p-8 text-center space-y-2 text-[var(--text-tertiary)]">
+                <Inbox size={32} className="mx-auto opacity-50" />
+                <p className="text-xs font-semibold text-[var(--text-secondary)]">
+                  {soloHistorial ? "No hay tickets cerrados" : "Sin tickets pendientes"}
                 </p>
-                <p className="text-[11px] text-slate-400">
+                <p className="text-[11px] leading-relaxed">
                   {soloHistorial
-                    ? "Los tickets que se cierren aparecerán aquí como historial."
-                    : "Los casos escalados por clientes o por baja confianza del bot se listarán aquí."}
+                    ? "Los tickets archivados y resueltos aparecerán aquí."
+                    : "Los casos derivados aparecerán aquí para ser gestionados."}
                 </p>
               </div>
             ) : (
@@ -446,18 +452,18 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
                 <div
                   key={t.id_ticket}
                   onClick={() => seleccionarTicket(t)}
-                  className={`p-4 cursor-pointer transition-all hover:bg-slate-50 ${
+                  className={`p-4 cursor-pointer transition-all ${
                     ticketSeleccionado?.id_ticket === t.id_ticket
-                      ? "bg-blue-50/60 border-l-4 border-blue-600"
-                      : ""
+                      ? "bg-blue-500/10 border-l-4 border-[var(--accent-primary)]"
+                      : "hover:bg-[var(--bg-card-hover)]"
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <span className="text-sm font-bold text-slate-800 line-clamp-1">
-                      #{t.id_ticket} - {t.titulo}
+                    <span className="text-xs font-semibold text-[var(--text-primary)] line-clamp-1">
+                      #{t.id_ticket} · {t.titulo}
                     </span>
                     <span
-                      className={`text-[12px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${getBadgeEstado(
+                      className={`text-[9.5px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${getBadgeEstado(
                         t.estado
                       )}`}
                     >
@@ -465,14 +471,16 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
                     </span>
                   </div>
 
-                  <p className="text-sm text-slate-500 mt-1 line-clamp-2">{t.descripcion}</p>
+                  <p className="text-xs text-[var(--text-secondary)] mt-1.5 line-clamp-2 leading-relaxed">
+                    {t.descripcion}
+                  </p>
 
-                  <div className="mt-3 flex items-center justify-between text-[12px] text-slate-400">
-                    <span className="flex items-center gap-1">
-                      <User size={12} /> {t.cliente.nombre}
+                  <div className="mt-3 flex items-center justify-between text-[10.5px] text-[var(--text-tertiary)]">
+                    <span className="flex items-center gap-1 font-medium text-[var(--text-secondary)]">
+                      <User size={11} /> {t.cliente.nombre}
                     </span>
                     <span className="flex items-center gap-1">
-                      <Clock size={12} /> {t.fecha_creacion}
+                      <Clock size={11} /> {t.fecha_creacion}
                     </span>
                   </div>
                 </div>
@@ -481,47 +489,32 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
           </div>
         </div>
 
-        {/* Columna Derecha: Detalle, Asignación y Chat con el Cliente */}
-        <div className="flex-1 flex flex-col bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-xs">
+        {/* Columna Derecha: Detalle, Asignación y Chat con Cliente */}
+        <div className="flex-1 flex flex-col liquid-glass-card rounded-3xl overflow-hidden min-h-0">
           {ticketSeleccionado ? (
             <>
               {/* Encabezado y Barra de Acción del Ticket */}
-              <div className="p-5 border-b border-slate-200 bg-white space-y-4 shrink-0">
-                <div className="flex items-start justify-between gap-4">
-                  {/* min-w-0 + overflow-wrap: un texto largo sin espacios no empuja fuera de vista los controles */}
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-base font-bold text-slate-900 [overflow-wrap:anywhere]">
-                        #{ticketSeleccionado.id_ticket} - {ticketSeleccionado.titulo}
+              <div className="p-5 sm:p-6 border-b border-[var(--border-subtle)] bg-[var(--bg-surface-elevated)]/20 space-y-3 shrink-0">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div className="space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="text-base font-bold text-[var(--text-primary)] tracking-tight">
+                        #{ticketSeleccionado.id_ticket} · {ticketSeleccionado.titulo}
                       </h2>
                       <span
-                        className={`text-[13px] font-semibold px-2.5 py-0.5 rounded-full border ${getBadgeEstado(
+                        className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full border ${getBadgeEstado(
                           ticketSeleccionado.estado
                         )}`}
                       >
                         {ticketSeleccionado.estado}
                       </span>
                     </div>
-                    {/* Alto máximo con scroll: una descripción larga no debe tapar el hilo ni el formulario de respuesta */}
-                    <p className="text-sm text-slate-600 mt-1.5 [overflow-wrap:anywhere] whitespace-pre-wrap max-h-28 overflow-y-auto pr-2">
+                    <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
                       {ticketSeleccionado.descripcion}
                     </p>
                   </div>
 
-                  {/* Historial: es de solo lectura, salvo el botón para que el Administrador reabra el ticket */}
-                  {soloHistorial && esAdmin && (
-                    <button
-                      onClick={() => setModalReabrir(true)}
-                      disabled={actualizandoEstado}
-                      className="flex items-center gap-1.5 shrink-0 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-semibold
-                      px-3 py-1.5 rounded-xl transition-all shadow-xs disabled:opacity-50 cursor-pointer"
-                    >
-                      <RotateCcw size={14} />
-                      <span>Reabrir ticket</span>
-                    </button>
-                  )}
-
-                  {/* Acciones de Asignación / Estado (no disponibles en el historial: es solo lectura) */}
+                  {/* Acciones de Asignación / Estado */}
                   {!soloHistorial && (
                     <div className="flex items-center gap-2 shrink-0">
                       {/* El Administrador puede asignar el ticket a cualquier ejecutivo activo */}
@@ -549,30 +542,31 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
 
                       {/* Sin responsable: el Ejecutivo lo toma (el Admin usa el selector). Con responsable: se cambia el estado */}
                       {!ticketSeleccionado.ejecutivo ? (
-                        !esAdmin && (
-                          <button
-                            onClick={handleTomarTicket}
-                            disabled={actualizandoEstado}
-                            className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-1.5 rounded-xl transition-all
-                            shadow-xs disabled:opacity-50 cursor-pointer"
-                          >
-                            <UserCheck size={14} />
-                            <span>Tomar Ticket</span>
-                          </button>
-                        )
+                        <button
+                          onClick={handleTomarTicket}
+                          disabled={actualizandoEstado}
+                          className="apple-btn-primary flex items-center gap-1.5 text-xs font-semibold px-4 py-2 rounded-xl transition-all shadow-sm disabled:opacity-50 cursor-pointer"
+                        >
+                          <UserCheck size={14} />
+                          <span>Tomar Ticket</span>
+                        </button>
                       ) : (
                         <div className="flex items-center gap-2">
-                          <label className="text-[11px] font-medium text-slate-500">Estado:</label>
+                          <label className="text-[11px] font-semibold text-[var(--text-secondary)]">
+                            Estado:
+                          </label>
                           <select
                             value={ticketSeleccionado.id_estado}
                             onChange={(e) => handleCambiarEstado(Number(e.target.value))}
-                            // Un ticket cerrado solo lo puede reabrir el Administrador
-                            disabled={actualizandoEstado || (!esAdmin && ticketSeleccionado.id_estado === ID_ESTADO_CERRADO)}
-                            className="text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-slate-700 focus:outline-none focus:ring-1 
-                            focus:ring-blue-500 cursor-pointer disabled:opacity-50"
+                            disabled={actualizandoEstado}
+                            className="text-xs font-semibold liquid-glass border border-[var(--border-glass)] rounded-xl px-3 py-1.5 text-[var(--text-primary)] focus:outline-none cursor-pointer disabled:opacity-50"
                           >
                             {ESTADOS_DISPONIBLES.map((est) => (
-                              <option key={est.id} value={est.id}>
+                              <option
+                                key={est.id}
+                                value={est.id}
+                                className="bg-[var(--bg-surface)] text-[var(--text-primary)]"
+                              >
                                 {est.nombre}
                               </option>
                             ))}
@@ -583,22 +577,22 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
                   )}
                 </div>
 
-                <div className="flex items-center justify-between text-sm text-slate-500 pt-2 border-t border-slate-100">
-                  <div className="flex items-center gap-4">
+                <div className="flex flex-wrap items-center justify-between text-xs text-[var(--text-secondary)] pt-2.5 border-t border-[var(--border-subtle)] gap-2">
+                  <div className="flex flex-wrap items-center gap-3">
                     <span>
-                      <strong>Cliente:</strong> {ticketSeleccionado.cliente.nombre} ({ticketSeleccionado.cliente.correo})
+                      <strong className="text-[var(--text-primary)]">Cliente:</strong> {ticketSeleccionado.cliente.nombre} ({ticketSeleccionado.cliente.correo})
                     </span>
                     <span>·</span>
                     <span>
-                      <strong>Asignado:</strong>{" "}
+                      <strong className="text-[var(--text-primary)]">Asignado:</strong>{" "}
                       {ticketSeleccionado.ejecutivo ? ticketSeleccionado.ejecutivo.nombre : "Sin asignar"}
                     </span>
                   </div>
 
                   {ticketSeleccionado.calificacion && (
-                    <div className="flex items-center gap-1 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg">
+                    <div className="flex items-center gap-1 bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 rounded-full">
                       <Star size={12} className="text-amber-500 fill-amber-400" />
-                      <span className="text-[11px] font-bold text-amber-700">
+                      <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400">
                         {ticketSeleccionado.calificacion}/5
                       </span>
                     </div>
@@ -607,18 +601,18 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
               </div>
 
               {/* Hilo de Respuestas */}
-              <div className="flex-1 p-6 overflow-y-auto space-y-4 bg-slate-50/40">
+              <div className="flex-1 p-5 sm:p-6 overflow-y-auto space-y-4 apple-scrollbar">
                 {cargandoDetalle ? (
-                  <div className="flex flex-col items-center justify-center h-full text-slate-400">
-                    <Loader2 className="animate-spin text-blue-600 mb-2" size={24} />
-                    <span className="text-xs">Cargando conversación...</span>
+                  <div className="flex flex-col items-center justify-center h-full text-[var(--text-tertiary)]">
+                    <Loader2 className="animate-spin text-[var(--accent-primary)] mb-2" size={26} />
+                    <span className="text-xs font-medium">Cargando mensajes del ticket...</span>
                   </div>
                 ) : mensajes.length === 0 ? (
-                  <div className="text-center py-12 text-slate-400 space-y-2">
-                    <MessageSquare size={28} className="mx-auto text-slate-300" />
-                    <p className="text-xs">No hay mensajes previos en este ticket.</p>
-                    <p className="text-[11px] text-slate-400">
-                      Toma el caso y envía tu primera respuesta al cliente.
+                  <div className="text-center py-16 text-[var(--text-tertiary)] space-y-2">
+                    <MessageSquare size={32} className="mx-auto opacity-40" />
+                    <p className="text-xs font-semibold text-[var(--text-secondary)]">No hay mensajes previos</p>
+                    <p className="text-[11px] max-w-xs mx-auto">
+                      Toma el caso y envía tu primera respuesta para asistir al cliente.
                     </p>
                   </div>
                 ) : (
@@ -627,18 +621,18 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
                     return (
                       <div
                         key={m.id_mensaje}
-                        className={`flex flex-col max-w-[80%] ${
+                        className={`flex flex-col max-w-[85%] sm:max-w-[75%] ${
                           esMio ? "ml-auto items-end" : "mr-auto items-start"
-                        }`}
+                        } animate-scale-up`}
                       >
-                        <span className="text-[12px] text-slate-400 mb-1 px-1">
+                        <span className="text-[10px] text-[var(--text-tertiary)] mb-1 px-1">
                           {esMio ? "Tú" : m.autor_nombre} · {m.fecha}
                         </span>
                         <div
-                          className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed [overflow-wrap:anywhere] ${
+                          className={`rounded-2xl px-4 py-2.5 text-xs leading-relaxed ${
                             esMio
-                              ? "bg-blue-600 text-white rounded-br-xs shadow-xs"
-                              : "bg-white text-slate-800 border border-slate-200/80 rounded-bl-xs shadow-xs"
+                              ? "bg-gradient-to-r from-[#007AFF] to-[#0A84FF] text-white rounded-br-xs shadow-md shadow-blue-500/20"
+                              : "liquid-glass border border-[var(--border-glass)] text-[var(--text-primary)] rounded-bl-xs shadow-xs"
                           }`}
                         >
                           {m.contenido}
@@ -649,10 +643,10 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
                 )}
               </div>
 
-              {/* Input para responder (oculto en el historial: es de solo lectura) */}
+              {/* Input para responder */}
               {soloHistorial ? (
-                <div className="p-4 bg-slate-50 border-t border-slate-200 text-center text-xs text-slate-500">
-                  Este ticket está cerrado. Se muestra en modo consulta.
+                <div className="p-4 bg-[var(--bg-surface-elevated)]/30 border-t border-[var(--border-subtle)] text-center text-xs text-[var(--text-tertiary)] font-medium">
+                  Este ticket se encuentra cerrado. Se muestra en modo de solo lectura.
                 </div>
               ) : !esAdmin && ticketSeleccionado.ejecutivo?.id !== usuario.id_usuario ? (
                 // El Ejecutivo solo responde los tickets asignados a él
@@ -660,7 +654,7 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
                   Toma el ticket para poder responder al cliente.
                 </div>
               ) : (
-                <form onSubmit={handleEnviarMensaje} className="p-4 bg-white border-t border-slate-200 flex gap-2">
+                <form onSubmit={handleEnviarMensaje} className="p-4 border-t border-[var(--border-subtle)] bg-[var(--bg-surface-elevated)]/40 flex gap-2.5 shrink-0">
                   <input
                     type="text"
                     placeholder="Escribe una respuesta para el cliente..."
@@ -668,14 +662,12 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
                     value={nuevoMensaje}
                     onChange={(e) => setNuevoMensaje(e.target.value)}
                     disabled={enviando || ticketSeleccionado.id_estado === 5}
-                    className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 
-                    disabled:opacity-50"
+                    className="liquid-input flex-1 rounded-2xl px-4 py-2.5 text-xs text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:outline-none disabled:opacity-50"
                   />
                   <button
                     type="submit"
                     disabled={enviando || !nuevoMensaje.trim() || ticketSeleccionado.id_estado === 5}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors 
-                    disabled:opacity-50 cursor-pointer"
+                    className="apple-btn-primary px-5 py-2.5 rounded-2xl text-xs font-semibold flex items-center gap-1.5 transition-all disabled:opacity-50 shadow-sm cursor-pointer"
                   >
                     {enviando ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
                     <span>Responder</span>
@@ -684,11 +676,13 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
               )}
             </>
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-400">
-              <Inbox size={40} className="text-slate-300 mb-3" />
-              <p className="text-sm font-semibold text-slate-600">Ningún ticket seleccionado</p>
-              <p className="text-xs text-slate-400 mt-1 max-w-sm">
-                Selecciona un ticket de la columna izquierda para revisar el contexto, tomar el caso o dar respuesta al usuario.
+            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-[var(--text-tertiary)]">
+              <div className="w-16 h-16 rounded-3xl liquid-glass border border-[var(--border-glass)] flex items-center justify-center text-[var(--text-tertiary)] mb-3 shadow-sm">
+                <Inbox size={32} />
+              </div>
+              <p className="text-sm font-semibold text-[var(--text-primary)]">Ningún ticket seleccionado</p>
+              <p className="text-xs text-[var(--text-secondary)] mt-1 max-w-sm leading-relaxed">
+                Selecciona una solicitud de la columna izquierda para revisar el contexto, tomar el caso o dar respuesta al usuario.
               </p>
             </div>
           )}

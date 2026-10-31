@@ -15,23 +15,24 @@ async def iniciar_db_pool():
         max_size=10
     )
     async with pool.acquire() as conn:
-        # Solo se altera la tabla si faltan las columnas: el usuario de la aplicación
-        # (supportai_app) no tiene permiso para cambiar la estructura, ni siquiera con IF NOT EXISTS
-        existentes = await conn.fetch(
+        # Si las columnas y el índice ya existen, no se ejecutan los ALTER/CREATE de abajo:
+        # el usuario de la aplicación (supportai_app) no tiene permiso para cambiar la estructura,
+        # ni siquiera con IF NOT EXISTS. Si falta algo, se ejecutan como siempre (requiere postgres).
+        columnas = await conn.fetchval(
             """
-            SELECT column_name FROM information_schema.columns
-            WHERE table_name = 'conversacion' AND column_name IN ('calificacion', 'titulo');
+            SELECT COUNT(*) FROM information_schema.columns
+            WHERE (table_name = 'conversacion' AND column_name IN ('calificacion', 'titulo'))
+               OR (table_name = 'documento' AND column_name = 'hash_archivo');
             """
         )
-        if len(existentes) < 2:
-            try:
-                await conn.execute("ALTER TABLE CONVERSACION ADD COLUMN IF NOT EXISTS calificacion INTEGER;")
-                await conn.execute("ALTER TABLE CONVERSACION ADD COLUMN IF NOT EXISTS titulo VARCHAR(255);")
-            except asyncpg.InsufficientPrivilegeError as e:
-                raise RuntimeError(
-                    "Faltan las columnas calificacion/titulo en CONVERSACION y el usuario de la base "
-                    "no puede crearlas. Ejecuta backend/schema.sql como postgres."
-                ) from e
+        indice = await conn.fetchval("SELECT 1 FROM pg_indexes WHERE indexname = 'idx_documento_hash';")
+        if columnas == 3 and indice:
+            return
+
+        await conn.execute("ALTER TABLE CONVERSACION ADD COLUMN IF NOT EXISTS calificacion INTEGER;")
+        await conn.execute("ALTER TABLE CONVERSACION ADD COLUMN IF NOT EXISTS titulo VARCHAR(255);")
+        await conn.execute("ALTER TABLE DOCUMENTO ADD COLUMN IF NOT EXISTS hash_archivo VARCHAR(64);")
+        await conn.execute("CREATE INDEX IF NOT EXISTS idx_documento_hash ON DOCUMENTO(hash_archivo);")
 
 async def cerrar_db_pool():
     global pool

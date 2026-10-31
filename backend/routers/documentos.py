@@ -1,3 +1,4 @@
+import hashlib
 import logging
 import os
 import re
@@ -8,6 +9,7 @@ from services import (
     extraer_texto,
     fragmentar_texto,
     generar_embedding_documento,
+    generar_embeddings_documentos,
 )
 from .auth import requiere_rol, UsuarioToken
 
@@ -128,12 +130,28 @@ async def subir_documento(
     try:
         # Valida extensión (pdf/docx/txt) y tamaño (25 MB)
         contenido_bytes, extension = await leer_archivo_validado(archivo)
+        hash_archivo = hashlib.sha256(contenido_bytes).hexdigest()
+
+        # Detección y prevención de duplicados
+        async with pool.acquire() as conn:
+            doc_existente = await conn.fetchrow(
+                "SELECT id_documento, titulo FROM DOCUMENTO WHERE hash_archivo = $1;",
+                hash_archivo
+            )
+            if doc_existente:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Este archivo ya existe en la base de conocimiento bajo el título '{doc_existente['titulo']}'."
+                )
 
         texto_completo = extraer_texto(contenido_bytes, TIPOS_PERMITIDOS[extension])
         fragmentos = fragmentar_texto(texto_completo)
 
         if not fragmentos:
             raise HTTPException(status_code=400, detail="El documento no contiene texto extraíble.")
+
+        # Generación optimizada de embeddings por lotes
+        vectores = generar_embeddings_documentos(fragmentos)
 
         # Solo se guarda el archivo si el contenido es válido
         ruta_archivo = guardar_archivo(contenido_bytes, archivo.filename)
@@ -142,16 +160,15 @@ async def subir_documento(
             async with conn.transaction():
                 doc_row = await conn.fetchrow(
                     """
-                    INSERT INTO DOCUMENTO (titulo, ruta_archivo, admin_id, activo)
-                    VALUES ($1, $2, $3, TRUE)
+                    INSERT INTO DOCUMENTO (titulo, ruta_archivo, admin_id, activo, hash_archivo)
+                    VALUES ($1, $2, $3, TRUE, $4)
                     RETURNING id_documento
                     """,
-                    titulo, ruta_archivo, usuario.id_usuario
+                    titulo, ruta_archivo, usuario.id_usuario, hash_archivo
                 )
                 documento_id = doc_row["id_documento"]
 
-                for i, fragmento in enumerate(fragmentos):
-                    vector = generar_embedding_documento(fragmento)
+                for i, (fragmento, vector) in enumerate(zip(fragmentos, vectores)):
                     vector_str = f"[{','.join(map(str, vector))}]"
                     await conn.execute(
                         """
@@ -180,6 +197,166 @@ async def subir_documento(
     except Exception as e:
         logger.error("Error en POST /api/documentos: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Ocurrió un error al procesar el documento.")
+
+
+@router.post("/api/documentos/masivo")
+async def subir_documentos_masivo(
+    archivos: list[UploadFile] = File(...),
+    usuario: UsuarioToken = Depends(requiere_rol(ROL_ADMIN))
+):
+    """
+    Recibe múltiples archivos simultáneamente (hasta 30 por solicitud),
+    valida extensiones, tamaños y duplicados por hash SHA-256.
+    Genera embeddings en lotes e indexa en PostgreSQL + pgvector con gestión
+    individual de errores para evitar que un archivo defectuoso interrumpa la carga.
+    """
+    if not archivos:
+        raise HTTPException(status_code=400, detail="No se enviaron archivos para la carga masiva.")
+
+    if len(archivos) > 30:
+        raise HTTPException(
+            status_code=400,
+            detail="Se superó el límite de archivos por lote. Máximo 30 archivos por solicitud."
+        )
+
+    pool = obtener_db_pool()
+    resultados_exitosos = []
+    resultados_duplicados = []
+    resultados_fallidos = []
+
+    for archivo in archivos:
+        nombre_original = archivo.filename or "desconocido"
+        try:
+            # 1. Validar extensión permitida
+            extension = obtener_extension_valida(nombre_original)
+
+            # 2. Leer contenido y validar tamaño (hasta 25 MB)
+            contenido_bytes = await archivo.read(MAX_TAMANO_BYTES + 1)
+            if len(contenido_bytes) > MAX_TAMANO_BYTES:
+                resultados_fallidos.append({
+                    "nombre_archivo": nombre_original,
+                    "estado": "error",
+                    "mensaje": "El archivo supera el tamaño máximo permitido de 25 MB."
+                })
+                continue
+
+            if len(contenido_bytes) == 0:
+                resultados_fallidos.append({
+                    "nombre_archivo": nombre_original,
+                    "estado": "error",
+                    "mensaje": "El archivo se encuentra vacío."
+                })
+                continue
+
+            # 3. Cálculo de hash y verificación de duplicados
+            hash_archivo = hashlib.sha256(contenido_bytes).hexdigest()
+
+            async with pool.acquire() as conn:
+                doc_existente = await conn.fetchrow(
+                    "SELECT id_documento, titulo FROM DOCUMENTO WHERE hash_archivo = $1;",
+                    hash_archivo
+                )
+                if doc_existente:
+                    resultados_duplicados.append({
+                        "nombre_archivo": nombre_original,
+                        "documento_id": doc_existente["id_documento"],
+                        "titulo_existente": doc_existente["titulo"],
+                        "estado": "duplicado",
+                        "mensaje": f"Archivo idéntico ya indexado: '{doc_existente['titulo']}' (ID #{doc_existente['id_documento']})."
+                    })
+                    continue
+
+            # 4. Extracción de texto
+            texto_completo = extraer_texto(contenido_bytes, TIPOS_PERMITIDOS[extension])
+            fragmentos = fragmentar_texto(texto_completo)
+
+            if not fragmentos:
+                resultados_fallidos.append({
+                    "nombre_archivo": nombre_original,
+                    "estado": "error",
+                    "mensaje": "No se pudo extraer texto utilizable del archivo."
+                })
+                continue
+
+            # 5. Generación de embeddings por lotes
+            vectores = generar_embeddings_documentos(fragmentos)
+
+            # 6. Almacenamiento seguro en disco
+            ruta_archivo = guardar_archivo(contenido_bytes, nombre_original)
+
+            # Título limpio a partir del nombre original
+            base_nombre = os.path.splitext(sanitizar_nombre_archivo(nombre_original))[0]
+            titulo_limpio = base_nombre.replace("_", " ").strip() or "Documento"
+
+            # 7. Inserción transaccional en base de datos
+            async with pool.acquire() as conn:
+                async with conn.transaction():
+                    doc_row = await conn.fetchrow(
+                        """
+                        INSERT INTO DOCUMENTO (titulo, ruta_archivo, admin_id, activo, hash_archivo)
+                        VALUES ($1, $2, $3, TRUE, $4)
+                        RETURNING id_documento
+                        """,
+                        titulo_limpio, ruta_archivo, usuario.id_usuario, hash_archivo
+                    )
+                    documento_id = doc_row["id_documento"]
+
+                    for i, (fragmento, vector) in enumerate(zip(fragmentos, vectores)):
+                        vector_str = f"[{','.join(map(str, vector))}]"
+                        await conn.execute(
+                            """
+                            INSERT INTO FRAGMENTO (documento_id, contenido, embedding, orden)
+                            VALUES ($1, $2, $3::vector, $4)
+                            """,
+                            documento_id, fragmento, vector_str, i + 1
+                        )
+
+            resultados_exitosos.append({
+                "nombre_archivo": nombre_original,
+                "documento_id": documento_id,
+                "titulo": titulo_limpio,
+                "total_fragmentos": len(fragmentos),
+                "estado": "exito"
+            })
+
+        except Exception as e:
+            logger.error("Error procesando archivo masivo '%s': %s", nombre_original, e, exc_info=True)
+            resultados_fallidos.append({
+                "nombre_archivo": nombre_original,
+                "estado": "error",
+                "mensaje": f"Error al procesar el archivo: {str(e)}"
+            })
+
+    # 8. Registro de auditoría consolidado
+    if resultados_exitosos or resultados_duplicados or resultados_fallidos:
+        try:
+            async with pool.acquire() as conn:
+                await conn.execute(
+                    """
+                    INSERT INTO log_auditoria (usuario_id, accion, detalle)
+                    VALUES ($1, 'SUBIDA_DOCUMENTO_MASIVO', $2)
+                    """,
+                    usuario.id_usuario,
+                    (
+                        f"Carga masiva: {len(resultados_exitosos)} indexados, "
+                        f"{len(resultados_duplicados)} duplicados, "
+                        f"{len(resultados_fallidos)} con error de {len(archivos)} recibidos."
+                    )
+                )
+        except Exception:
+            logger.exception("No se pudo registrar la auditoría de carga masiva")
+
+    return {
+        "total_recibidos": len(archivos),
+        "total_exitosos": len(resultados_exitosos),
+        "total_duplicados": len(resultados_duplicados),
+        "total_fallidos": len(resultados_fallidos),
+        "resultados": {
+            "exitosos": resultados_exitosos,
+            "duplicados": resultados_duplicados,
+            "fallidos": resultados_fallidos
+        }
+    }
 
 
 @router.get("/api/admin/conocimiento/stats")
