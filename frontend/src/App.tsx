@@ -28,7 +28,11 @@ import { tokenVigente, API_URL } from "./utils/api";
 const RUTAS_VALIDAS = ["/", "/activar-cuenta", "/recuperar-password", "/restablecer-password"];
 
 export default function App() {
-  const [usuario, setUsuario] = useState<Usuario | null>(null);
+  // La sesión se recupera antes del primer render: así al recargar no aparece el login por un instante
+  const [usuario, setUsuario] = useState<Usuario | null>(() => {
+    const guardado = obtenerSesionSegura<Usuario>("user_session");
+    return guardado && guardado.rol_nombre && tokenVigente() ? guardado : null;
+  });
   const [vistaActiva, setVistaActivaState] = useState<VistaApp>("chat");
   const [conversacionActivaId, setConversacionActivaId] = useState<number | null>(null);
   const [refreshHistorialTrigger, setRefreshHistorialTrigger] = useState(0);
