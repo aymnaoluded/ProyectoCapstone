@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import {
-  Bot,
   MessageSquare,
   Ticket,
   Users,
@@ -20,18 +19,19 @@ import {
   LockKeyhole,
   PanelLeftClose,
   PanelLeftOpen,
-  Sparkles
+  Sparkles,
+  Building2,
 } from "lucide-react";
 
 import type { Usuario, ConversacionResumen } from "../types";
 import { API_URL } from "../utils/api";
 
 export type VistaApp =
-  // Cliente
+  // Cliente / Residentes
   | "chat"
   | "mis_tickets"
 
-  // Ejecutivo / Administrador
+  // Ejecutivo / Comité
   | "bandeja_tickets"
   | "tickets_asignados"
   | "historial_tickets"
@@ -73,7 +73,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   mostrarSeguridad,
   onCambiarPassword,
   mobileAbierto = false,
-  onCerrarMobile
+  onCerrarMobile,
 }) => {
   const [conversaciones, setConversaciones] = useState<ConversacionResumen[]>([]);
   const [cargandoHistorial, setCargandoHistorial] = useState(false);
@@ -81,9 +81,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const vistaActiva: VistaApp | null = mostrarSeguridad ? null : vistaActual;
 
-  // ============================================================
-  // CARGAR HISTORIAL DE CONVERSACIONES (CLIENTE)
-  // ============================================================
+  // Cargar historial de conversaciones (Cliente / Residente)
   useEffect(() => {
     if (!usuario || usuario.rol_nombre !== "Cliente") return;
 
@@ -152,7 +150,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     "Hoy",
     "Ayer",
     "Últimos 7 días",
-    "Anteriores"
+    "Anteriores",
   ];
 
   const grupos = gruposOrden.reduce<Record<string, ConversacionResumen[]>>((acc, grupo) => {
@@ -180,55 +178,55 @@ export const Sidebar: React.FC<SidebarProps> = ({
       )}
 
       <aside
-        className={`fixed md:static inset-y-0 left-0 z-50 flex flex-col justify-between select-none transition-all duration-300 ease-out border-r shrink-0
-          liquid-glass border-[var(--border-glass)] text-[var(--text-primary)]
-          ${colapsado ? "w-[76px]" : "w-72"}
+        className={`fixed md:static inset-y-0 left-0 z-50 flex flex-col justify-between select-none transition-all duration-300 ease-out border-r border-[#173C5E] shrink-0
+          bg-[#1E4E79] text-white shadow-lg
+          ${colapsado ? "w-[78px]" : "w-72"}
           ${mobileAbierto ? "translate-x-0 shadow-2xl" : "-translate-x-full md:translate-x-0"}
         `}
       >
-        {/* Cabecera estilo macOS */}
-        {/* Contraído (76px): logo y botón no caben en una fila, se apilan centrados para no cortar el logo */}
+        {/* Cabecera Corporativa con Estilo iOS */}
         <div
-          className={`border-b border-[var(--border-subtle)] flex items-center ${
-            colapsado ? "flex-col gap-2 px-2 py-3" : "p-4 pb-3 justify-between"
+          className={`bg-[#173C5E]/90 backdrop-blur-md border-b border-white/10 flex items-center ${
+            colapsado ? "flex-col gap-2 px-2 py-3.5" : "p-4 pb-3.5 justify-between"
           }`}
         >
           <div className="flex items-center gap-3 overflow-hidden shrink-0">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#007AFF] to-[#5856D6] flex items-center justify-center text-white shadow-md shadow-blue-500/25 shrink-0 ring-1 ring-white/20">
-              <Bot size={22} className="animate-pulse" />
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#1E4E79] to-[#173C5E] border border-white/20 flex items-center justify-center text-white shrink-0 shadow-md ring-1 ring-white/10">
+              <Building2 size={22} className="text-[#E3A21A]" />
             </div>
 
             {!colapsado && (
               <div className="overflow-hidden">
-                <div className="flex items-center gap-1.5">
-                  <h1 className="font-semibold text-base tracking-tight text-[var(--text-primary)] truncate">
-                    SupportAI
-                  </h1>
-                  <span className="inline-flex items-center px-1.5 py-0.2 text-[10px] font-semibold rounded-full bg-blue-500/10 text-[var(--accent-primary)] border border-blue-500/20">
-                    Pro
+                <h1 className="font-heading font-bold text-base text-white truncate leading-snug tracking-tight">
+                  Comunidad Clara
+                </h1>
+                <p className="text-[11px] font-medium text-white/75 truncate">
+                  Administraciones Ltda.
+                </p>
+                <div className="mt-1">
+                  <span className="inline-block text-[10.5px] font-semibold text-white/95 bg-white/12 border border-white/15 px-2.5 py-0.5 rounded-full shadow-2xs">
+                    {usuario.rol_nombre || "Usuario"}
                   </span>
                 </div>
-                <p className="text-[11px] font-medium text-[var(--text-secondary)] truncate">
-                  {usuario.rol_nombre || "Usuario"}
-                </p>
               </div>
             )}
           </div>
 
-          {/* Botón colapsar / expandir en escritorio */}
+          {/* Botón colapsar / expandir en escritorio estilo iOS */}
           <button
             onClick={() => setColapsado((prev) => !prev)}
             title={colapsado ? "Expandir menú" : "Contraer menú"}
-            className="hidden md:flex p-1.5 rounded-xl text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)] transition-colors cursor-pointer"
+            type="button"
+            className="hidden md:flex p-1.5 rounded-xl text-white/75 hover:text-white hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
           >
             {colapsado ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
           </button>
         </div>
 
         {/* Contenido Central Scrollable */}
-        <div className="flex-1 overflow-y-auto px-3 py-3 space-y-5 min-h-0 apple-scrollbar">
+        <div className="flex-1 overflow-y-auto px-3 py-3.5 space-y-4 min-h-0">
           <nav className="space-y-1">
-            {/* VISTAS CLIENTE */}
+            {/* VISTAS CLIENTE / RESIDENTES */}
             {usuario.rol_nombre === "Cliente" && (
               <>
                 <button
@@ -240,11 +238,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     }
                   }}
                   title="Conversar con IA"
-                  className={`w-full flex items-center justify-between p-2.5 rounded-2xl text-sm font-medium transition-all duration-200 cursor-pointer ${
+                  type="button"
+                  className={`w-full flex items-center justify-between p-2.5 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer active:scale-[0.98] ${
                     vistaActiva === "chat" &&
                     (!conversacionActivaId || !conversaciones.some((c) => c.id_conversacion === conversacionActivaId))
-                      ? "bg-[var(--accent-primary)] text-white shadow-md shadow-blue-500/25"
-                      : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)]"
+                      ? "bg-[#173C5E] text-white shadow-sm font-semibold border border-white/20"
+                      : "text-white/85 hover:text-white hover:bg-white/10"
                   } ${colapsado ? "justify-center px-0" : ""}`}
                 >
                   <div className="flex items-center gap-3">
@@ -252,7 +251,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     {!colapsado && <span>Conversar con IA</span>}
                   </div>
                   {!colapsado && (
-                    <span className="text-[10px] bg-white/20 backdrop-blur-xs px-1.5 py-0.5 rounded-lg text-current font-semibold flex items-center gap-1">
+                    <span className="text-[10px] bg-[#E3A21A] text-[#173C5E] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-xs">
                       <Sparkles size={10} />
                       Nuevo
                     </span>
@@ -262,10 +261,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <button
                   onClick={() => handleNavClick("mis_tickets")}
                   title="Mis solicitudes"
-                  className={`w-full flex items-center justify-between p-2.5 rounded-2xl text-sm font-medium transition-all duration-200 cursor-pointer ${
+                  type="button"
+                  className={`w-full flex items-center justify-between p-2.5 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer active:scale-[0.98] ${
                     vistaActiva === "mis_tickets"
-                      ? "bg-[var(--accent-primary)] text-white shadow-md shadow-blue-500/25"
-                      : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)]"
+                      ? "bg-[#173C5E] text-white shadow-sm font-semibold border border-white/20"
+                      : "text-white/85 hover:text-white hover:bg-white/10"
                   } ${colapsado ? "justify-center px-0" : ""}`}
                 >
                   <div className="flex items-center gap-3">
@@ -277,16 +277,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </>
             )}
 
-            {/* VISTAS EJECUTIVO */}
+            {/* VISTAS EJECUTIVO / COMITÉ */}
             {usuario.rol_nombre === "Ejecutivo" && (
               <>
                 <button
                   onClick={() => handleNavClick("bandeja_tickets")}
                   title="Bandeja de Tickets"
-                  className={`w-full flex items-center justify-between p-2.5 rounded-2xl text-sm font-medium transition-all duration-200 cursor-pointer ${
+                  type="button"
+                  className={`w-full flex items-center justify-between p-2.5 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer active:scale-[0.98] ${
                     vistaActiva === "bandeja_tickets"
-                      ? "bg-[var(--accent-primary)] text-white shadow-md shadow-blue-500/25"
-                      : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)]"
+                      ? "bg-[#173C5E] text-white shadow-sm font-semibold border border-white/20"
+                      : "text-white/85 hover:text-white hover:bg-white/10"
                   } ${colapsado ? "justify-center px-0" : ""}`}
                 >
                   <div className="flex items-center gap-3">
@@ -299,10 +300,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <button
                   onClick={() => handleNavClick("tickets_asignados")}
                   title="Tickets Asignados"
-                  className={`w-full flex items-center justify-between p-2.5 rounded-2xl text-sm font-medium transition-all duration-200 cursor-pointer ${
+                  type="button"
+                  className={`w-full flex items-center justify-between p-2.5 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer active:scale-[0.98] ${
                     vistaActiva === "tickets_asignados"
-                      ? "bg-[var(--accent-primary)] text-white shadow-md shadow-blue-500/25"
-                      : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)]"
+                      ? "bg-[#173C5E] text-white shadow-sm font-semibold border border-white/20"
+                      : "text-white/85 hover:text-white hover:bg-white/10"
                   } ${colapsado ? "justify-center px-0" : ""}`}
                 >
                   <div className="flex items-center gap-3">
@@ -315,10 +317,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <button
                   onClick={() => handleNavClick("historial_tickets")}
                   title="Historial de Tickets"
-                  className={`w-full flex items-center justify-between p-2.5 rounded-2xl text-sm font-medium transition-all duration-200 cursor-pointer ${
+                  type="button"
+                  className={`w-full flex items-center justify-between p-2.5 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer active:scale-[0.98] ${
                     vistaActiva === "historial_tickets"
-                      ? "bg-[var(--accent-primary)] text-white shadow-md shadow-blue-500/25"
-                      : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)]"
+                      ? "bg-[#173C5E] text-white shadow-sm font-semibold border border-white/20"
+                      : "text-white/85 hover:text-white hover:bg-white/10"
                   } ${colapsado ? "justify-center px-0" : ""}`}
                 >
                   <div className="flex items-center gap-3">
@@ -335,11 +338,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <>
                 <button
                   onClick={() => handleNavClick("admin_conocimiento")}
-                  title="Base de Conocimiento"
-                  className={`w-full flex items-center justify-between p-2.5 rounded-2xl text-sm font-medium transition-all duration-200 cursor-pointer ${
+                  title="Base de Conocimiento (RAG)"
+                  type="button"
+                  className={`w-full flex items-center justify-between p-2.5 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer active:scale-[0.98] ${
                     vistaActiva === "admin_conocimiento"
-                      ? "bg-[var(--accent-primary)] text-white shadow-md shadow-blue-500/25"
-                      : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)]"
+                      ? "bg-[#173C5E] text-white shadow-sm font-semibold border border-white/20"
+                      : "text-white/85 hover:text-white hover:bg-white/10"
                   } ${colapsado ? "justify-center px-0" : ""}`}
                 >
                   <div className="flex items-center gap-3">
@@ -352,10 +356,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <button
                   onClick={() => handleNavClick("bandeja_tickets")}
                   title="Supervisión de Tickets"
-                  className={`w-full flex items-center justify-between p-2.5 rounded-2xl text-sm font-medium transition-all duration-200 cursor-pointer ${
+                  type="button"
+                  className={`w-full flex items-center justify-between p-2.5 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer active:scale-[0.98] ${
                     vistaActiva === "bandeja_tickets"
-                      ? "bg-[var(--accent-primary)] text-white shadow-md shadow-blue-500/25"
-                      : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)]"
+                      ? "bg-[#173C5E] text-white shadow-sm font-semibold border border-white/20"
+                      : "text-white/85 hover:text-white hover:bg-white/10"
                   } ${colapsado ? "justify-center px-0" : ""}`}
                 >
                   <div className="flex items-center gap-3">
@@ -368,10 +373,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <button
                   onClick={() => handleNavClick("historial_tickets")}
                   title="Historial de Tickets"
-                  className={`w-full flex items-center justify-between p-2.5 rounded-2xl text-sm font-medium transition-all duration-200 cursor-pointer ${
+                  type="button"
+                  className={`w-full flex items-center justify-between p-2.5 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer active:scale-[0.98] ${
                     vistaActiva === "historial_tickets"
-                      ? "bg-[var(--accent-primary)] text-white shadow-md shadow-blue-500/25"
-                      : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)]"
+                      ? "bg-[#173C5E] text-white shadow-sm font-semibold border border-white/20"
+                      : "text-white/85 hover:text-white hover:bg-white/10"
                   } ${colapsado ? "justify-center px-0" : ""}`}
                 >
                   <div className="flex items-center gap-3">
@@ -384,10 +390,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <button
                   onClick={() => handleNavClick("admin_usuarios")}
                   title="Gestión de Usuarios"
-                  className={`w-full flex items-center justify-between p-2.5 rounded-2xl text-sm font-medium transition-all duration-200 cursor-pointer ${
+                  type="button"
+                  className={`w-full flex items-center justify-between p-2.5 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer active:scale-[0.98] ${
                     vistaActiva === "admin_usuarios"
-                      ? "bg-[var(--accent-primary)] text-white shadow-md shadow-blue-500/25"
-                      : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)]"
+                      ? "bg-[#173C5E] text-white shadow-sm font-semibold border border-white/20"
+                      : "text-white/85 hover:text-white hover:bg-white/10"
                   } ${colapsado ? "justify-center px-0" : ""}`}
                 >
                   <div className="flex items-center gap-3">
@@ -400,10 +407,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <button
                   onClick={() => handleNavClick("metricas")}
                   title="Métricas del Sistema"
-                  className={`w-full flex items-center justify-between p-2.5 rounded-2xl text-sm font-medium transition-all duration-200 cursor-pointer ${
+                  type="button"
+                  className={`w-full flex items-center justify-between p-2.5 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer active:scale-[0.98] ${
                     vistaActiva === "metricas"
-                      ? "bg-[var(--accent-primary)] text-white shadow-md shadow-blue-500/25"
-                      : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)]"
+                      ? "bg-[#173C5E] text-white shadow-sm font-semibold border border-white/20"
+                      : "text-white/85 hover:text-white hover:bg-white/10"
                   } ${colapsado ? "justify-center px-0" : ""}`}
                 >
                   <div className="flex items-center gap-3">
@@ -416,10 +424,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <button
                   onClick={() => handleNavClick("auditoria")}
                   title="Log de Auditoría"
-                  className={`w-full flex items-center justify-between p-2.5 rounded-2xl text-sm font-medium transition-all duration-200 cursor-pointer ${
+                  type="button"
+                  className={`w-full flex items-center justify-between p-2.5 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer active:scale-[0.98] ${
                     vistaActiva === "auditoria"
-                      ? "bg-[var(--accent-primary)] text-white shadow-md shadow-blue-500/25"
-                      : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)]"
+                      ? "bg-[#173C5E] text-white shadow-sm font-semibold border border-white/20"
+                      : "text-white/85 hover:text-white hover:bg-white/10"
                   } ${colapsado ? "justify-center px-0" : ""}`}
                 >
                   <div className="flex items-center gap-3">
@@ -434,16 +443,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {/* HISTORIAL: SECCIÓN "CHATS Y TAREAS" (Solo Rol Cliente y cuando no está colapsado) */}
           {usuario.rol_nombre === "Cliente" && !colapsado && (
-            <div className="pt-3 border-t border-[var(--border-subtle)] space-y-2.5">
+            <div className="pt-3 border-t border-white/10 space-y-2.5">
               <div className="flex items-center justify-between px-2">
-                <div className="flex items-center gap-2 text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
-                  <History size={13} className="text-[var(--accent-primary)]" />
-                  <span>Historial de Chats</span>
+                <div className="flex items-center gap-2 text-[11px] font-semibold text-white/70 uppercase tracking-wider">
+                  <History size={13} className="text-[#E3A21A]" />
+                  <span>Historial de Consultas</span>
                 </div>
                 <button
                   onClick={onNuevaConversacion}
-                  title="Iniciar nueva conversación"
-                  className="p-1 rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)] transition-colors cursor-pointer"
+                  title="Iniciar nueva consulta"
+                  type="button"
+                  className="p-1 rounded-lg text-white/75 hover:text-white hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
                 >
                   <Plus size={14} />
                 </button>
@@ -451,15 +461,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
               {/* Listado de Chats */}
               {cargandoHistorial && conversaciones.length === 0 ? (
-                <div className="flex items-center justify-center gap-2 py-4 text-xs text-[var(--text-tertiary)]">
-                  <Loader2 size={14} className="animate-spin text-[var(--accent-primary)]" />
-                  <span>Cargando chats...</span>
+                <div className="flex items-center justify-center gap-2 py-4 text-xs text-white/60">
+                  <Loader2 size={14} className="animate-spin text-[#E3A21A]" />
+                  <span>Cargando consultas...</span>
                 </div>
               ) : conversaciones.length === 0 ? (
-                <div className="px-3 py-3 text-center text-xs text-[var(--text-tertiary)] rounded-2xl bg-[var(--bg-surface-elevated)] border border-[var(--border-subtle)]">
-                  <p>Sin chats previos</p>
-                  <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">
-                    Tus consultas con la IA se archivarán aquí.
+                <div className="px-3 py-3 text-center text-xs text-white/70 rounded-2xl bg-[#173C5E]/50 border border-white/10">
+                  <p>Sin consultas previas</p>
+                  <p className="text-[11px] text-white/50 mt-0.5">
+                    Tus consultas con el asistente se archivarán aquí.
                   </p>
                 </div>
               ) : (
@@ -470,7 +480,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                     return (
                       <div key={grupo} className="space-y-1">
-                        <p className="px-2 text-[10px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
+                        <p className="px-2 text-[10px] font-semibold text-white/50 uppercase tracking-wider">
                           {grupo}
                         </p>
                         <div className="space-y-0.5">
@@ -488,24 +498,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                   if (onCerrarMobile) onCerrarMobile();
                                 }}
                                 title={conv.titulo || conv.primer_mensaje}
-                                className={`w-full text-left group px-2.5 py-2 rounded-xl transition-all flex flex-col gap-1 cursor-pointer border ${
+                                type="button"
+                                className={`w-full text-left group px-3 py-2.5 rounded-xl transition-all duration-150 flex flex-col gap-1 cursor-pointer border active:scale-[0.98] ${
                                   esActivo
-                                    ? "bg-blue-500/10 border-blue-500/30 text-[var(--text-primary)] font-medium shadow-xs"
-                                    : "border-transparent text-[var(--text-secondary)] hover:bg-[var(--bg-card-hover)] hover:text-[var(--text-primary)]"
+                                    ? "bg-[#173C5E] border-white/20 text-white font-medium shadow-sm"
+                                    : "border-transparent text-white/80 hover:bg-white/10 hover:text-white"
                                 }`}
                               >
                                 <div className="flex items-center gap-2">
                                   {conv.escalada ? (
-                                    <Headphones size={13} className="text-amber-500 shrink-0" />
+                                    <Headphones size={13} className="text-[#E3A21A] shrink-0" />
                                   ) : conv.finalizada ? (
-                                    <CheckCircle size={13} className="text-emerald-500 shrink-0" />
+                                    <CheckCircle size={13} className="text-[#47705A] shrink-0" />
                                   ) : (
                                     <MessageSquare
                                       size={13}
                                       className={
                                         esActivo
-                                          ? "text-[var(--accent-primary)] shrink-0"
-                                          : "text-[var(--text-tertiary)] shrink-0 group-hover:text-[var(--accent-primary)]"
+                                          ? "text-[#E3A21A] shrink-0"
+                                          : "text-white/60 shrink-0 group-hover:text-white"
                                       }
                                     />
                                   )}
@@ -514,7 +525,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                   </span>
                                 </div>
 
-                                <div className="flex items-center justify-between pl-5 text-[10.5px] text-[var(--text-tertiary)]">
+                                <div className="flex items-center justify-between pl-5 text-[10.5px] text-white/60">
                                   <span className="flex items-center gap-1">
                                     <Clock size={10} />
                                     {formatearHoraOFecha(
@@ -525,13 +536,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                                   <div className="flex items-center gap-1.5">
                                     {conv.calificacion && (
-                                      <span className="flex items-center gap-0.5 text-amber-500 font-semibold">
-                                        <Star size={10} className="fill-amber-500" />
+                                      <span className="flex items-center gap-0.5 text-[#E3A21A] font-semibold">
+                                        <Star size={10} className="fill-[#E3A21A]" />
                                         {conv.calificacion}
                                       </span>
                                     )}
                                     {conv.finalizada && (
-                                      <span className="text-[9.5px] text-emerald-600 dark:text-emerald-400 font-medium bg-emerald-500/10 px-1 py-0.2 rounded border border-emerald-500/20">
+                                      <span className="text-[9.5px] text-white font-semibold bg-[#47705A] px-1.5 py-0.2 rounded-full">
                                         Fin
                                       </span>
                                     )}
@@ -550,17 +561,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
         </div>
 
-        {/* Footer Seguro estilo Apple Card */}
-        <div className="p-3 border-t border-[var(--border-subtle)] space-y-2 shrink-0 bg-[var(--bg-surface-elevated)]/40">
-          {/* Cambiar contraseña */}
+        {/* Footer Institucional estilo iOS Cápsula */}
+        <div className="p-3 border-t border-white/10 space-y-2 shrink-0 bg-[#173C5E]/90 backdrop-blur-md">
+          {/* Cambiar contraseña / Seguridad */}
           <button
             type="button"
             onClick={onCambiarPassword}
             title="Seguridad de la cuenta"
-            className={`w-full flex items-center gap-2.5 p-2 text-xs font-medium rounded-xl transition-all cursor-pointer ${
+            className={`w-full flex items-center gap-2.5 p-2.5 text-xs font-medium rounded-xl transition-all cursor-pointer active:scale-95 ${
               mostrarSeguridad
-                ? "bg-[var(--accent-primary)] text-white shadow-xs"
-                : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)]"
+                ? "bg-[#1E4E79] text-white shadow-xs border border-white/20"
+                : "text-white/80 hover:text-white hover:bg-white/10"
             } ${colapsado ? "justify-center px-0" : ""}`}
           >
             <LockKeyhole size={16} />
@@ -572,18 +583,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
             )}
           </button>
 
-          {/* Datos del usuario */}
-          <div className={`flex items-center gap-2.5 px-1 py-1 ${colapsado ? "justify-center" : ""}`}>
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#FF2D55] to-[#FF375F] text-white font-semibold text-xs flex items-center justify-center shrink-0 shadow-xs ring-1 ring-white/20">
+          {/* Datos del usuario en cápsula */}
+          <div className={`flex items-center gap-2.5 px-2 py-1.5 rounded-xl bg-white/5 border border-white/10 ${colapsado ? "justify-center px-0" : ""}`}>
+            <div className="w-8 h-8 rounded-xl bg-[#1E4E79] border border-white/20 text-white font-semibold text-xs flex items-center justify-center shrink-0 shadow-xs">
               {inicialNombre}
             </div>
 
             {!colapsado && (
               <div className="overflow-hidden min-w-0">
-                <p className="text-xs font-semibold text-[var(--text-primary)] truncate leading-tight">
+                <p className="text-xs font-semibold text-white truncate leading-tight">
                   {usuario.nombre || "Usuario"} {usuario.apellido || ""}
                 </p>
-                <p className="text-[11px] text-[var(--text-secondary)] truncate">
+                <p className="text-[11px] text-white/70 truncate">
                   {usuario.correo || ""}
                 </p>
               </div>
@@ -595,7 +606,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             type="button"
             onClick={onCerrarSesion}
             title="Cerrar sesión"
-            className={`w-full flex items-center gap-2.5 p-2 text-xs font-medium text-[var(--accent-danger)] hover:bg-red-500/10 rounded-xl transition-colors cursor-pointer ${
+            className={`w-full flex items-center gap-2.5 p-2 text-xs font-medium text-red-300 hover:text-white hover:bg-red-500/20 rounded-xl transition-colors active:scale-95 cursor-pointer ${
               colapsado ? "justify-center px-0" : ""
             }`}
           >

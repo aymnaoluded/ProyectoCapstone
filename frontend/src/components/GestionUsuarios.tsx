@@ -1,4 +1,4 @@
-
+﻿
 import React, { useEffect, useState } from "react";
 import {
   Users,
@@ -205,7 +205,7 @@ const ModalAgregarUsuario: React.FC<ModalAgregarUsuarioProps> = ({
                 maxLength={100}
                 value={nombre}
                 onChange={(e) => setNombre(e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full border border-slate-200 rounded-2xl px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
             </div>
 
@@ -224,7 +224,7 @@ const ModalAgregarUsuario: React.FC<ModalAgregarUsuarioProps> = ({
                 maxLength={100}
                 value={apellido}
                 onChange={(e) => setApellido(e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full border border-slate-200 rounded-2xl px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
             </div>
           </div>
@@ -244,12 +244,12 @@ const ModalAgregarUsuario: React.FC<ModalAgregarUsuarioProps> = ({
               required
               value={correo}
               onChange={(e) => setCorreo(e.target.value)}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full border border-slate-200 rounded-2xl px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
           </div>
 
           {/* INFORMACIÓN DE ACTIVACIÓN */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+          <div className="bg-blue-50 border border-blue-200 rounded-2xl p-3">
             <p className="text-xs text-blue-700">
               El usuario recibirá un correo electrónico
               con un enlace para activar su cuenta
@@ -270,7 +270,7 @@ const ModalAgregarUsuario: React.FC<ModalAgregarUsuarioProps> = ({
               id="nuevo-usuario-rol"
               value={rol}
               onChange={(e) => setRol(Number(e.target.value))}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full border border-slate-200 rounded-2xl px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
             >
               {ROLES.map((r) => (
                 <option key={r.id} value={r.id}>
@@ -284,7 +284,7 @@ const ModalAgregarUsuario: React.FC<ModalAgregarUsuarioProps> = ({
           {error && (
             <p
               role="alert"
-              className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2"
+              className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-2xl px-3 py-2"
             >
               {error}
             </p>
@@ -326,7 +326,7 @@ export const GestionUsuarios: React.FC = () => {
   const [busqueda, setBusqueda] = useState("");
   const [modalAbierto, setModalAbierto] = useState(false);
 
-  // Nueva notificación integrada en SupportAI.
+  // Nueva notificación integrada en Comunidad Clara.
   const [notificacion, setNotificacion] =
     useState<Notificacion | null>(null);
 
@@ -529,7 +529,7 @@ export const GestionUsuarios: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
 
           {/* TOTAL DE CUENTAS */}
-          <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs flex items-center justify-between">
+          <div className="bg-white border border-slate-200/80 rounded-2xl p-5 border border-slate-200/70 shadow-[0_2px_14px_rgba(31,41,51,0.03)] flex items-center justify-between">
             <div>
               <span className="text-2xl font-bold text-slate-900 block">
                 {usuarios.length}
@@ -546,7 +546,7 @@ export const GestionUsuarios: React.FC = () => {
           </div>
 
           {/* USUARIOS EN LÍNEA */}
-          <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs flex items-center justify-between">
+          <div className="bg-white border border-slate-200/80 rounded-2xl p-5 border border-slate-200/70 shadow-[0_2px_14px_rgba(31,41,51,0.03)] flex items-center justify-between">
             <div>
               <span className="text-2xl font-bold text-emerald-600 block">
                 {totalOnline}
@@ -563,7 +563,7 @@ export const GestionUsuarios: React.FC = () => {
           </div>
 
           {/* ROLES */}
-          <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs flex items-center justify-between">
+          <div className="bg-white border border-slate-200/80 rounded-2xl p-5 border border-slate-200/70 shadow-[0_2px_14px_rgba(31,41,51,0.03)] flex items-center justify-between">
             <div>
               <span className="text-2xl font-bold text-slate-900 block">
                 {ROLES.length}
@@ -600,7 +600,7 @@ export const GestionUsuarios: React.FC = () => {
         </div>
 
         {/* TABLA DE USUARIOS */}
-        <div className="bg-white border border-slate-200/80 rounded-2xl shadow-xs overflow-hidden">
+        <div className="bg-white border border-slate-200/80 rounded-2xl border border-slate-200/70 shadow-[0_2px_14px_rgba(31,41,51,0.03)] overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-base">
 

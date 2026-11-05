@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import { 
   Ticket as TicketIcon, 
   MessageSquare, 
@@ -168,17 +168,17 @@ export const MisSolicitudes: React.FC<MisSolicitudesProps> = ({ usuario }) => {
   const getBadgeEstado = (estado: string) => {
     switch (estado.toLowerCase()) {
       case "pendiente":
-        return "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20";
+        return "bg-[#E3A21A]/10 text-[#E3A21A] border-[#E3A21A]/30 font-semibold";
       case "en proceso":
-        return "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20";
+        return "bg-[#1E4E79]/10 text-[#1E4E79] border-[#1E4E79]/20 font-semibold";
       case "en espera":
-        return "bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/20";
+        return "bg-[#173C5E]/10 text-[#173C5E] border-[#173C5E]/20 font-semibold";
       case "resuelto":
-        return "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20";
+        return "bg-[#47705A]/10 text-[#47705A] border-[#47705A]/20 font-semibold";
       case "cerrado":
-        return "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border-zinc-500/20";
+        return "bg-[#52606D]/10 text-[#52606D] border-[#52606D]/20 font-semibold";
       default:
-        return "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border-zinc-500/20";
+        return "bg-[#52606D]/10 text-[#52606D] border-[#52606D]/20 font-semibold";
     }
   };
 
@@ -197,7 +197,7 @@ export const MisSolicitudes: React.FC<MisSolicitudesProps> = ({ usuario }) => {
         <button
           onClick={cargarTickets}
           title="Recargar solicitudes"
-          className="p-2.5 rounded-xl liquid-glass border border-[var(--border-glass)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)] transition-all cursor-pointer shadow-xs active:scale-95"
+          className="p-2.5 rounded-lg liquid-glass border border-[var(--border-glass)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)] transition-all cursor-pointer shadow-xs active:scale-95"
         >
           <RefreshCw size={16} className={cargando ? "animate-spin text-[var(--accent-primary)]" : ""} />
         </button>
@@ -206,7 +206,7 @@ export const MisSolicitudes: React.FC<MisSolicitudesProps> = ({ usuario }) => {
       {/* Contenido dividido en 2 paneles estilo Liquid Glass */}
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden p-4 sm:p-6 gap-5 max-w-7xl mx-auto w-full">
         {/* Columna Izquierda: Listado de tickets */}
-        <div className="w-full md:w-80 lg:w-96 flex flex-col liquid-glass-card rounded-3xl overflow-hidden shrink-0 h-64 md:h-auto">
+        <div className="w-full md:w-80 lg:w-96 flex flex-col liquid-glass-card rounded-2xl overflow-hidden shrink-0 h-64 md:h-auto">
           <div className="p-4 border-b border-[var(--border-subtle)] bg-[var(--bg-surface-elevated)]/30 flex items-center justify-between">
             <span className="text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">
               Solicitudes Activas ({tickets.length})
@@ -268,7 +268,7 @@ export const MisSolicitudes: React.FC<MisSolicitudesProps> = ({ usuario }) => {
         </div>
 
         {/* Columna Derecha: Detalle y Mensajería del Ticket */}
-        <div className="flex-1 flex flex-col liquid-glass-card rounded-3xl overflow-hidden min-h-0">
+        <div className="flex-1 flex flex-col liquid-glass-card rounded-2xl overflow-hidden min-h-0">
           {ticketSeleccionado ? (
             <>
               {/* Encabezado del ticket seleccionado */}
@@ -297,7 +297,7 @@ export const MisSolicitudes: React.FC<MisSolicitudesProps> = ({ usuario }) => {
                     {ticketSeleccionado.calificacion && (
                       <div className="flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-full shrink-0">
                         <Star size={13} className="text-amber-500 fill-amber-400" />
-                        <span className="text-xs font-bold text-amber-700 dark:text-amber-400">
+                        <span className="text-xs font-bold text-[#E3A21A]">
                           {ticketSeleccionado.calificacion}/5
                         </span>
                       </div>
@@ -311,9 +311,9 @@ export const MisSolicitudes: React.FC<MisSolicitudesProps> = ({ usuario }) => {
                           setErrorCerrar(null);
                           setModalCerrar(true);
                         }}
-                        className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl border border-[var(--border-glass)] text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)] transition-colors cursor-pointer"
+                        className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-[var(--border-glass)] text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)] transition-colors cursor-pointer"
                       >
-                        <CheckCircle2 size={14} className="text-emerald-600 dark:text-emerald-400" />
+                        <CheckCircle2 size={14} className="text-[#47705A]" />
                         <span>Cerrar ticket</span>
                       </button>
                     )}
@@ -362,9 +362,9 @@ export const MisSolicitudes: React.FC<MisSolicitudesProps> = ({ usuario }) => {
                           {esMio ? "Tú" : m.autor_nombre} · {m.fecha}
                         </span>
                         <div
-                          className={`rounded-2xl px-4 py-2.5 text-xs leading-relaxed [overflow-wrap:anywhere] ${
+                          className={`rounded-lg px-4 py-2.5 text-xs leading-relaxed [overflow-wrap:anywhere] ${
                             esMio
-                              ? "bg-gradient-to-r from-[#007AFF] to-[#0A84FF] text-white rounded-br-xs shadow-md shadow-blue-500/20"
+                              ? "bg-[#1E4E79] text-white rounded-br-xs shadow-md shadow-blue-500/20"
                               : "liquid-glass border border-[var(--border-glass)] text-[var(--text-primary)] rounded-bl-xs shadow-xs"
                           }`}
                         >
@@ -385,12 +385,12 @@ export const MisSolicitudes: React.FC<MisSolicitudesProps> = ({ usuario }) => {
                   value={nuevoMensaje}
                   onChange={(e) => setNuevoMensaje(e.target.value)}
                   disabled={enviando || ticketSeleccionado.id_estado === 4 || ticketSeleccionado.id_estado === 5}
-                  className="liquid-input flex-1 rounded-2xl px-4 py-2.5 text-xs text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:outline-none disabled:opacity-50"
+                  className="liquid-input flex-1 rounded-lg px-4 py-2.5 text-xs text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:outline-none disabled:opacity-50"
                 />
                 <button
                   type="submit"
                   disabled={enviando || !nuevoMensaje.trim() || ticketSeleccionado.id_estado === 4 || ticketSeleccionado.id_estado === 5}
-                  className="apple-btn-primary px-5 py-2.5 rounded-2xl text-xs font-semibold flex items-center gap-1.5 transition-all disabled:opacity-50 shadow-sm cursor-pointer"
+                  className="apple-btn-primary px-5 py-2.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all disabled:opacity-50 shadow-sm cursor-pointer"
                 >
                   {enviando ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
                   <span>Responder</span>
@@ -399,7 +399,7 @@ export const MisSolicitudes: React.FC<MisSolicitudesProps> = ({ usuario }) => {
             </>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-[var(--text-tertiary)]">
-              <div className="w-16 h-16 rounded-3xl liquid-glass border border-[var(--border-glass)] flex items-center justify-center text-[var(--text-tertiary)] mb-3 shadow-sm">
+              <div className="w-16 h-16 rounded-lg liquid-glass border border-[var(--border-glass)] flex items-center justify-center text-[var(--text-tertiary)] mb-3 shadow-sm">
                 <TicketIcon size={30} />
               </div>
               <p className="text-sm font-semibold text-[var(--text-primary)]">Selecciona un ticket</p>
@@ -418,11 +418,11 @@ export const MisSolicitudes: React.FC<MisSolicitudesProps> = ({ usuario }) => {
           onClick={() => !cerrando && setModalCerrar(false)}
         >
           <div
-            className="liquid-glass-card bg-[var(--bg-surface-solid)] rounded-3xl max-w-md w-full p-6 shadow-xl space-y-4"
+            className="liquid-glass-card bg-[var(--bg-surface-solid)] rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-2">
-              <CheckCircle2 size={20} className="text-emerald-600 dark:text-emerald-400" />
+              <CheckCircle2 size={20} className="text-[#47705A]" />
               <h2 className="text-base font-bold text-[var(--text-primary)]">
                 Cerrar ticket #{ticketSeleccionado.id_ticket}
               </h2>
@@ -437,7 +437,7 @@ export const MisSolicitudes: React.FC<MisSolicitudesProps> = ({ usuario }) => {
             </p>
 
             {errorCerrar && (
-              <div role="alert" className="flex items-start gap-2 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-400">
+              <div role="alert" className="flex items-start gap-2 p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-[#C53030]">
                 <AlertCircle size={16} className="shrink-0 mt-0.5" />
                 <span className="text-xs font-medium">{errorCerrar}</span>
               </div>
@@ -448,7 +448,7 @@ export const MisSolicitudes: React.FC<MisSolicitudesProps> = ({ usuario }) => {
                 type="button"
                 onClick={() => setModalCerrar(false)}
                 disabled={cerrando}
-                className="px-4 py-2 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-card-hover)] rounded-xl transition-colors cursor-pointer disabled:opacity-50"
+                className="px-4 py-2 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-card-hover)] rounded-lg transition-colors cursor-pointer disabled:opacity-50"
               >
                 Cancelar
               </button>
@@ -456,7 +456,7 @@ export const MisSolicitudes: React.FC<MisSolicitudesProps> = ({ usuario }) => {
                 type="button"
                 onClick={handleCerrarTicket}
                 disabled={cerrando}
-                className="apple-btn-primary px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all disabled:opacity-50 cursor-pointer"
+                className="apple-btn-primary px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all disabled:opacity-50 cursor-pointer"
               >
                 {cerrando ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
                 <span>{cerrando ? "Cerrando..." : "Cerrar ticket"}</span>

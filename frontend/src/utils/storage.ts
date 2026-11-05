@@ -3,7 +3,7 @@ import CryptoJS from "crypto-js";
 // Sin VITE_SECRET_KEY (por ejemplo, un clon nuevo sin frontend/.env) CryptoJS fallaba en silencio,
 // la sesión no se guardaba y al recargar la página volvía al login. Este cifrado solo ofusca:
 // la seguridad real la da el token JWT que valida el backend, por eso basta una clave de respaldo.
-const CLAVE_RESPALDO = "supportai-sesion-local";
+const CLAVE_RESPALDO = "comunidad-clara-sesion-local";
 const SECRET_KEY: string = import.meta.env.VITE_SECRET_KEY || CLAVE_RESPALDO;
 
 if (!import.meta.env.VITE_SECRET_KEY) {

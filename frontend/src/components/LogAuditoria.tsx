@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import { ShieldAlert, RefreshCw, Search, Filter, Clock, Activity } from "lucide-react";
 
 interface LogItem {
@@ -105,7 +105,7 @@ export const LogAuditoria: React.FC = () => {
       <div className="p-8 space-y-6 max-w-7xl mx-auto w-full">
         {/* Métricas / Resumen */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs flex items-center justify-between">
+          <div className="bg-white border border-slate-200/80 rounded-2xl p-5 border border-slate-200/70 shadow-[0_2px_14px_rgba(31,41,51,0.03)] flex items-center justify-between">
             <div>
               <span className="text-2xl font-bold text-slate-900 block">{logs.length}</span>
               <span className="text-xs font-medium text-slate-500 mt-1 block">Total registros</span>
@@ -115,7 +115,7 @@ export const LogAuditoria: React.FC = () => {
             </div>
           </div>
 
-          <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs flex items-center justify-between">
+          <div className="bg-white border border-slate-200/80 rounded-2xl p-5 border border-slate-200/70 shadow-[0_2px_14px_rgba(31,41,51,0.03)] flex items-center justify-between">
             <div>
               <span className="text-2xl font-bold text-slate-900 block">
                 {logs.filter((l) => l.accion === "LOGIN").length}
@@ -127,7 +127,7 @@ export const LogAuditoria: React.FC = () => {
             </div>
           </div>
 
-          <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs flex items-center justify-between">
+          <div className="bg-white border border-slate-200/80 rounded-2xl p-5 border border-slate-200/70 shadow-[0_2px_14px_rgba(31,41,51,0.03)] flex items-center justify-between">
             <div>
               <span className="text-2xl font-bold text-slate-900 block">
                 {logs.filter((l) => l.accion === "SUBIDA_DOCUMENTO" || l.accion === "TOGGLE_DOCUMENTO").length}
@@ -170,7 +170,7 @@ export const LogAuditoria: React.FC = () => {
         </div>
 
         {/* Tabla de Logs */}
-        <div className="bg-white border border-slate-200/80 rounded-2xl shadow-xs overflow-hidden">
+        <div className="bg-white border border-slate-200/80 rounded-2xl border border-slate-200/70 shadow-[0_2px_14px_rgba(31,41,51,0.03)] overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="bg-slate-50/70 border-b border-slate-200/80 text-slate-500 font-semibold uppercase tracking-wider">

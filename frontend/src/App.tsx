@@ -16,7 +16,6 @@ import RestablecerPassword from "./components/RestablecerPassword";
 import CambiarPassword from "./components/CambiarPassword";
 import { TopBar } from "./components/TopBar";
 import { MobileNav } from "./components/MobileNav";
-import { ThemeProvider } from "./context/ThemeContext";
 import PaginaNoEncontrada from "./components/PaginaNoEncontrada";
 import {
   obtenerSesionSegura,
@@ -28,6 +27,12 @@ import { tokenVigente, API_URL } from "./utils/api";
 const RUTAS_VALIDAS = ["/", "/activar-cuenta", "/recuperar-password", "/restablecer-password"];
 
 export default function App() {
+  // Limpieza permanente de cualquier preferencia previa de tema oscuro
+  useEffect(() => {
+    localStorage.removeItem("supportai_theme");
+    document.documentElement.classList.remove("dark");
+  }, []);
+
   // La sesión se recupera antes del primer render: así al recargar no aparece el login por un instante
   const [usuario, setUsuario] = useState<Usuario | null>(() => {
     const guardado = obtenerSesionSegura<Usuario>("user_session");
@@ -108,7 +113,7 @@ export default function App() {
 
     if (user && user.rol_nombre && tokenVigente()) {
       setUsuario(user);
-      if (savedVista && savedVista !== ("escaladas" as any)) {
+      if (savedVista && (savedVista as string) !== "escaladas") {
         setVistaActivaState(savedVista);
       } else {
         const inicial = getVistaInicial(user.rol_nombre);
@@ -176,138 +181,115 @@ export default function App() {
 
   // Cualquier dirección que no sea una ruta de la aplicación muestra la página 404
   if (!RUTAS_VALIDAS.includes(window.location.pathname)) {
-    return (
-      <ThemeProvider>
-        <PaginaNoEncontrada />
-      </ThemeProvider>
-    );
+    return <PaginaNoEncontrada />;
   }
 
   // Rutas públicas de activación y restablecimiento
   if (window.location.pathname === "/activar-cuenta") {
-    return (
-      <ThemeProvider>
-        <ActivarCuenta />
-      </ThemeProvider>
-    );
+    return <ActivarCuenta />;
   }
 
   if (window.location.pathname === "/recuperar-password") {
-    return (
-      <ThemeProvider>
-        <RecuperarPassword />
-      </ThemeProvider>
-    );
+    return <RecuperarPassword />;
   }
 
   if (window.location.pathname === "/restablecer-password") {
-    return (
-      <ThemeProvider>
-        <RestablecerPassword />
-      </ThemeProvider>
-    );
+    return <RestablecerPassword />;
   }
 
   if (!usuario) {
-    return (
-      <ThemeProvider>
-        <Login onLoginSuccess={handleLogin} />
-      </ThemeProvider>
-    );
+    return <Login onLoginSuccess={handleLogin} />;
   }
 
   return (
-    <ThemeProvider>
-      <div className="flex h-screen w-screen bg-[var(--bg-canvas)] overflow-hidden font-sans text-[var(--text-primary)] ambient-gradient-mesh relative selection:bg-blue-500/20 selection:text-[var(--accent-primary)]">
-        {/* Sidebar Lateral */}
-        <Sidebar
+    <div className="flex h-screen w-screen bg-[#F5F7FA] overflow-hidden font-sans text-[#1F2933] relative">
+      {/* Barra Lateral Corporativa */}
+      <Sidebar
+        usuario={usuario}
+        vistaActiva={vistaActiva}
+        setVistaActiva={setVistaActiva}
+        onCerrarSesion={handleCerrarSesion}
+        conversacionActivaId={conversacionActivaId}
+        onSeleccionarConversacion={handleSeleccionarConversacion}
+        onNuevaConversacion={handleNuevaConversacion}
+        refreshHistorialTrigger={refreshHistorialTrigger}
+        mostrarSeguridad={mostrarSeguridad}
+        onCambiarPassword={() => setMostrarSeguridad((anterior) => !anterior)}
+        mobileAbierto={mobileMenuOpen}
+        onCerrarMobile={() => setMobileMenuOpen(false)}
+      />
+
+      {/* Contenido Principal con TopBar */}
+      <main className="flex-1 flex flex-col h-full overflow-hidden bg-transparent relative">
+        <TopBar
+          usuario={usuario}
+          vistaActiva={vistaActiva}
+          onCerrarSesion={handleCerrarSesion}
+          onCambiarPassword={() => setMostrarSeguridad((anterior) => !anterior)}
+          mostrarSeguridad={mostrarSeguridad}
+          onToggleSidebarMobile={() => setMobileMenuOpen((prev) => !prev)}
+        />
+
+        <div className="flex-1 overflow-hidden relative flex flex-col pb-16 md:pb-0">
+          {mostrarSeguridad ? (
+            <CambiarPassword onPasswordCambiada={limpiarSesionLocal} />
+          ) : (
+            <>
+              {/* Vistas Cliente / Residentes */}
+              {vistaActiva === "chat" && (
+                <Chat
+                  usuario={usuario}
+                  conversacionIdProp={conversacionActivaId}
+                  onConversacionCreada={handleConversacionCreada}
+                  onConversacionActualizada={handleConversacionActualizada}
+                  onNuevaConversacion={handleNuevaConversacion}
+                />
+              )}
+
+              {vistaActiva === "mis_tickets" && (
+                <MisSolicitudes usuario={usuario} />
+              )}
+
+              {/* Bandeja de Tickets (Ejecutivo / Comité y Administrador) */}
+              {vistaActiva === "bandeja_tickets" && (
+                <BandejaEjecutivo usuario={usuario} />
+              )}
+
+              {vistaActiva === "tickets_asignados" && (
+                <BandejaEjecutivo usuario={usuario} soloAsignados={true} />
+              )}
+
+              {vistaActiva === "historial_tickets" && (
+                <BandejaEjecutivo usuario={usuario} soloHistorial={true} />
+              )}
+
+              {/* Vistas Administrador */}
+              {vistaActiva === "admin_conocimiento" && (
+                <BaseConocimiento usuario={usuario} />
+              )}
+
+              {vistaActiva === "admin_usuarios" && (
+                <GestionUsuarios />
+              )}
+
+              {vistaActiva === "metricas" && (
+                <MetricasSistema />
+              )}
+
+              {vistaActiva === "auditoria" && (
+                <LogAuditoria />
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Navegación móvil inferior */}
+        <MobileNav
           usuario={usuario}
           vistaActiva={vistaActiva}
           setVistaActiva={setVistaActiva}
-          onCerrarSesion={handleCerrarSesion}
-          conversacionActivaId={conversacionActivaId}
-          onSeleccionarConversacion={handleSeleccionarConversacion}
-          onNuevaConversacion={handleNuevaConversacion}
-          refreshHistorialTrigger={refreshHistorialTrigger}
-          mostrarSeguridad={mostrarSeguridad}
-          onCambiarPassword={() => setMostrarSeguridad((anterior) => !anterior)}
-          mobileAbierto={mobileMenuOpen}
-          onCerrarMobile={() => setMobileMenuOpen(false)}
         />
-
-        {/* Contenido Principal con TopBar */}
-        <main className="flex-1 flex flex-col h-full overflow-hidden bg-transparent relative">
-          <TopBar
-            usuario={usuario}
-            vistaActiva={vistaActiva}
-            onCerrarSesion={handleCerrarSesion}
-            onCambiarPassword={() => setMostrarSeguridad((anterior) => !anterior)}
-            mostrarSeguridad={mostrarSeguridad}
-            onToggleMobileMenu={() => setMobileMenuOpen((prev) => !prev)}
-          />
-
-          <div className="flex-1 overflow-hidden relative flex flex-col pb-16 md:pb-0">
-            {mostrarSeguridad ? (
-              <CambiarPassword onPasswordCambiada={limpiarSesionLocal} />
-            ) : (
-              <>
-                {/* Vistas Cliente */}
-                {vistaActiva === "chat" && (
-                  <Chat
-                    usuario={usuario}
-                    conversacionIdProp={conversacionActivaId}
-                    onConversacionCreada={handleConversacionCreada}
-                    onConversacionActualizada={handleConversacionActualizada}
-                    onNuevaConversacion={handleNuevaConversacion}
-                  />
-                )}
-
-                {vistaActiva === "mis_tickets" && (
-                  <MisSolicitudes usuario={usuario} />
-                )}
-
-                {/* Bandeja de Tickets (Ejecutivo y Administrador) */}
-                {vistaActiva === "bandeja_tickets" && (
-                  <BandejaEjecutivo usuario={usuario} />
-                )}
-
-                {vistaActiva === "tickets_asignados" && (
-                  <BandejaEjecutivo usuario={usuario} soloAsignados={true} />
-                )}
-
-                {vistaActiva === "historial_tickets" && (
-                  <BandejaEjecutivo usuario={usuario} soloHistorial={true} />
-                )}
-
-                {/* Vistas Administrador */}
-                {vistaActiva === "admin_conocimiento" && (
-                  <BaseConocimiento usuario={usuario} />
-                )}
-
-                {vistaActiva === "admin_usuarios" && (
-                  <GestionUsuarios />
-                )}
-
-                {vistaActiva === "metricas" && (
-                  <MetricasSistema />
-                )}
-
-                {vistaActiva === "auditoria" && (
-                  <LogAuditoria />
-                )}
-              </>
-            )}
-          </div>
-
-          {/* Navegación móvil inferior iOS */}
-          <MobileNav
-            usuario={usuario}
-            vistaActiva={vistaActiva}
-            setVistaActiva={setVistaActiva}
-            onNuevaConversacion={handleNuevaConversacion}
-          />
-        </main>
-      </div>
-    </ThemeProvider>
+      </main>
+    </div>
   );
 }

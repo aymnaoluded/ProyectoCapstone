@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import {
   Inbox,
   Clock,
@@ -9,8 +9,6 @@ import {
   Filter,
   Star,
   MessageSquare,
-  ChevronRight,
-  ShieldAlert,
   RotateCcw,
   X
 } from "lucide-react";
@@ -306,17 +304,17 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
   const getBadgeEstado = (estado: string) => {
     switch (estado.toLowerCase()) {
       case "pendiente":
-        return "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20";
+        return "bg-[#E3A21A]/10 text-[#E3A21A] border-[#E3A21A]/30 font-semibold";
       case "en proceso":
-        return "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20";
+        return "bg-[#1E4E79]/10 text-[#1E4E79] border-[#1E4E79]/20 font-semibold";
       case "en espera":
-        return "bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/20";
+        return "bg-[#173C5E]/10 text-[#173C5E] border-[#173C5E]/20 font-semibold";
       case "resuelto":
-        return "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20";
+        return "bg-[#47705A]/10 text-[#47705A] border-[#47705A]/20 font-semibold";
       case "cerrado":
-        return "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border-zinc-500/20";
+        return "bg-[#52606D]/10 text-[#52606D] border-[#52606D]/20 font-semibold";
       default:
-        return "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border-zinc-500/20";
+        return "bg-[#52606D]/10 text-[#52606D] border-[#52606D]/20 font-semibold";
     }
   };
 
@@ -343,7 +341,7 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
 
         <div className="flex items-center gap-2.5">
           {!soloHistorial && (
-            <div className="flex items-center gap-2 liquid-glass border border-[var(--border-glass)] rounded-2xl px-3 py-1.5 text-xs text-[var(--text-secondary)] shadow-xs">
+            <div className="flex items-center gap-2 liquid-glass border border-[var(--border-glass)] rounded-lg px-3 py-1.5 text-xs text-[var(--text-secondary)] shadow-xs">
               <Filter size={13} className="text-[var(--text-tertiary)]" />
               <select
                 value={filtroEstado || ""}
@@ -379,7 +377,7 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
       {/* Contenido dividido en 2 paneles estilo Liquid Glass */}
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden p-4 sm:p-6 gap-5 max-w-7xl mx-auto w-full">
         {/* Columna Izquierda: Listado de Tickets */}
-        <div className="w-full md:w-80 lg:w-96 flex flex-col liquid-glass-card rounded-3xl overflow-hidden shrink-0 h-64 md:h-auto">
+        <div className="w-full md:w-80 lg:w-96 flex flex-col liquid-glass-card rounded-2xl overflow-hidden shrink-0 h-64 md:h-auto">
           <div className="p-4 border-b border-[var(--border-subtle)] bg-[var(--bg-surface-elevated)]/30 flex items-center justify-between">
             <span className="text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">
               {soloHistorial ? "Tickets Cerrados" : "Tickets Disponibles"} ({tickets.length})
@@ -447,7 +445,7 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
         </div>
 
         {/* Columna Derecha: Detalle, Asignación y Chat con Cliente */}
-        <div className="flex-1 flex flex-col liquid-glass-card rounded-3xl overflow-hidden min-h-0">
+        <div className="flex-1 flex flex-col liquid-glass-card rounded-2xl overflow-hidden min-h-0">
           {ticketSeleccionado ? (
             <>
               {/* Encabezado y Barra de Acción del Ticket */}
@@ -550,7 +548,7 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
                   {ticketSeleccionado.calificacion && (
                     <div className="flex items-center gap-1 bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 rounded-full">
                       <Star size={12} className="text-amber-500 fill-amber-400" />
-                      <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400">
+                      <span className="text-[11px] font-bold text-[#E3A21A]">
                         {ticketSeleccionado.calificacion}/5
                       </span>
                     </div>
@@ -587,9 +585,9 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
                           {esMio ? "Tú" : m.autor_nombre} · {m.fecha}
                         </span>
                         <div
-                          className={`rounded-2xl px-4 py-2.5 text-xs leading-relaxed ${
+                          className={`rounded-lg px-4 py-2.5 text-xs leading-relaxed ${
                             esMio
-                              ? "bg-gradient-to-r from-[#007AFF] to-[#0A84FF] text-white rounded-br-xs shadow-md shadow-blue-500/20"
+                              ? "bg-[#1E4E79] text-white rounded-br-xs shadow-md shadow-blue-500/20"
                               : "liquid-glass border border-[var(--border-glass)] text-[var(--text-primary)] rounded-bl-xs shadow-xs"
                           }`}
                         >
@@ -620,12 +618,12 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
                     value={nuevoMensaje}
                     onChange={(e) => setNuevoMensaje(e.target.value)}
                     disabled={enviando || ticketSeleccionado.id_estado === 5}
-                    className="liquid-input flex-1 rounded-2xl px-4 py-2.5 text-xs text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:outline-none disabled:opacity-50"
+                    className="liquid-input flex-1 rounded-lg px-4 py-2.5 text-xs text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:outline-none disabled:opacity-50"
                   />
                   <button
                     type="submit"
                     disabled={enviando || !nuevoMensaje.trim() || ticketSeleccionado.id_estado === 5}
-                    className="apple-btn-primary px-5 py-2.5 rounded-2xl text-xs font-semibold flex items-center gap-1.5 transition-all disabled:opacity-50 shadow-sm cursor-pointer"
+                    className="apple-btn-primary px-5 py-2.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all disabled:opacity-50 shadow-sm cursor-pointer"
                   >
                     {enviando ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
                     <span>Responder</span>
@@ -635,7 +633,7 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
             </>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-[var(--text-tertiary)]">
-              <div className="w-16 h-16 rounded-3xl liquid-glass border border-[var(--border-glass)] flex items-center justify-center text-[var(--text-tertiary)] mb-3 shadow-sm">
+              <div className="w-16 h-16 rounded-lg liquid-glass border border-[var(--border-glass)] flex items-center justify-center text-[var(--text-tertiary)] mb-3 shadow-sm">
                 <Inbox size={32} />
               </div>
               <p className="text-sm font-semibold text-[var(--text-primary)]">Ningún ticket seleccionado</p>

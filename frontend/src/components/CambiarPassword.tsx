@@ -1,7 +1,6 @@
-
-import React, { useState } from "react";
+﻿import React, { useState } from "react";
 import {
-  Sparkles,
+  Building2,
   Lock,
   ArrowRight,
   AlertCircle,
@@ -58,24 +57,20 @@ const CambiarPassword: React.FC<CambiarPasswordProps> = ({
     setCargando(true);
 
     try {
-      const res = await fetch(
-        `${API_URL}/api/auth/cambiar-password`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            password_actual: actual,
-            password_nueva: nueva,
-          }),
-        }
-      );
+      const res = await fetch(`${API_URL}/api/auth/cambiar-password`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          password_actual: actual,
+          password_nueva: nueva,
+        }),
+      });
 
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-
         throw new Error(
           typeof data?.detail === "string"
             ? data.detail
@@ -87,36 +82,29 @@ const CambiarPassword: React.FC<CambiarPasswordProps> = ({
       setNueva("");
       setConfirmar("");
       setExito(true);
-
     } catch (err: unknown) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Error al conectar con el servidor."
-      );
+      setError(err instanceof Error ? err.message : "Error al conectar con el servidor.");
     } finally {
       setCargando(false);
     }
   };
 
   return (
-    <div className="flex-1 min-h-0 w-full flex items-center justify-center overflow-y-auto bg-[#f8fafc] p-4 font-sans">
-
-      {/* TARJETA PRINCIPAL */}
-      <div className="w-full max-w-md bg-white rounded-3xl p-8 shadow-xl border border-slate-100 space-y-6">
-
-        {/* CABECERA: MISMO DISEÑO QUE LOGIN */}
+    <div className="flex-1 min-h-0 w-full flex items-center justify-center overflow-y-auto bg-[#F5F7FA] p-4 font-sans select-none">
+      {/* TARJETA PRINCIPAL CON ESQUINAS DE 8 PX */}
+      <div className="w-full max-w-md bg-white rounded-3xl p-8 sm:p-10 shadow-[0_12px_40px_rgba(31,41,51,0.06)] border border-slate-200/80 shadow-sm border border-[#E4E7EB] space-y-6">
+        {/* CABECERA INSTITUCIONAL */}
         <div className="text-center space-y-2">
-          <div className="w-12 h-12 bg-blue-600 text-white rounded-2xl flex items-center justify-center mx-auto shadow-md shadow-blue-500/20">
-            <Sparkles size={24} />
+          <div className="w-12 h-12 bg-[#1E4E79] text-white rounded-2xl bg-gradient-to-br from-[#1E4E79] to-[#173C5E] text-white flex items-center justify-center mx-auto shadow-md ring-1 ring-white/20">
+            <Building2 size={24} />
           </div>
 
-          <h1 className="text-3xl font-bold text-slate-900">
-            SupportAI
+          <h1 className="text-2xl font-bold font-heading text-[#173C5E]">
+            Comunidad Clara
           </h1>
 
-          <p className="text-sm text-slate-500">
-            Cambia tu contraseña de forma segura
+          <p className="text-sm text-[#52606D]">
+            Gestión de seguridad y cambio de contraseña
           </p>
         </div>
 
@@ -124,68 +112,50 @@ const CambiarPassword: React.FC<CambiarPasswordProps> = ({
         {error && (
           <div
             role="alert"
-            className="flex items-start gap-3 p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-rose-700"
+            className="flex items-start gap-3 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 animate-fade-in"
           >
-            <AlertCircle
-              size={18}
-              className="shrink-0 text-rose-500 mt-0.5"
-            />
-            <span className="text-xs font-medium leading-relaxed">
-              {error}
-            </span>
+            <AlertCircle size={18} className="shrink-0 text-red-600 mt-0.5" />
+            <span className="text-xs font-medium leading-relaxed">{error}</span>
           </div>
         )}
 
         {exito ? (
-
           /* CONTRASEÑA ACTUALIZADA */
           <div className="space-y-5 text-center">
-
             <div className="flex justify-center">
-              <div className="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center">
+              <div className="w-13 h-13 bg-[#47705A]/15 text-[#47705A] rounded-xl flex items-center justify-center">
                 <CheckCircle2 size={30} />
               </div>
             </div>
 
-            <h2 className="text-xl font-bold text-slate-900">
-              ¡Contraseña actualizada!
+            <h2 className="text-xl font-bold font-heading text-[#173C5E]">
+              ¡Contraseña actualizada con éxito!
             </h2>
 
-            <p className="text-sm text-slate-500">
-              Tu contraseña se cambió correctamente.
-              Por seguridad, debes iniciar sesión nuevamente.
+            <p className="text-sm text-[#52606D]">
+              Tu contraseña se cambió correctamente. Por seguridad institucional, debes iniciar sesión nuevamente.
             </p>
 
             <button
               type="button"
               onClick={onPasswordCambiada}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl flex items-center justify-center gap-2 text-sm sm:text-base shadow-sm shadow-blue-500/20 transition-all cursor-pointer"
+              className="w-full bg-[#1E4E79] hover:bg-[#173C5E] text-white font-heading font-semibold py-2.5 rounded-xl flex items-center justify-center gap-2 text-sm shadow-xs transition-all cursor-pointer"
             >
               <span>Iniciar sesión</span>
               <ArrowRight size={18} />
             </button>
-
           </div>
-
         ) : (
-
           /* FORMULARIO */
           <form onSubmit={handleSubmit} className="space-y-4">
-
             {/* CONTRASEÑA ACTUAL */}
             <div className="space-y-1.5">
-              <label
-                htmlFor="password-actual"
-                className="text-sm font-semibold text-slate-700"
-              >
+              <label htmlFor="password-actual" className="text-xs font-semibold text-[#52606D]">
                 Contraseña actual
               </label>
 
               <div className="relative flex items-center">
-                <Lock
-                  size={16}
-                  className="absolute left-3.5 text-slate-400"
-                />
+                <Lock size={16} className="absolute left-3.5 text-[#52606D]" />
 
                 <input
                   id="password-actual"
@@ -196,25 +166,19 @@ const CambiarPassword: React.FC<CambiarPasswordProps> = ({
                   required
                   maxLength={256}
                   placeholder="••••••••"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-10 pr-11 text-sm sm:text-lg text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition-all"
+                  className="w-full bg-white border border-[#CBD2D9] rounded-xl py-2.5 pl-10 pr-11 text-sm text-[#1F2933] placeholder-[#7B8794] focus:outline-none focus:border-[#1E4E79] focus:ring-2 focus:ring-[#1E4E79]/15 transition-all"
                 />
               </div>
             </div>
 
             {/* NUEVA CONTRASEÑA */}
             <div className="space-y-1.5">
-              <label
-                htmlFor="password-nueva"
-                className="text-sm font-semibold text-slate-700"
-              >
+              <label htmlFor="password-nueva" className="text-xs font-semibold text-[#52606D]">
                 Nueva contraseña
               </label>
 
               <div className="relative flex items-center">
-                <Lock
-                  size={16}
-                  className="absolute left-3.5 text-slate-400"
-                />
+                <Lock size={16} className="absolute left-3.5 text-[#52606D]" />
 
                 <input
                   id="password-nueva"
@@ -226,25 +190,19 @@ const CambiarPassword: React.FC<CambiarPasswordProps> = ({
                   minLength={8}
                   maxLength={256}
                   placeholder="Mínimo 8 caracteres"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-10 pr-11 text-sm sm:text-lg text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition-all"
+                  className="w-full bg-white border border-[#CBD2D9] rounded-xl py-2.5 pl-10 pr-11 text-sm text-[#1F2933] placeholder-[#7B8794] focus:outline-none focus:border-[#1E4E79] focus:ring-2 focus:ring-[#1E4E79]/15 transition-all"
                 />
               </div>
             </div>
 
             {/* CONFIRMAR CONTRASEÑA */}
             <div className="space-y-1.5">
-              <label
-                htmlFor="password-confirmar"
-                className="text-sm font-semibold text-slate-700"
-              >
+              <label htmlFor="password-confirmar" className="text-xs font-semibold text-[#52606D]">
                 Confirmar nueva contraseña
               </label>
 
               <div className="relative flex items-center">
-                <Lock
-                  size={16}
-                  className="absolute left-3.5 text-slate-400"
-                />
+                <Lock size={16} className="absolute left-3.5 text-[#52606D]" />
 
                 <input
                   id="password-confirmar"
@@ -256,7 +214,7 @@ const CambiarPassword: React.FC<CambiarPasswordProps> = ({
                   minLength={8}
                   maxLength={256}
                   placeholder="Repite tu contraseña"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-10 pr-11 text-sm sm:text-lg text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition-all"
+                  className="w-full bg-white border border-[#CBD2D9] rounded-xl py-2.5 pl-10 pr-11 text-sm text-[#1F2933] placeholder-[#7B8794] focus:outline-none focus:border-[#1E4E79] focus:ring-2 focus:ring-[#1E4E79]/15 transition-all"
                 />
               </div>
             </div>
@@ -265,24 +223,17 @@ const CambiarPassword: React.FC<CambiarPasswordProps> = ({
             <button
               type="button"
               onClick={() => setMostrarPassword(!mostrarPassword)}
-              className="flex items-center gap-2 text-xs font-medium text-slate-500 hover:text-blue-600 transition-colors"
+              className="flex items-center gap-2 text-xs font-medium text-[#52606D] hover:text-[#1E4E79] transition-colors cursor-pointer"
             >
-              {mostrarPassword ? (
-                <EyeOff size={15} />
-              ) : (
-                <Eye size={15} />
-              )}
-
-              {mostrarPassword
-                ? "Ocultar contraseñas"
-                : "Mostrar contraseñas"}
+              {mostrarPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+              <span>{mostrarPassword ? "Ocultar contraseñas" : "Mostrar contraseñas"}</span>
             </button>
 
             {/* BOTÓN GUARDAR */}
             <button
               type="submit"
               disabled={cargando}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold py-2.5 rounded-xl flex items-center justify-center gap-2 text-xs sm:text-base shadow-sm shadow-blue-500/20 transition-all cursor-pointer"
+              className="w-full bg-[#1E4E79] hover:bg-[#173C5E] disabled:opacity-50 text-white font-heading font-semibold py-2.5 rounded-xl flex items-center justify-center gap-2 text-sm shadow-xs transition-all cursor-pointer"
             >
               {cargando ? (
                 <>
@@ -296,17 +247,15 @@ const CambiarPassword: React.FC<CambiarPasswordProps> = ({
                 </>
               )}
             </button>
-
           </form>
         )}
 
         {/* PIE DE TARJETA */}
-        <div className="pt-4 border-t border-slate-100 text-center">
-          <p className="text-[11px] text-slate-400 font-medium">
-            Seguridad de cuenta · SupportAI
+        <div className="pt-4 border-t border-[#E4E7EB] text-center">
+          <p className="text-[11px] text-[#52606D] font-medium">
+            Seguridad institucional · Comunidad Clara Administraciones Ltda.
           </p>
         </div>
-
       </div>
     </div>
   );

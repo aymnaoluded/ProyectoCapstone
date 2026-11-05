@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+﻿import React, { useEffect, useState, useRef } from "react";
 import {
   Plus,
   Database,
@@ -13,8 +13,7 @@ import {
   CheckCircle2,
   Trash2,
   UploadCloud,
-  Files,
-  Sparkles
+  Files
 } from "lucide-react";
 import type { Usuario } from "../types";
 import { API_URL, cabecerasAuth } from "../utils/api";
@@ -460,15 +459,15 @@ export const BaseConocimiento: React.FC<BaseConocimientoProps> = ({ usuario }) =
         {/* Banner de Notificación Global */}
         {mensajeGlobal && (
           <div
-            className={`flex items-center justify-between gap-3 px-4 py-3 rounded-2xl border text-xs font-medium transition-all animate-fade-in shadow-xs ${
+            className={`flex items-center justify-between gap-3 px-4 py-3 rounded-lg border text-xs font-medium transition-all animate-fade-in shadow-xs ${
               mensajeGlobal.tipo === "exito"
-                ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-400"
+                ? "bg-emerald-500/10 border-emerald-500/20 text-[#47705A]"
                 : "bg-red-500/10 border-red-500/20 text-[var(--accent-danger)]"
             }`}
           >
             <div className="flex items-center gap-2.5">
               {mensajeGlobal.tipo === "exito" ? (
-                <CheckCircle2 size={16} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <CheckCircle2 size={16} className="text-[#47705A] shrink-0" />
               ) : (
                 <AlertCircle size={16} className="text-red-500 shrink-0" />
               )}
@@ -485,7 +484,7 @@ export const BaseConocimiento: React.FC<BaseConocimientoProps> = ({ usuario }) =
 
         {/* Métricas Superiores estilo Apple Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="liquid-glass-card rounded-3xl p-5 shadow-xs">
+          <div className="liquid-glass-card rounded-2xl p-5 shadow-xs">
             <span className="text-2xl sm:text-3xl font-bold text-[var(--text-primary)] tracking-tight block">
               {stats.documentos}
             </span>
@@ -494,8 +493,8 @@ export const BaseConocimiento: React.FC<BaseConocimientoProps> = ({ usuario }) =
             </span>
           </div>
 
-          <div className="liquid-glass-card rounded-3xl p-5 shadow-xs">
-            <span className="text-2xl sm:text-3xl font-bold text-emerald-600 dark:text-emerald-400 tracking-tight block">
+          <div className="liquid-glass-card rounded-2xl p-5 shadow-xs">
+            <span className="text-2xl sm:text-3xl font-bold text-[#47705A] tracking-tight block">
               {stats.publicados}
             </span>
             <span className="text-xs font-medium text-[var(--text-secondary)] mt-1 block">
@@ -503,7 +502,7 @@ export const BaseConocimiento: React.FC<BaseConocimientoProps> = ({ usuario }) =
             </span>
           </div>
 
-          <div className="liquid-glass-card rounded-3xl p-5 shadow-xs">
+          <div className="liquid-glass-card rounded-2xl p-5 shadow-xs">
             <span className="text-2xl sm:text-3xl font-bold text-[var(--text-primary)] tracking-tight block">
               {stats.fragmentos_indexados}
             </span>
@@ -512,7 +511,7 @@ export const BaseConocimiento: React.FC<BaseConocimientoProps> = ({ usuario }) =
             </span>
           </div>
 
-          <div className="liquid-glass-card rounded-3xl p-5 shadow-xs">
+          <div className="liquid-glass-card rounded-2xl p-5 shadow-xs">
             <span className="text-2xl sm:text-3xl font-bold text-[var(--accent-primary)] tracking-tight block">
               {stats.consultas_atendidas}
             </span>
@@ -529,8 +528,8 @@ export const BaseConocimiento: React.FC<BaseConocimientoProps> = ({ usuario }) =
             <p className="text-xs font-medium">Cargando base de conocimiento...</p>
           </div>
         ) : documentos.length === 0 ? (
-          <div className="text-center py-16 liquid-glass-card rounded-3xl p-8 space-y-3">
-            <div className="w-14 h-14 rounded-2xl bg-blue-500/10 text-[var(--accent-primary)] flex items-center justify-center mx-auto border border-blue-500/20">
+          <div className="text-center py-16 liquid-glass-card rounded-2xl p-8 space-y-3">
+            <div className="w-14 h-14 rounded-lg bg-blue-500/10 text-[var(--accent-primary)] flex items-center justify-center mx-auto border border-blue-500/20">
               <Database size={26} />
             </div>
             <h3 className="text-sm font-semibold text-[var(--text-primary)]">No hay documentos indexados</h3>
@@ -543,11 +542,11 @@ export const BaseConocimiento: React.FC<BaseConocimientoProps> = ({ usuario }) =
             {documentos.map((doc) => (
               <div
                 key={doc.id_documento}
-                className="liquid-glass-card rounded-3xl p-5 shadow-xs flex flex-col justify-between transition-all"
+                className="liquid-glass-card rounded-2xl p-5 shadow-xs flex flex-col justify-between transition-all"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-start gap-3.5">
-                    <div className="w-10 h-10 rounded-2xl bg-[var(--bg-surface-elevated)] border border-[var(--border-subtle)] flex items-center justify-center text-[var(--text-secondary)] shrink-0 mt-0.5">
+                    <div className="w-10 h-10 rounded-lg bg-[var(--bg-surface-elevated)] border border-[var(--border-subtle)] flex items-center justify-center text-[var(--text-secondary)] shrink-0 mt-0.5">
                       {doc.titulo.toLowerCase().includes("faq") ? (
                         <BookOpen size={18} />
                       ) : doc.titulo.toLowerCase().includes("api") ? (
@@ -575,11 +574,11 @@ export const BaseConocimiento: React.FC<BaseConocimientoProps> = ({ usuario }) =
                   </div>
 
                   {doc.activo ? (
-                    <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full shrink-0">
+                    <span className="text-[10px] font-semibold text-[#47705A] bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full shrink-0">
                       Publicado
                     </span>
                   ) : (
-                    <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 rounded-full shrink-0">
+                    <span className="text-[10px] font-semibold text-[#E3A21A] bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 rounded-full shrink-0">
                       Despublicado
                     </span>
                   )}
@@ -626,7 +625,7 @@ export const BaseConocimiento: React.FC<BaseConocimientoProps> = ({ usuario }) =
             {/* Header del Modal */}
             <div className="flex items-center justify-between pb-2 border-b border-[var(--border-subtle)]">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-500/10 border border-blue-500/20 text-[var(--accent-primary)] rounded-2xl flex items-center justify-center">
+                <div className="w-10 h-10 bg-blue-500/10 border border-blue-500/20 text-[var(--accent-primary)] rounded-lg flex items-center justify-center">
                   <Database size={20} />
                 </div>
                 <div>
@@ -634,7 +633,7 @@ export const BaseConocimiento: React.FC<BaseConocimientoProps> = ({ usuario }) =
                     Cargar a la Base de Conocimiento
                   </h2>
                   <p className="text-xs text-[var(--text-secondary)]">
-                    Indexación vectorial para el motor RAG de SupportAI
+                    Indexación vectorial para el motor RAG de Comunidad Clara
                   </p>
                 </div>
               </div>
@@ -648,7 +647,7 @@ export const BaseConocimiento: React.FC<BaseConocimientoProps> = ({ usuario }) =
             </div>
 
             {/* Selector de pestañas estilo Apple Segmented Control */}
-            <div className="apple-segmented-container p-1 rounded-2xl flex items-center gap-1">
+            <div className="apple-segmented-container p-1 rounded-lg flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => {
@@ -686,7 +685,7 @@ export const BaseConocimiento: React.FC<BaseConocimientoProps> = ({ usuario }) =
 
             {/* Error */}
             {errorCrear && (
-              <div className="flex items-start gap-2.5 p-3.5 bg-red-500/10 border border-red-500/20 text-[var(--accent-danger)] rounded-2xl text-xs animate-fade-in">
+              <div className="flex items-start gap-2.5 p-3.5 bg-red-500/10 border border-red-500/20 text-[var(--accent-danger)] rounded-lg text-xs animate-fade-in">
                 <AlertCircle size={16} className="shrink-0 mt-0.5" />
                 <span className="leading-snug">{errorCrear}</span>
               </div>
@@ -721,7 +720,7 @@ export const BaseConocimiento: React.FC<BaseConocimientoProps> = ({ usuario }) =
                         multiFileInputRef.current.click();
                       }
                     }}
-                    className={`border-2 border-dashed rounded-3xl p-6 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-2.5 select-none ${
+                    className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-2.5 select-none ${
                       arrastrando
                         ? "border-[var(--accent-primary)] bg-blue-500/10 scale-[1.01]"
                         : "border-[var(--border-glass)] bg-[var(--bg-surface-elevated)]/40 hover:bg-[var(--bg-card-hover)]"
@@ -739,7 +738,7 @@ export const BaseConocimiento: React.FC<BaseConocimientoProps> = ({ usuario }) =
                         }
                       }}
                     />
-                    <div className="w-12 h-12 bg-blue-500/10 border border-blue-500/20 rounded-2xl flex items-center justify-center text-[var(--accent-primary)] shadow-sm">
+                    <div className="w-12 h-12 bg-blue-500/10 border border-blue-500/20 rounded-lg flex items-center justify-center text-[var(--accent-primary)] shadow-sm">
                       <UploadCloud size={26} />
                     </div>
                     <div>
@@ -757,7 +756,7 @@ export const BaseConocimiento: React.FC<BaseConocimientoProps> = ({ usuario }) =
 
                   {/* Resumen de resultados si hubo carga */}
                   {resumenMasivo && (
-                    <div className="p-3.5 liquid-glass border border-[var(--border-subtle)] rounded-2xl space-y-1.5 text-xs">
+                    <div className="p-3.5 liquid-glass border border-[var(--border-subtle)] rounded-lg space-y-1.5 text-xs">
                       <div className="font-semibold text-[var(--text-primary)] flex items-center justify-between">
                         <span>Resumen ({resumenMasivo.total} archivos procesados):</span>
                         <button
@@ -769,15 +768,15 @@ export const BaseConocimiento: React.FC<BaseConocimientoProps> = ({ usuario }) =
                         </button>
                       </div>
                       <div className="grid grid-cols-3 gap-2 pt-1 text-center font-semibold">
-                        <div className="p-2 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl border border-emerald-500/20">
+                        <div className="p-2 bg-emerald-500/10 text-[#47705A] rounded-xl border border-emerald-500/20">
                           <span className="block text-base font-bold">{resumenMasivo.exitosos}</span>
                           <span>Indexados</span>
                         </div>
-                        <div className="p-2 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-xl border border-amber-500/20">
+                        <div className="p-2 bg-amber-500/10 text-[#E3A21A] rounded-xl border border-amber-500/20">
                           <span className="block text-base font-bold">{resumenMasivo.duplicados}</span>
                           <span>Duplicados</span>
                         </div>
-                        <div className="p-2 bg-red-500/10 text-red-600 dark:text-red-400 rounded-xl border border-red-500/20">
+                        <div className="p-2 bg-red-500/10 text-[#C53030] rounded-xl border border-red-500/20">
                           <span className="block text-base font-bold">{resumenMasivo.fallidos}</span>
                           <span>Con error</span>
                         </div>
@@ -802,7 +801,7 @@ export const BaseConocimiento: React.FC<BaseConocimientoProps> = ({ usuario }) =
                         )}
                       </div>
 
-                      <div className="max-h-56 overflow-y-auto space-y-2 pr-1 border border-[var(--border-subtle)] rounded-2xl p-2.5 bg-[var(--bg-surface-elevated)]/30 apple-scrollbar">
+                      <div className="max-h-56 overflow-y-auto space-y-2 pr-1 border border-[var(--border-subtle)] rounded-lg p-2.5 bg-[var(--bg-surface-elevated)]/30 apple-scrollbar">
                         {archivosMasivos.map((item) => {
                           const ext = item.file.name.slice(item.file.name.lastIndexOf(".")).toLowerCase();
                           const sizeKb = Math.round(item.file.size / 1024);
@@ -818,10 +817,10 @@ export const BaseConocimiento: React.FC<BaseConocimientoProps> = ({ usuario }) =
                                 <span
                                   className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase shrink-0 ${
                                     ext === ".pdf"
-                                      ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20"
+                                      ? "bg-rose-500/10 text-[#C53030] border border-rose-500/20"
                                       : ext === ".docx"
-                                      ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20"
-                                      : "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border border-zinc-500/20"
+                                      ? "bg-blue-500/10 text-[#1E4E79] border border-blue-500/20"
+                                      : "bg-zinc-500/10 text-[#52606D] border border-zinc-500/20"
                                   }`}
                                 >
                                   {ext.replace(".", "")}
@@ -849,7 +848,7 @@ export const BaseConocimiento: React.FC<BaseConocimientoProps> = ({ usuario }) =
                                   </span>
                                 )}
                                 {item.status === "exito" && (
-                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-[#47705A] flex items-center gap-1">
                                     <CheckCircle2 size={11} />
                                     <span>Indexado</span>
                                   </span>
@@ -857,7 +856,7 @@ export const BaseConocimiento: React.FC<BaseConocimientoProps> = ({ usuario }) =
                                 {item.status === "duplicado" && (
                                   <span
                                     title={item.mensaje}
-                                    className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center gap-1 cursor-help"
+                                    className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-[#E3A21A] flex items-center gap-1 cursor-help"
                                   >
                                     <AlertCircle size={11} />
                                     <span>Duplicado</span>
