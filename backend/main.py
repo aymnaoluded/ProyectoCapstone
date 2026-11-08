@@ -2,6 +2,8 @@ import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 
 from database import iniciar_db_pool, cerrar_db_pool
 from routers import auth, documentos, chat, tickets, admin
@@ -46,6 +48,22 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.exception_handler(RequestValidationError)
+async def handler_error_validacion(request: Request, exc: RequestValidationError):
+    """Convierte los errores técnicos de validación de Pydantic en mensajes legibles para el usuario."""
+    errores = exc.errors()
+    if errores:
+        primer_error = errores[0]
+        campo = " → ".join(str(loc) for loc in primer_error.get("loc", []) if loc != "body")
+        msg_tecnico = primer_error.get("msg", "")
+        if campo:
+            detalle = f"El campo '{campo}' no es válido: {msg_tecnico}."
+        else:
+            detalle = "La solicitud contiene datos inválidos. Por favor revisa los campos enviados."
+    else:
+        detalle = "La solicitud no pudo ser procesada. Por favor intenta nuevamente."
+    return JSONResponse(status_code=422, content={"detail": detalle})
 
 RUTAS_DOCUMENTACION = ("/docs", "/redoc", "/openapi.json")
 

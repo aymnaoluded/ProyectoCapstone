@@ -13,15 +13,15 @@ interface TopBarProps {
 }
 
 const NOMBRES_VISTAS: Record<VistaApp, { titulo: string; categoria: string }> = {
-  chat: { titulo: "Asistente Virtual IA", categoria: "Atención y Soporte" },
-  mis_tickets: { titulo: "Mis Solicitudes", categoria: "Atención al Residente" },
-  bandeja_tickets: { titulo: "Bandeja de Tickets", categoria: "Gestión de Soporte" },
-  tickets_asignados: { titulo: "Tickets Asignados", categoria: "Mi Trabajo" },
-  historial_tickets: { titulo: "Historial de Tickets", categoria: "Archivo de Casos" },
-  admin_conocimiento: { titulo: "Base de Conocimiento (RAG)", categoria: "Administración" },
-  admin_usuarios: { titulo: "Gestión de Usuarios", categoria: "Administración" },
-  metricas: { titulo: "Métricas del Sistema", categoria: "Analítica Institucional" },
-  auditoria: { titulo: "Registro de Auditoría", categoria: "Seguridad y Trazabilidad" },
+  chat:               { titulo: "Asistente Virtual IA",          categoria: "Atención y Soporte" },
+  mis_tickets:        { titulo: "Mis Solicitudes",                categoria: "Atención al Residente" },
+  bandeja_tickets:    { titulo: "Bandeja de Tickets",             categoria: "Gestión de Soporte" },
+  tickets_asignados:  { titulo: "Tickets Asignados",              categoria: "Mi Trabajo" },
+  historial_tickets:  { titulo: "Historial de Tickets",           categoria: "Archivo de Casos" },
+  admin_conocimiento: { titulo: "Base de Conocimiento (RAG)",     categoria: "Administración" },
+  admin_usuarios:     { titulo: "Gestión de Usuarios",            categoria: "Administración" },
+  metricas:           { titulo: "Métricas del Sistema",           categoria: "Analítica Institucional" },
+  auditoria:          { titulo: "Registro de Auditoría",          categoria: "Seguridad y Trazabilidad" },
 };
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -29,44 +29,52 @@ export const TopBar: React.FC<TopBarProps> = ({
   onToggleSidebarMobile,
   mostrarSeguridad,
 }) => {
-  const vistaInfo = mostrarSeguridad
+  const info = mostrarSeguridad
     ? { titulo: "Seguridad de la Cuenta", categoria: "Ajustes de Perfil" }
-    : NOMBRES_VISTAS[vistaActiva] || { titulo: "Portal Institucional", categoria: "Comunidad Clara" };
+    : (NOMBRES_VISTAS[vistaActiva] ?? { titulo: "Portal Institucional", categoria: "Comunidad Clara" });
 
   return (
-    <header className="sticky top-0 z-30 w-full px-4 sm:px-6 py-3 bg-[#F5F7FA]">
-      <div className="bg-white/90 backdrop-blur-md rounded-2xl px-5 py-3 flex items-center justify-between gap-3 shadow-[0_2px_12px_rgba(31,41,51,0.03)] border border-slate-200/70 transition-all">
-        {/* BREADCRUMBS INSTITUCIONALES CON ESTILO IOS */}
+    <header className="sticky top-0 z-30 w-full px-4 sm:px-5 py-3 bg-[#F6F5F0]">
+      <div className="bg-white/95 backdrop-blur-md rounded-[14px] px-4 py-2.5
+        flex items-center justify-between gap-3
+        border border-[#E7EAE7] shadow-[0_1px_6px_rgba(41,58,59,0.05)]
+        transition-all">
+
+        {/* Breadcrumb + título */}
         <div className="flex items-center gap-3 min-w-0">
           <button
             onClick={onToggleSidebarMobile}
-            className="md:hidden p-2 rounded-xl text-[#52606D] hover:text-[#1F2933] hover:bg-[#F5F7FA] transition-colors active:scale-95 cursor-pointer"
+            className="md:hidden p-2 rounded-xl text-[#788583] hover:text-[#293A3B]
+              hover:bg-[#F6F5F0] transition-colors active:scale-95 cursor-pointer"
             title="Abrir menú"
             type="button"
           >
-            <Menu size={20} />
+            <Menu size={19} />
           </button>
 
           <div className="flex items-center gap-2 min-w-0">
-            <div className="hidden sm:flex items-center gap-2 text-xs font-medium text-[#52606D]">
-              <span className="font-semibold text-[#1E4E79] flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#1E4E79]/8 border border-[#1E4E79]/15">
-                <Building2 size={13} className="text-[#1E4E79]" />
+            {/* Breadcrumb desktop */}
+            <div className="hidden sm:flex items-center gap-2 text-[12px] font-medium text-[#788583]">
+              <span className="flex items-center gap-1.5 font-semibold text-[#286D68]
+                px-2.5 py-1 rounded-full bg-[#DCEFEA] border border-[#C4E0DA]">
+                <Building2 size={12} />
                 Comunidad Clara
               </span>
-              <span className="text-slate-300">/</span>
-              <span className="truncate">{vistaInfo.categoria}</span>
-              <span className="text-slate-300">/</span>
+              <span className="text-[#CDD4D3]">/</span>
+              <span className="truncate text-[#788583]">{info.categoria}</span>
+              <span className="text-[#CDD4D3]">/</span>
             </div>
-            <h1 className="text-sm sm:text-base font-bold font-heading text-[#173C5E] tracking-tight truncate">
-              {vistaInfo.titulo}
+
+            <h1 className="text-sm sm:text-[15px] font-heading font-bold text-[#293A3B] tracking-tight truncate">
+              {info.titulo}
             </h1>
           </div>
         </div>
 
-        {/* Zona derecha: el perfil, candado y logout ya están en el sidebar para evitar duplicidad */}
-        <div className="hidden sm:flex items-center gap-2 shrink-0 text-xs text-[#52606D]">
-          <span className="w-2 h-2 rounded-full bg-[#47705A] animate-pulse"></span>
-          <span className="font-medium text-[11px] text-[#52606D]">Plataforma Activa</span>
+        {/* Indicador de estado */}
+        <div className="hidden sm:flex items-center gap-2 shrink-0">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#52966A] animate-pulse" />
+          <span className="text-[11px] font-medium text-[#788583]">Plataforma Activa</span>
         </div>
       </div>
     </header>

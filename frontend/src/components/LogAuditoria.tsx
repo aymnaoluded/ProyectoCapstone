@@ -71,7 +71,7 @@ export const LogAuditoria: React.FC = () => {
       case "LOGOUT":
         return "bg-slate-100 text-slate-700 border-slate-300";
       case "SUBIDA_DOCUMENTO":
-        return "bg-blue-50 text-blue-700 border-blue-200/70";
+        return "bg-[#EDF5F4] text-[#1E5450] border-[#C4E0DA]/70";
       case "TOGGLE_DOCUMENTO":
         return "bg-indigo-50 text-indigo-700 border-indigo-200/70";
       case "CREATE_USUARIO":
@@ -97,7 +97,7 @@ export const LogAuditoria: React.FC = () => {
           onClick={cargarLogs}
           className="flex items-center gap-2 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 border border-slate-200 px-3.5 py-2 rounded-xl transition-all cursor-pointer"
         >
-          <RefreshCw size={14} className={cargando ? "animate-spin text-blue-600" : ""} />
+          <RefreshCw size={14} className={cargando ? "animate-spin text-[#286D68]" : ""} />
           <span>Actualizar</span>
         </button>
       </div>
@@ -110,7 +110,7 @@ export const LogAuditoria: React.FC = () => {
               <span className="text-2xl font-bold text-slate-900 block">{logs.length}</span>
               <span className="text-xs font-medium text-slate-500 mt-1 block">Total registros</span>
             </div>
-            <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
+            <div className="w-10 h-10 bg-[#EDF5F4] text-[#286D68] rounded-xl flex items-center justify-center">
               <Activity size={20} />
             </div>
           </div>
@@ -149,7 +149,7 @@ export const LogAuditoria: React.FC = () => {
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
               placeholder="Buscar por usuario, acción o detalle..."
-              className="w-full bg-white border border-slate-200 rounded-xl py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full bg-white border border-slate-200 rounded-xl py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-1 focus:ring-[#286D68]"
             />
           </div>
 
@@ -158,7 +158,7 @@ export const LogAuditoria: React.FC = () => {
             <select
               value={filtroAccion}
               onChange={(e) => setFiltroAccion(e.target.value)}
-              className="bg-white border border-slate-200 text-slate-700 text-xs rounded-xl px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="bg-white border border-slate-200 text-slate-700 text-xs rounded-xl px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#286D68]"
             >
               {accionesUnicas.map((acc) => (
                 <option key={acc} value={acc}>

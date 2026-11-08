@@ -49,7 +49,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({
 
   return (
     <nav className="md:hidden fixed bottom-2 inset-x-2 z-40 font-sans">
-      <div className="bg-white rounded-lg p-1.5 flex items-center justify-around shadow-lg border border-[#E4E7EB]">
+      <div className="bg-white rounded-lg p-1.5 flex items-center justify-around shadow-lg border border-[#E7EAE7]">
         {items.map((item) => {
           const isActive = vistaActiva === item.id;
           return (
@@ -59,8 +59,8 @@ export const MobileNav: React.FC<MobileNavProps> = ({
               type="button"
               className={`flex-1 flex flex-col items-center justify-center py-1.5 px-2 rounded-lg transition-all duration-150 cursor-pointer ${
                 isActive
-                  ? "bg-[#1E4E79] text-white shadow-xs font-semibold"
-                  : "text-[#52606D] hover:text-[#1F2933] hover:bg-[#F5F7FA]"
+                  ? "bg-[#DCEFEA] text-[#286D68] shadow-xs font-semibold"
+                  : "text-[#788583] hover:text-[#293A3B] hover:bg-[#F6F5F0]"
               }`}
             >
               <div>{item.icon}</div>

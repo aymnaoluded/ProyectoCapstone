@@ -202,7 +202,7 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen w-screen bg-[#F5F7FA] overflow-hidden font-sans text-[#1F2933] relative">
+    <div className="flex h-screen w-screen bg-[#F6F5F0] overflow-hidden font-sans text-[#293A3B] relative">
       {/* Barra Lateral Corporativa */}
       <Sidebar
         usuario={usuario}

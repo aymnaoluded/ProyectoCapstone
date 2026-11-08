@@ -417,13 +417,13 @@ export const BaseConocimiento: React.FC<BaseConocimientoProps> = ({ usuario: _us
           <div
             className={`flex items-center justify-between gap-3 px-4 py-3 rounded-lg border text-xs font-medium transition-all animate-fade-in shadow-xs ${
               mensajeGlobal.tipo === "exito"
-                ? "bg-emerald-500/10 border-emerald-500/20 text-[#47705A]"
+                ? "bg-emerald-500/10 border-emerald-500/20 text-[#52966A]"
                 : "bg-red-500/10 border-red-500/20 text-[var(--accent-danger)]"
             }`}
           >
             <div className="flex items-center gap-2.5">
               {mensajeGlobal.tipo === "exito" ? (
-                <CheckCircle2 size={16} className="text-[#47705A] shrink-0" />
+                <CheckCircle2 size={16} className="text-[#52966A] shrink-0" />
               ) : (
                 <AlertCircle size={16} className="text-red-500 shrink-0" />
               )}
@@ -450,7 +450,7 @@ export const BaseConocimiento: React.FC<BaseConocimientoProps> = ({ usuario: _us
           </div>
 
           <div className="liquid-glass-card rounded-2xl p-5 shadow-xs">
-            <span className="text-2xl sm:text-3xl font-bold text-[#47705A] tracking-tight block">
+            <span className="text-2xl sm:text-3xl font-bold text-[#52966A] tracking-tight block">
               {stats.publicados}
             </span>
             <span className="text-xs font-medium text-[var(--text-secondary)] mt-1 block">
@@ -530,11 +530,11 @@ export const BaseConocimiento: React.FC<BaseConocimientoProps> = ({ usuario: _us
                   </div>
 
                   {doc.activo ? (
-                    <span className="text-[10px] font-semibold text-[#47705A] bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full shrink-0">
+                    <span className="text-[10px] font-semibold text-[#286D68] bg-[#DCEFEA] border border-[#C4E0DA] px-2.5 py-0.5 rounded-full shrink-0">
                       Publicado
                     </span>
                   ) : (
-                    <span className="text-[10px] font-semibold text-[#E3A21A] bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 rounded-full shrink-0">
+                    <span className="text-[10px] font-semibold text-[#C89B3C] bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 rounded-full shrink-0">
                       Despublicado
                     </span>
                   )}
@@ -686,11 +686,11 @@ export const BaseConocimiento: React.FC<BaseConocimientoProps> = ({ usuario: _us
                       </button>
                     </div>
                     <div className="grid grid-cols-3 gap-2 pt-1 text-center font-semibold">
-                      <div className="p-2 bg-emerald-500/10 text-[#47705A] rounded-xl border border-emerald-500/20">
+                      <div className="p-2 bg-emerald-500/10 text-[#52966A] rounded-xl border border-emerald-500/20">
                         <span className="block text-base font-bold">{resumenMasivo.exitosos}</span>
                         <span>Indexados</span>
                       </div>
-                      <div className="p-2 bg-amber-500/10 text-[#E3A21A] rounded-xl border border-amber-500/20">
+                      <div className="p-2 bg-amber-500/10 text-[#C89B3C] rounded-xl border border-amber-500/20">
                         <span className="block text-base font-bold">{resumenMasivo.duplicados}</span>
                         <span>Duplicados</span>
                       </div>
@@ -737,8 +737,8 @@ export const BaseConocimiento: React.FC<BaseConocimientoProps> = ({ usuario: _us
                                   ext === ".pdf"
                                     ? "bg-rose-500/10 text-[#C53030] border border-rose-500/20"
                                     : ext === ".docx"
-                                    ? "bg-blue-500/10 text-[#1E4E79] border border-blue-500/20"
-                                    : "bg-zinc-500/10 text-[#52606D] border border-zinc-500/20"
+                                    ? "bg-blue-500/10 text-[#286D68] border border-blue-500/20"
+                                    : "bg-zinc-500/10 text-[#788583] border border-zinc-500/20"
                                 }`}
                               >
                                 {ext.replace(".", "")}
@@ -766,7 +766,7 @@ export const BaseConocimiento: React.FC<BaseConocimientoProps> = ({ usuario: _us
                                 </span>
                               )}
                               {item.status === "exito" && (
-                                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-[#47705A] flex items-center gap-1">
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-[#52966A] flex items-center gap-1">
                                   <CheckCircle2 size={11} />
                                   <span>Indexado</span>
                                 </span>
@@ -774,7 +774,7 @@ export const BaseConocimiento: React.FC<BaseConocimientoProps> = ({ usuario: _us
                               {item.status === "duplicado" && (
                                 <span
                                   title={item.mensaje}
-                                  className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-[#E3A21A] flex items-center gap-1 cursor-help"
+                                  className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-[#C89B3C] flex items-center gap-1 cursor-help"
                                 >
                                   <AlertCircle size={11} />
                                   <span>Duplicado</span>

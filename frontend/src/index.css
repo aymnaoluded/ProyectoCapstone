@@ -1,123 +1,137 @@
 @import "tailwindcss";
 
 @theme {
-  /* TIPOGRAFÍAS CORPORATIVAS */
-  --font-heading: 'Manrope', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
-  --font-sans: 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+  /* ─── TIPOGRAFÍA ─────────────────────────────────────── */
+  --font-heading: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+  --font-sans:    'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text',    'Segoe UI', sans-serif;
 
-  /* PALETA CORPORATIVA OBLIGATORIA: COMUNIDAD CLARA ADMINISTRACIONES LTDA */
-  --color-petroleo: #1E4E79;
-  --color-petroleo-hover: #163B5C;
-  --color-petroleo-subtle: rgba(30, 78, 121, 0.08);
+  /* ─── PALETA COMUNIDAD CLARA ────────────────────────── */
+  /* Verdes corporativos */
+  --color-petroleo:        #286D68;
+  --color-petroleo-dark:   #1E5450;
+  --color-petroleo-light:  #3A8A84;
+  --color-turquesa:        #63A69B;
+  --color-menta:           #DCEFEA;
+  --color-menta-dark:      #C4E0DA;
 
-  --color-azul-noche: #173C5E;
-  --color-azul-noche-hover: #112D47;
-  --color-azul-noche-subtle: rgba(23, 60, 94, 0.10);
+  /* Neutros */
+  --color-blanco-calido:   #F6F5F0;
+  --color-blanco:          #FFFFFF;
+  --color-coral:           #F19A82;
+  --color-coral-subtle:    rgba(241, 154, 130, 0.15);
 
-  --color-verde-salvia: #47705A;
-  --color-verde-salvia-hover: #385947;
-  --color-verde-salvia-subtle: rgba(71, 112, 90, 0.12);
+  /* Texto */
+  --color-texto-principal: #293A3B;
+  --color-texto-secundario:#788583;
+  --color-texto-terciario: #A0AFAE;
 
-  --color-ambar: #E3A21A;
-  --color-ambar-hover: #C58B13;
-  --color-ambar-subtle: rgba(227, 162, 26, 0.12);
+  /* Bordes */
+  --color-borde:           #E7EAE7;
+  --color-borde-hover:     #CDD4D3;
 
-  --color-gris-niebla: #F5F7FA;
-  --color-blanco: #FFFFFF;
-  --color-grafito: #1F2933;
-  --color-gris-acero: #52606D;
-  --color-borde: #E4E7EB;
-  --color-borde-hover: #CBD2D9;
+  /* Estados */
+  --color-resuelto:        #52966A;
+  --color-resuelto-bg:     rgba(82, 150, 106, 0.12);
+  --color-pendiente:       #C89B3C;
+  --color-pendiente-bg:    rgba(200, 155, 60, 0.12);
+  --color-urgente:         #D05A4A;
+  --color-urgente-bg:      rgba(208, 90, 74, 0.12);
+  --color-proceso:         #286D68;
+  --color-proceso-bg:      rgba(40, 109, 104, 0.12);
+  --color-espera:          #6B7280;
+  --color-espera-bg:       rgba(107, 114, 128, 0.10);
 
-  /* Sobrescritura armonizada para coherencia visual total */
-  --color-blue-50: #F0F4F8;
-  --color-blue-100: #E1EAF2;
-  --color-blue-500: #1E4E79;
-  --color-blue-600: #1E4E79;
-  --color-blue-700: #173C5E;
-  --color-blue-800: #112D47;
+  /* Sobrescritura armonizada Tailwind → paleta verde */
+  --color-blue-50:   #EDF5F4;
+  --color-blue-100:  #D6ECEA;
+  --color-blue-500:  #286D68;
+  --color-blue-600:  #286D68;
+  --color-blue-700:  #1E5450;
 
-  --color-emerald-50: #EEF4F0;
-  --color-emerald-500: #47705A;
-  --color-emerald-600: #47705A;
-  --color-emerald-700: #385947;
+  --color-emerald-50:  #DCEFEA;
+  --color-emerald-500: #52966A;
+  --color-emerald-600: #52966A;
 
-  --color-amber-50: #FCF6EC;
-  --color-amber-500: #E3A21A;
-  --color-amber-600: #C58B13;
+  --color-amber-50:  #FDF6EB;
+  --color-amber-500: #C89B3C;
+  --color-amber-600: #AD8530;
 
-  --color-slate-50: #F5F7FA;
-  --color-slate-100: #F5F7FA;
-  --color-slate-200: #E4E7EB;
-  --color-slate-300: #CBD2D9;
-  --color-slate-400: #7B8794;
-  --color-slate-500: #52606D;
-  --color-slate-600: #52606D;
-  --color-slate-700: #323F4B;
-  --color-slate-800: #1F2933;
-  --color-slate-900: #1F2933;
+  --color-slate-50:  #F6F5F0;
+  --color-slate-100: #EEF0EC;
+  --color-slate-200: #E7EAE7;
+  --color-slate-300: #CDD4D3;
+  --color-slate-400: #A0AFAE;
+  --color-slate-500: #788583;
+  --color-slate-600: #5A6968;
+  --color-slate-700: #3E4F4E;
+  --color-slate-800: #293A3B;
+  --color-slate-900: #1A2627;
 }
 
+/* ════════════════════════════════════════════════════════
+   TOKENS GLOBALES — ÚNICA FUENTE DE VERDAD
+   ════════════════════════════════════════════════════════ */
 @layer base {
   :root {
-    /* TEMA CORPORATIVO ÚNICO Y PERMANENTE */
-    --bg-canvas: #F5F7FA;              /* Gris niebla */
-    --bg-surface: rgba(255, 255, 255, 0.90);
-    --bg-surface-solid: #FFFFFF;
-    --bg-surface-subtle: #F0F4F8;
-    --bg-surface-elevated: rgba(255, 255, 255, 0.96);
-    --bg-card: #FFFFFF;
-    --bg-card-hover: rgba(30, 78, 121, 0.04);
-    --bg-glass-card: rgba(255, 255, 255, 0.92);
-    --bg-glass-input: rgba(255, 255, 255, 0.95);
+    /* Fondos */
+    --bg-canvas:            #F6F5F0;
+    --bg-surface:           rgba(255, 255, 255, 0.92);
+    --bg-surface-solid:     #FFFFFF;
+    --bg-surface-subtle:    #EDF5F4;
+    --bg-surface-elevated:  rgba(255, 255, 255, 0.97);
+    --bg-card:              #FFFFFF;
+    --bg-card-hover:        rgba(40, 109, 104, 0.04);
+    --bg-glass-card:        rgba(255, 255, 255, 0.94);
+    --bg-glass-input:       rgba(255, 255, 255, 0.97);
 
-    --border-glass: rgba(228, 231, 235, 0.85);
-    --border-glass-subtle: rgba(240, 244, 248, 0.8);
-    --border-glass-highlight: rgba(203, 210, 217, 0.7);
-    --border-subtle: #E4E7EB;
-    --border-divider: #E4E7EB;
-    --border-default: #CBD2D9;
+    /* Bordes */
+    --border-glass:          rgba(231, 234, 231, 0.90);
+    --border-glass-subtle:   rgba(240, 243, 240, 0.80);
+    --border-glass-highlight:rgba(205, 212, 211, 0.70);
+    --border-subtle:         #E7EAE7;
+    --border-divider:        #E7EAE7;
+    --border-default:        #CDD4D3;
 
-    --text-primary: #1F2933;           /* Grafito */
-    --text-secondary: #52606D;         /* Gris acero */
-    --text-tertiary: #7B8794;
+    /* Texto */
+    --text-primary:    #293A3B;
+    --text-secondary:  #788583;
+    --text-tertiary:   #A0AFAE;
 
-    /* PALETA CORPORATIVA OBLIGATORIA */
-    --color-petroleo: #1E4E79;         /* Color principal */
-    --color-azul-noche: #173C5E;       /* Encabezados y activos */
-    --color-verde-salvia: #47705A;     /* Confirmaciones y resueltos */
-    --color-ambar: #E3A21A;            /* Alertas y destacados */
-    --color-gris-niebla: #F5F7FA;      /* Fondos principales */
-    --color-blanco: #FFFFFF;           /* Tarjetas y superficies */
-    --color-grafito: #1F2933;          /* Texto principal */
-    --color-gris-acero: #52606D;       /* Texto secundario */
+    /* Acento principal: verde petróleo */
+    --accent-primary:        #286D68;
+    --accent-primary-hover:  #1E5450;
+    --accent-primary-subtle: rgba(40, 109, 104, 0.09);
+    --accent-primary-gradient: linear-gradient(135deg, #286D68 0%, #1E5450 100%);
 
-    --accent-primary: #1E4E79;
-    --accent-primary-hover: #173C5E;
-    --accent-primary-subtle: rgba(30, 78, 121, 0.08);
+    /* Acento secundario: turquesa */
+    --accent-secondary:       #63A69B;
+    --accent-secondary-subtle:rgba(99, 166, 155, 0.12);
 
-    --accent-blue: #1E4E79;
-    --accent-blue-hover: #173C5E;
-    --accent-blue-subtle: rgba(30, 78, 121, 0.08);
-    --accent-blue-gradient: linear-gradient(135deg, #1E4E79 0%, #173C5E 100%);
+    /* Estados */
+    --state-resolved:    #52966A;
+    --state-resolved-bg: rgba(82, 150, 106, 0.11);
+    --state-pending:     #C89B3C;
+    --state-pending-bg:  rgba(200, 155, 60, 0.11);
+    --state-urgent:      #D05A4A;
+    --state-urgent-bg:   rgba(208, 90, 74, 0.11);
+    --state-process:     #286D68;
+    --state-process-bg:  rgba(40, 109, 104, 0.11);
+    --state-waiting:     #6B7280;
+    --state-waiting-bg:  rgba(107, 114, 128, 0.09);
+    --state-closed:      #788583;
+    --state-closed-bg:   rgba(120, 133, 131, 0.09);
 
-    --accent-green: #47705A;
-    --accent-green-subtle: rgba(71, 112, 90, 0.12);
-    --accent-amber: #E3A21A;
-    --accent-amber-subtle: rgba(227, 162, 26, 0.12);
-    --accent-rose: #C53030;
-    --accent-rose-subtle: rgba(197, 48, 48, 0.12);
-    --accent-danger: #C53030;
-
-    /* SOMBRAS SUAVES Y DIFUSAS ESTILO IOS */
-    --glass-shadow-sm: 0 2px 8px -1px rgba(31, 41, 51, 0.04);
-    --glass-shadow: 0 4px 20px -2px rgba(31, 41, 51, 0.04), 0 1px 3px 0 rgba(31, 41, 51, 0.02);
-    --glass-shadow-hover: 0 10px 30px -4px rgba(31, 41, 51, 0.07), 0 2px 6px -1px rgba(31, 41, 51, 0.03);
-    --glass-shadow-modal: 0 20px 40px -6px rgba(31, 41, 51, 0.10), 0 8px 16px -4px rgba(31, 41, 51, 0.04);
+    /* Sombras */
+    --shadow-xs:    0 1px 3px rgba(41, 58, 59, 0.05);
+    --shadow-sm:    0 2px 8px -1px rgba(41, 58, 59, 0.06);
+    --shadow-md:    0 4px 20px -2px rgba(41, 58, 59, 0.07), 0 1px 4px rgba(41, 58, 59, 0.03);
+    --shadow-lg:    0 10px 32px -4px rgba(41, 58, 59, 0.09), 0 2px 8px rgba(41, 58, 59, 0.04);
+    --shadow-xl:    0 20px 48px -6px rgba(41, 58, 59, 0.11), 0 8px 18px -4px rgba(41, 58, 59, 0.05);
+    --shadow-focus: 0 0 0 3.5px rgba(40, 109, 104, 0.18);
 
     --backdrop-blur: blur(20px);
-    --font-heading: 'Manrope', -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
-    --font-sans: 'Source Sans 3', -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    --font-heading: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+    --font-sans:    'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text',    'Segoe UI', sans-serif;
   }
 
   body {
@@ -132,255 +146,266 @@
 
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-heading);
-    color: var(--color-azul-noche);
+    color: var(--text-primary);
     font-weight: 700;
     letter-spacing: -0.02em;
   }
 }
 
-/* ========================================================
-   SISTEMA DE DISEÑO ESTILO IOS AMIGABLE Y ELEGANTE
-   Bordes redondeados continuos (squircles), sombras difusas,
-   transparencias suaves con paleta Comunidad Clara
-   ======================================================== */
+/* ════════════════════════════════════════════════════════
+   SISTEMA DE COMPONENTES — COMUNIDAD CLARA
+   ════════════════════════════════════════════════════════ */
 
+/* ── Superficies ──────────────────────────────────────── */
+.cc-card {
+  background: #FFFFFF;
+  border: 1px solid #E7EAE7;
+  border-radius: 14px;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+.cc-card:hover {
+  border-color: #CDD4D3;
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.cc-card-flat {
+  background: #FFFFFF;
+  border: 1px solid #E7EAE7;
+  border-radius: 14px;
+  box-shadow: var(--shadow-xs);
+}
+
+.cc-modal {
+  background: #FFFFFF;
+  border: 1px solid #CDD4D3;
+  border-radius: 18px;
+  box-shadow: var(--shadow-xl);
+}
+
+/* ── Liquid glass (compatibilidad con clases existentes) ─ */
 .liquid-glass,
 .card-corporativa {
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.93);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(228, 231, 235, 0.85);
-  border-radius: 1.25rem; /* 20px - amigable estilo iOS */
-  box-shadow: 0 4px 20px -2px rgba(31, 41, 51, 0.04), 0 1px 3px 0 rgba(31, 41, 51, 0.02);
+  border: 1px solid rgba(231, 234, 231, 0.88);
+  border-radius: 16px;
+  box-shadow: var(--shadow-sm);
 }
 
 .liquid-glass-elevated,
 .card-elevada {
-  background: rgba(255, 255, 255, 0.96);
+  background: rgba(255, 255, 255, 0.97);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(203, 210, 217, 0.7);
-  border-radius: 1.5rem; /* 24px - modales iOS */
-  box-shadow: 0 20px 45px -8px rgba(31, 41, 51, 0.10), 0 8px 18px -4px rgba(31, 41, 51, 0.04);
+  border: 1px solid #CDD4D3;
+  border-radius: 20px;
+  box-shadow: var(--shadow-xl);
 }
 
 .liquid-glass-card {
   background: #FFFFFF;
-  border: 1px solid #E4E7EB;
-  border-radius: 1.25rem; /* 20px */
-  box-shadow: 0 2px 14px -2px rgba(31, 41, 51, 0.03), 0 1px 3px 0 rgba(31, 41, 51, 0.02);
-  transition: all 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1px solid #E7EAE7;
+  border-radius: 16px;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.20s cubic-bezier(0.16, 1, 0.3, 1);
 }
-
 .liquid-glass-card:hover {
-  border-color: #CBD2D9;
+  border-color: #CDD4D3;
   transform: translateY(-2px);
-  box-shadow: 0 10px 28px -4px rgba(31, 41, 51, 0.07), 0 2px 8px -2px rgba(31, 41, 51, 0.03);
+  box-shadow: var(--shadow-md);
 }
 
 .liquid-glass-interactive {
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
 }
-
 .liquid-glass-interactive:hover {
-  border-color: #1E4E79;
-  transform: translateY(-1.5px);
-  box-shadow: 0 6px 16px 0 rgba(30, 78, 121, 0.08);
+  border-color: #286D68;
+  transform: translateY(-1px);
+  box-shadow: 0 5px 14px rgba(40, 109, 104, 0.10);
 }
+.liquid-glass-interactive:active { transform: scale(0.985); }
 
-.liquid-glass-interactive:active {
-  transform: scale(0.985);
-}
-
-/* INPUTS ESTILO IOS */
+/* ── Inputs ───────────────────────────────────────────── */
 .liquid-input,
-.input-corporativo {
+.input-corporativo,
+.cc-input {
   background: #FFFFFF;
-  border: 1px solid #CBD2D9;
-  color: #1F2933;
-  border-radius: 1rem; /* 16px */
+  border: 1px solid #CDD4D3;
+  color: #293A3B;
+  border-radius: 10px;
   font-family: var(--font-sans);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 1px 2px rgba(31, 41, 51, 0.02);
+  font-size: 0.875rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: var(--shadow-xs);
 }
-
 .liquid-input:focus,
-.input-corporativo:focus {
+.input-corporativo:focus,
+.cc-input:focus {
   outline: none;
-  border-color: #1E4E79;
-  box-shadow: 0 0 0 3.5px rgba(30, 78, 121, 0.14);
+  border-color: #286D68;
+  box-shadow: var(--shadow-focus);
 }
-
 .liquid-input::placeholder,
-.input-corporativo::placeholder {
-  color: #7B8794;
+.input-corporativo::placeholder,
+.cc-input::placeholder {
+  color: #A0AFAE;
+}
+.liquid-input:disabled,
+.cc-input:disabled {
+  background: #F6F5F0;
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
-/* BOTONES ESTILO IOS */
+/* ── Botón primario ───────────────────────────────────── */
 .apple-btn-primary,
-.btn-corporativo-primary {
-  background-color: #1E4E79;
+.btn-corporativo-primary,
+.cc-btn-primary {
+  background-color: #286D68;
   color: #FFFFFF;
-  border-radius: 0.875rem; /* 14px */
+  border-radius: 10px;
   font-family: var(--font-heading);
   font-weight: 600;
-  box-shadow: 0 2px 10px 0 rgba(30, 78, 121, 0.25);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  font-size: 0.8125rem;
+  box-shadow: 0 2px 10px rgba(40, 109, 104, 0.28);
+  transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 0.4rem;
+  cursor: pointer;
 }
-
 .apple-btn-primary:hover,
-.btn-corporativo-primary:hover {
-  background-color: #173C5E;
-  box-shadow: 0 4px 14px 0 rgba(23, 60, 94, 0.32);
+.btn-corporativo-primary:hover,
+.cc-btn-primary:hover {
+  background-color: #1E5450;
+  box-shadow: 0 4px 14px rgba(30, 84, 80, 0.34);
   transform: translateY(-1px);
 }
-
 .apple-btn-primary:active,
-.btn-corporativo-primary:active {
-  transform: scale(0.975);
-}
-
+.btn-corporativo-primary:active,
+.cc-btn-primary:active { transform: scale(0.975); }
 .apple-btn-primary:disabled,
-.btn-corporativo-primary:disabled {
-  opacity: 0.55;
+.btn-corporativo-primary:disabled,
+.cc-btn-primary:disabled {
+  opacity: 0.50;
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
 }
 
-/* BOTÓN SECUNDARIO ESTILO IOS */
+/* ── Botón secundario ─────────────────────────────────── */
 .apple-btn-secondary,
-.btn-corporativo-secondary {
+.btn-corporativo-secondary,
+.cc-btn-secondary {
   background: #FFFFFF;
-  color: #1F2933;
-  border: 1px solid #CBD2D9;
-  border-radius: 0.875rem;
+  color: #293A3B;
+  border: 1px solid #CDD4D3;
+  border-radius: 10px;
   font-family: var(--font-heading);
   font-weight: 600;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  font-size: 0.8125rem;
+  box-shadow: var(--shadow-xs);
+  transition: all 0.15s ease;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 1px 3px rgba(31, 41, 51, 0.03);
+  gap: 0.4rem;
+  cursor: pointer;
 }
-
 .apple-btn-secondary:hover,
-.btn-corporativo-secondary:hover {
-  background: #F5F7FA;
-  border-color: #1E4E79;
-  color: #1E4E79;
+.btn-corporativo-secondary:hover,
+.cc-btn-secondary:hover {
+  background: #EDF5F4;
+  border-color: #286D68;
+  color: #286D68;
   transform: translateY(-1px);
 }
-
 .apple-btn-secondary:active,
-.btn-corporativo-secondary:active {
-  transform: scale(0.975);
+.btn-corporativo-secondary:active,
+.cc-btn-secondary:active { transform: scale(0.975); }
+.apple-btn-secondary:disabled,
+.cc-btn-secondary:disabled {
+  opacity: 0.50;
+  cursor: not-allowed;
+  transform: none;
 }
 
-/* SEGMENTED CONTROL ESTILO IOS */
+/* ── Segmented control ────────────────────────────────── */
 .apple-segmented-container {
-  background: #EDF2F7;
-  border: 1px solid rgba(228, 231, 235, 0.9);
+  background: #EEF0EC;
+  border: 1px solid rgba(231, 234, 231, 0.90);
   padding: 0.25rem;
-  border-radius: 9999px; /* Pill */
+  border-radius: 9999px;
   display: inline-flex;
   gap: 0.25rem;
 }
-
 .apple-segmented-item {
-  padding: 0.4rem 0.95rem;
+  padding: 0.375rem 0.875rem;
   font-size: 0.75rem;
   font-family: var(--font-heading);
   font-weight: 600;
   border-radius: 9999px;
-  color: #52606D;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  color: #788583;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
   cursor: pointer;
 }
-
 .apple-segmented-item.active {
   background: #FFFFFF;
-  color: #173C5E;
-  box-shadow: 0 2px 8px rgba(31, 41, 51, 0.08);
+  color: #286D68;
+  box-shadow: 0 1px 6px rgba(41, 58, 59, 0.08);
 }
 
-/* CHIPS Y PASTILLAS DE ESTADO IOS */
+/* ── Badges de estado ─────────────────────────────────── */
 .ios-badge {
   display: inline-flex;
   align-items: center;
   gap: 0.375rem;
-  padding: 0.25rem 0.75rem;
+  padding: 0.2rem 0.65rem;
   border-radius: 9999px;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
 }
+.ios-badge-resuelto  { background: var(--state-resolved-bg); color: var(--state-resolved); border: 1px solid rgba(82,150,106,0.22); }
+.ios-badge-pendiente { background: var(--state-pending-bg);  color: var(--state-pending);  border: 1px solid rgba(200,155,60,0.22); }
+.ios-badge-proceso   { background: var(--state-process-bg);  color: var(--state-process);  border: 1px solid rgba(40,109,104,0.20); }
+.ios-badge-urgente   { background: var(--state-urgent-bg);   color: var(--state-urgent);   border: 1px solid rgba(208,90,74,0.22); }
+.ios-badge-cerrado   { background: var(--state-closed-bg);   color: var(--state-closed);   border: 1px solid rgba(120,133,131,0.20); }
 
-.ios-badge-resuelto {
-  background-color: rgba(71, 112, 90, 0.12);
-  color: #47705A;
-  border: 1px solid rgba(71, 112, 90, 0.25);
-}
+/* ── Scrollbar ────────────────────────────────────────── */
+.apple-scrollbar::-webkit-scrollbar,
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(120, 133, 131, 0.22); border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(120, 133, 131, 0.40); }
 
-.ios-badge-pendiente {
-  background-color: rgba(227, 162, 26, 0.12);
-  color: #E3A21A;
-  border: 1px solid rgba(227, 162, 26, 0.28);
-}
-
-.ios-badge-proceso {
-  background-color: rgba(30, 78, 121, 0.10);
-  color: #1E4E79;
-  border: 1px solid rgba(30, 78, 121, 0.22);
-}
-
-/* SCROLLBAR FINO Y ELEGANTE */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(140, 150, 165, 0.25);
-  border-radius: 9999px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(140, 150, 165, 0.45);
-}
-
-/* FONDO AMBIENTE INSTITUCIONAL SUAVE */
+/* ── Fondo canvas con malla ambiental ─────────────────── */
 .ambient-gradient-mesh {
-  background: radial-gradient(at 0% 0%, rgba(30, 78, 121, 0.04) 0px, transparent 50%),
-              radial-gradient(at 100% 0%, rgba(71, 112, 90, 0.04) 0px, transparent 50%),
-              #F5F7FA;
+  background:
+    radial-gradient(at 0%   0%,  rgba(40, 109, 104, 0.05) 0px, transparent 55%),
+    radial-gradient(at 100% 100%, rgba(99, 166, 155, 0.05) 0px, transparent 55%),
+    #F6F5F0;
 }
 
-/* ANIMACIONES SUAVES DE ENTRADA IOS */
-@keyframes iosFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(6px) scale(0.99);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+/* ── Animaciones ──────────────────────────────────────── */
+@keyframes ccFadeIn {
+  from { opacity: 0; transform: translateY(5px) scale(0.99); }
+  to   { opacity: 1; transform: translateY(0)   scale(1);    }
+}
+@keyframes ccScaleUp {
+  from { opacity: 0; transform: scale(0.97); }
+  to   { opacity: 1; transform: scale(1);    }
 }
 
 .animate-apple-fade-in,
-.animate-fade-in {
-  animation: iosFadeIn 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
+.animate-fade-in { animation: ccFadeIn  0.20s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+.animate-scale-up { animation: ccScaleUp 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 
-/* Reducción de movimiento */
 @media (prefers-reduced-motion: reduce) {
   *, ::before, ::after {
     animation-duration: 0.01ms !important;

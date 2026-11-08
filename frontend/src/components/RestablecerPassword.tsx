@@ -70,16 +70,16 @@ const RestablecerPassword: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen w-screen bg-[#F5F7FA] flex items-center justify-center p-4 font-sans select-none">
-      <div className="w-full max-w-md bg-white rounded-3xl p-8 sm:p-10 shadow-[0_12px_40px_rgba(31,41,51,0.06)] border border-slate-200/80 shadow-sm border border-[#E4E7EB] space-y-6">
+    <div className="min-h-screen w-screen bg-[#F6F5F0] flex items-center justify-center p-4 font-sans select-none">
+      <div className="w-full max-w-md bg-white rounded-3xl p-8 sm:p-10 shadow-[0_12px_40px_rgba(31,41,51,0.06)] border border-slate-200/80 shadow-sm border border-[#E7EAE7] space-y-6">
         <div className="text-center space-y-2">
-          <div className="w-12 h-12 bg-[#1E4E79] text-white rounded-2xl bg-gradient-to-br from-[#1E4E79] to-[#173C5E] text-white flex items-center justify-center mx-auto shadow-md ring-1 ring-white/20">
+          <div className="w-12 h-12 bg-[#286D68] text-white rounded-2xl bg-gradient-to-br from-[#286D68] to-[#1E5450] text-white flex items-center justify-center mx-auto shadow-md ring-1 ring-white/20">
             <Building2 size={24} />
           </div>
-          <h1 className="text-2xl font-bold font-heading text-[#173C5E]">
+          <h1 className="text-2xl font-bold font-heading text-[#1E5450]">
             Comunidad Clara
           </h1>
-          <p className="text-sm text-[#52606D]">
+          <p className="text-sm text-[#788583]">
             Restablecer contraseña institucional
           </p>
         </div>
@@ -87,23 +87,23 @@ const RestablecerPassword: React.FC = () => {
         {completado ? (
           <div className="space-y-5 text-center">
             <div className="flex justify-center">
-              <div className="w-13 h-13 bg-[#47705A]/15 text-[#47705A] rounded-xl flex items-center justify-center">
+              <div className="w-13 h-13 bg-[#52966A]/15 text-[#52966A] rounded-xl flex items-center justify-center">
                 <CheckCircle2 size={30} />
               </div>
             </div>
 
-            <h2 className="text-lg font-bold font-heading text-[#173C5E]">
+            <h2 className="text-lg font-bold font-heading text-[#1E5450]">
               ¡Contraseña actualizada con éxito!
             </h2>
 
-            <p className="text-sm text-[#52606D]">
+            <p className="text-sm text-[#788583]">
               Tu contraseña se restableció correctamente. Ya puedes acceder a Comunidad Clara.
             </p>
 
             <button
               type="button"
               onClick={() => window.location.assign("/")}
-              className="w-full bg-[#1E4E79] hover:bg-[#173C5E] text-white font-heading font-semibold py-2.5 rounded-xl flex items-center justify-center gap-2 text-sm transition-all cursor-pointer shadow-xs"
+              className="w-full bg-[#286D68] hover:bg-[#1E5450] text-white font-heading font-semibold py-2.5 rounded-xl flex items-center justify-center gap-2 text-sm transition-all cursor-pointer shadow-xs"
             >
               Iniciar sesión
               <ArrowRight size={18} />
@@ -122,12 +122,12 @@ const RestablecerPassword: React.FC = () => {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-1.5">
-                <label htmlFor="nueva-password" className="text-xs font-semibold text-[#52606D]">
+                <label htmlFor="nueva-password" className="text-xs font-semibold text-[#788583]">
                   Nueva contraseña
                 </label>
 
                 <div className="relative flex items-center">
-                  <Lock className="absolute left-3.5 text-[#52606D]" size={16} />
+                  <Lock className="absolute left-3.5 text-[#788583]" size={16} />
 
                   <input
                     id="nueva-password"
@@ -139,14 +139,14 @@ const RestablecerPassword: React.FC = () => {
                     minLength={8}
                     maxLength={256}
                     required
-                    className="w-full bg-white border border-[#CBD2D9] rounded-xl py-2.5 pl-10 pr-11 text-sm text-[#1F2933] placeholder-[#7B8794] focus:outline-none focus:border-[#1E4E79] focus:ring-2 focus:ring-[#1E4E79]/15 transition-all"
+                    className="w-full bg-white border border-[#CDD4D3] rounded-xl py-2.5 pl-10 pr-11 text-sm text-[#293A3B] placeholder-[#7B8794] focus:outline-none focus:border-[#286D68] focus:ring-2 focus:ring-[#286D68]/15 transition-all"
                   />
 
                   <button
                     type="button"
                     onClick={() => setMostrar(!mostrar)}
                     aria-label={mostrar ? "Ocultar contraseñas" : "Mostrar contraseñas"}
-                    className="absolute right-3.5 text-[#52606D] hover:text-[#1F2933] cursor-pointer"
+                    className="absolute right-3.5 text-[#788583] hover:text-[#293A3B] cursor-pointer"
                   >
                     {mostrar ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
@@ -154,12 +154,12 @@ const RestablecerPassword: React.FC = () => {
               </div>
 
               <div className="space-y-1.5">
-                <label htmlFor="confirmar-password" className="text-xs font-semibold text-[#52606D]">
+                <label htmlFor="confirmar-password" className="text-xs font-semibold text-[#788583]">
                   Confirmar contraseña
                 </label>
 
                 <div className="relative flex items-center">
-                  <Lock className="absolute left-3.5 text-[#52606D]" size={16} />
+                  <Lock className="absolute left-3.5 text-[#788583]" size={16} />
 
                   <input
                     id="confirmar-password"
@@ -171,7 +171,7 @@ const RestablecerPassword: React.FC = () => {
                     minLength={8}
                     maxLength={256}
                     required
-                    className="w-full bg-white border border-[#CBD2D9] rounded-xl py-2.5 pl-10 pr-4 text-sm text-[#1F2933] placeholder-[#7B8794] focus:outline-none focus:border-[#1E4E79] focus:ring-2 focus:ring-[#1E4E79]/15 transition-all"
+                    className="w-full bg-white border border-[#CDD4D3] rounded-xl py-2.5 pl-10 pr-4 text-sm text-[#293A3B] placeholder-[#7B8794] focus:outline-none focus:border-[#286D68] focus:ring-2 focus:ring-[#286D68]/15 transition-all"
                   />
                 </div>
               </div>
@@ -179,7 +179,7 @@ const RestablecerPassword: React.FC = () => {
               <button
                 type="submit"
                 disabled={cargando || !token}
-                className="w-full bg-[#1E4E79] hover:bg-[#173C5E] disabled:opacity-50 disabled:cursor-not-allowed text-white font-heading font-semibold py-2.5 rounded-xl flex items-center justify-center gap-2 text-sm shadow-xs transition-all cursor-pointer"
+                className="w-full bg-[#286D68] hover:bg-[#1E5450] disabled:opacity-50 disabled:cursor-not-allowed text-white font-heading font-semibold py-2.5 rounded-xl flex items-center justify-center gap-2 text-sm shadow-xs transition-all cursor-pointer"
               >
                 {cargando ? (
                   <>
@@ -198,7 +198,7 @@ const RestablecerPassword: React.FC = () => {
             <button
               type="button"
               onClick={() => window.location.assign("/recuperar-password")}
-              className="w-full text-xs font-medium text-[#1E4E79] hover:text-[#173C5E] hover:underline text-center cursor-pointer"
+              className="w-full text-xs font-medium text-[#286D68] hover:text-[#1E5450] hover:underline text-center cursor-pointer"
             >
               Solicitar un nuevo enlace
             </button>

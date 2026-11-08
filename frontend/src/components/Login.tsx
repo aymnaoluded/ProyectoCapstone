@@ -1,5 +1,5 @@
 ﻿import React, { useState } from "react";
-import { Building2, Lock, Mail, ArrowRight, AlertCircle, Loader2 } from "lucide-react";
+import { Lock, Mail, ArrowRight, AlertCircle, Loader2, Building2, Users, Leaf } from "lucide-react";
 import type { Usuario } from "../types";
 import { guardarSesionSegura } from "../utils/storage";
 import { API_URL } from "../utils/api";
@@ -9,42 +9,30 @@ interface LoginProps {
 }
 
 export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
-  const [correo, setCorreo] = useState("");
+  const [correo, setCorreo]     = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError]       = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setCargando(true);
-
     try {
       const res = await fetch(`${API_URL}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ correo, password }),
       });
-
       if (!res.ok) {
-        const errorData = await res.json().catch(() => null);
-        throw new Error(
-          errorData?.detail || "No se pudo iniciar sesión. Verifica tus credenciales."
-        );
+        const err = await res.json().catch(() => null);
+        throw new Error(err?.detail || "No se pudo iniciar sesión. Verifica tus credenciales.");
       }
-
       const data = await res.json();
-      if (!data.usuario) {
-        throw new Error("Respuesta inválida del servidor de autenticación.");
-      }
-
-      if (data.access_token) {
-        localStorage.setItem("access_token", data.access_token);
-      }
-
-      const userData: Usuario = data.usuario;
-      guardarSesionSegura("user_session", userData);
-      onLoginSuccess(userData);
+      if (!data.usuario) throw new Error("Respuesta inválida del servidor.");
+      if (data.access_token) localStorage.setItem("access_token", data.access_token);
+      guardarSesionSegura("user_session", data.usuario as Usuario);
+      onLoginSuccess(data.usuario as Usuario);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Error al conectar con el servidor.");
     } finally {
@@ -52,134 +40,199 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     }
   };
 
-  const rellenarCredencial = (c: string) => {
-    setCorreo(c);
-    setPassword("Hola1234");
-    setError(null);
-  };
+  const rellenar = (c: string) => { setCorreo(c); setPassword("Hola1234"); setError(null); };
 
   return (
-    <div className="min-h-screen w-screen bg-[#F5F7FA] flex items-center justify-center p-4 font-sans select-none">
-      {/* Tarjeta Institucional Central con esquinas de 8 px */}
-      <div className="w-full max-w-md bg-[#FFFFFF] rounded-3xl p-8 sm:p-10 shadow-[0_12px_40px_rgba(31,41,51,0.06)] border border-slate-200/80 sm:p-9 border border-[#E4E7EB] shadow-sm space-y-6 relative z-10 animate-fade-in">
-        {/* Cabecera Corporativa */}
-        <div className="text-center space-y-2.5">
-          <div className="w-13 h-13 bg-[#1E4E79] text-white rounded-xl flex items-center justify-center mx-auto shadow-sm">
-            <Building2 size={28} />
-          </div>
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold font-heading tracking-tight text-[#173C5E]">
-              Comunidad Clara
-            </h1>
-            <p className="text-xs sm:text-sm font-medium text-[#52606D] mt-1">
-              Administraciones Ltda. · Plataforma Institucional
-            </p>
+    <div className="min-h-screen w-screen flex font-sans select-none overflow-hidden">
+      {/* ── Panel izquierdo: imagen + overlay ─────────────── */}
+      <div className="hidden lg:flex lg:w-[52%] xl:w-[55%] relative flex-col justify-between p-10 overflow-hidden">
+        {/* Fondo fotográfico con CSS gradient simulado — arquitectura residencial */}
+        <div
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          style={{
+            backgroundImage: `url('https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=1400&q=80')`,
+          }}
+        />
+        {/* Overlay verde petróleo */}
+        <div className="absolute inset-0 bg-gradient-to-br from-[#1E5450]/92 via-[#286D68]/88 to-[#3A8A84]/80" />
+        {/* Patrón decorativo sutil */}
+        <div className="absolute inset-0 opacity-[0.04]"
+          style={{
+            backgroundImage: `radial-gradient(circle at 1px 1px, white 1px, transparent 0)`,
+            backgroundSize: "40px 40px",
+          }}
+        />
+
+        {/* Contenido superpuesto */}
+        <div className="relative z-10">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-[14px] bg-white/15 border border-white/25
+              flex items-center justify-center backdrop-blur-sm">
+              <Building2 size={22} className="text-[#DCEFEA]" />
+            </div>
+            <div>
+              <p className="text-white font-heading font-bold text-[15px] leading-tight">Comunidad Clara</p>
+              <p className="text-white/60 text-[11px]">Administraciones Ltda.</p>
+            </div>
           </div>
         </div>
 
-        {error && (
-          <div className="flex items-start gap-3 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 animate-fade-in">
-            <AlertCircle size={18} className="shrink-0 mt-0.5 text-red-600" />
-            <div className="text-xs font-medium leading-relaxed">{error}</div>
+        <div className="relative z-10 space-y-6">
+          <div className="space-y-3">
+            <h2 className="text-white font-heading font-bold text-3xl xl:text-4xl leading-tight tracking-tight">
+              Una comunidad mejor<br />comienza con una<br />
+              <span className="text-[#DCEFEA]">buena comunicación.</span>
+            </h2>
+            <p className="text-white/65 text-sm leading-relaxed max-w-sm">
+              Gestión inteligente de condominios con asistente IA, seguimiento de incidencias
+              y comunicación directa con la administración.
+            </p>
           </div>
-        )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-[#52606D] tracking-wide">
-              Correo institucional
-            </label>
-            <div className="relative flex items-center">
-              <Mail className="absolute left-3.5 text-[#52606D] pointer-events-none" size={17} />
-              <input
-                type="email"
-                value={correo}
-                onChange={(e) => {
-                  setCorreo(e.target.value);
-                  if (error) setError(null);
-                }}
-                required
-                placeholder="ejemplo@correo.com"
-                className="w-full bg-white border border-[#CBD2D9] rounded-xl py-2.5 pl-10 pr-4 text-sm text-[#1F2933] placeholder-[#7B8794] focus:outline-none focus:border-[#1E4E79] focus:ring-2 focus:ring-[#1E4E79]/15 transition-all"
-              />
+          {/* Features */}
+          <div className="grid grid-cols-1 gap-3 max-w-sm">
+            {[
+              { icon: <Building2 size={15} />, text: "Gestión integral de edificios y condominios" },
+              { icon: <Users size={15} />,     text: "Comunicación directa con la administración" },
+              { icon: <Leaf size={15} />,      text: "Asistente IA disponible las 24 horas" },
+            ].map((f, i) => (
+              <div key={i} className="flex items-center gap-3 bg-white/8 border border-white/12
+                rounded-xl px-4 py-2.5 backdrop-blur-sm">
+                <span className="text-[#DCEFEA] shrink-0">{f.icon}</span>
+                <p className="text-white/85 text-xs font-medium">{f.text}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Pie del panel */}
+        <div className="relative z-10 text-white/40 text-[11px]">
+          © 2026 Comunidad Clara Administraciones Ltda.
+        </div>
+      </div>
+
+      {/* ── Panel derecho: formulario ──────────────────────── */}
+      <div className="flex-1 bg-[#F6F5F0] flex items-center justify-center p-6 sm:p-10 overflow-y-auto">
+        <div className="w-full max-w-[400px] space-y-7 animate-fade-in">
+
+          {/* Logo (solo mobile) */}
+          <div className="flex lg:hidden items-center gap-3 mb-2">
+            <div className="w-10 h-10 rounded-[12px] bg-[#286D68] flex items-center justify-center shadow-md">
+              <Building2 size={20} className="text-[#DCEFEA]" />
+            </div>
+            <div>
+              <p className="font-heading font-bold text-[#293A3B] text-sm leading-tight">Comunidad Clara</p>
+              <p className="text-[#788583] text-[11px]">Administraciones Ltda.</p>
             </div>
           </div>
 
+          {/* Encabezado formulario */}
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-[#52606D] tracking-wide">
-              Contraseña
-            </label>
-            <div className="relative flex items-center">
-              <Lock className="absolute left-3.5 text-[#52606D] pointer-events-none" size={17} />
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  if (error) setError(null);
-                }}
-                required
-                placeholder="••••••••"
-                className="w-full bg-white border border-[#CBD2D9] rounded-xl py-2.5 pl-10 pr-4 text-sm text-[#1F2933] placeholder-[#7B8794] focus:outline-none focus:border-[#1E4E79] focus:ring-2 focus:ring-[#1E4E79]/15 transition-all"
-              />
+            <h1 className="text-2xl font-heading font-bold text-[#293A3B] tracking-tight">
+              Bienvenido de vuelta
+            </h1>
+            <p className="text-[#788583] text-sm">
+              Ingresa con tu correo institucional para acceder a la plataforma.
+            </p>
+          </div>
+
+          {/* Error */}
+          {error && (
+            <div className="flex items-start gap-3 p-3.5 bg-red-50 border border-red-200
+              rounded-xl text-red-700 animate-fade-in">
+              <AlertCircle size={16} className="shrink-0 mt-0.5 text-red-500" />
+              <p className="text-xs font-medium leading-relaxed">{error}</p>
             </div>
-          </div>
+          )}
 
-          <div className="flex justify-end pt-0.5">
-            <a
-              href="/recuperar-password"
-              className="text-xs font-medium text-[#1E4E79] hover:text-[#173C5E] hover:underline transition-all"
-            >
-              ¿Olvidaste tu contraseña?
-            </a>
-          </div>
+          {/* Formulario */}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-[#5A6968] tracking-wide block">
+                Correo institucional
+              </label>
+              <div className="relative flex items-center">
+                <Mail className="absolute left-3.5 text-[#A0AFAE] pointer-events-none" size={16} />
+                <input
+                  type="email"
+                  value={correo}
+                  onChange={e => { setCorreo(e.target.value); if (error) setError(null); }}
+                  required
+                  placeholder="ejemplo@correo.com"
+                  className="cc-input w-full py-2.5 pl-10 pr-4 text-sm"
+                />
+              </div>
+            </div>
 
-          <button
-            type="submit"
-            disabled={cargando}
-            className="w-full bg-[#1E4E79] hover:bg-[#173C5E] text-white py-2.5 rounded-xl flex items-center justify-center gap-2 text-sm font-heading font-semibold transition-all cursor-pointer shadow-sm disabled:opacity-50"
-          >
-            {cargando ? (
-              <>
-                <Loader2 size={16} className="animate-spin" />
-                <span>Iniciando sesión...</span>
-              </>
-            ) : (
-              <>
-                <span>Acceder a la plataforma</span>
-                <ArrowRight size={17} />
-              </>
-            )}
-          </button>
-        </form>
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-[#5A6968] tracking-wide">
+                  Contraseña
+                </label>
+                <a
+                  href="/recuperar-password"
+                  className="text-xs font-medium text-[#286D68] hover:text-[#1E5450]
+                    hover:underline transition-colors"
+                >
+                  ¿Olvidaste tu contraseña?
+                </a>
+              </div>
+              <div className="relative flex items-center">
+                <Lock className="absolute left-3.5 text-[#A0AFAE] pointer-events-none" size={16} />
+                <input
+                  type="password"
+                  value={password}
+                  onChange={e => { setPassword(e.target.value); if (error) setError(null); }}
+                  required
+                  placeholder="••••••••"
+                  className="cc-input w-full py-2.5 pl-10 pr-4 text-sm"
+                />
+              </div>
+            </div>
 
-        {/* Accesos rápidos institucionales para demostración */}
-        <div className="pt-4 border-t border-[#E4E7EB] text-center space-y-2">
-          <p className="text-[11px] text-[#52606D] font-medium">
-            Accesos directos de demostración:
-          </p>
-          <div className="flex flex-wrap justify-center gap-2">
             <button
-              type="button"
-              onClick={() => rellenarCredencial("nraguileo@gmail.com")}
-              className="text-[11px] font-medium px-3 py-1.5 rounded-xl bg-[#F5F7FA] border border-[#CBD2D9] text-[#1F2933] hover:border-[#1E4E79] hover:text-[#1E4E79] transition-all cursor-pointer"
+              type="submit"
+              disabled={cargando}
+              className="cc-btn-primary w-full py-2.5 px-4 text-sm mt-2"
             >
-              Cliente / Residente
+              {cargando ? (
+                <>
+                  <Loader2 size={15} className="animate-spin" />
+                  <span>Iniciando sesión...</span>
+                </>
+              ) : (
+                <>
+                  <span>Acceder a la plataforma</span>
+                  <ArrowRight size={16} />
+                </>
+              )}
             </button>
-            <button
-              type="button"
-              onClick={() => rellenarCredencial("bvega@gmail.com")}
-              className="text-[11px] font-medium px-3 py-1.5 rounded-xl bg-[#F5F7FA] border border-[#CBD2D9] text-[#1F2933] hover:border-[#1E4E79] hover:text-[#1E4E79] transition-all cursor-pointer"
-            >
-              Ejecutivo / Comité
-            </button>
-            <button
-              type="button"
-              onClick={() => rellenarCredencial("mirarrazabal@gmail.com")}
-              className="text-[11px] font-medium px-3 py-1.5 rounded-xl bg-[#F5F7FA] border border-[#CBD2D9] text-[#1F2933] hover:border-[#1E4E79] hover:text-[#1E4E79] transition-all cursor-pointer"
-            >
-              Administrador
-            </button>
+          </form>
+
+          {/* Accesos demo */}
+          <div className="pt-1 border-t border-[#E7EAE7] space-y-3">
+            <p className="text-[11px] text-[#A0AFAE] font-medium text-center">
+              Accesos directos de demostración
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { label: "Residente",     correo: "nraguileo@gmail.com" },
+                { label: "Ejecutivo",     correo: "bvega@gmail.com" },
+                { label: "Administrador", correo: "mirarrazabal@gmail.com" },
+              ].map(d => (
+                <button
+                  key={d.correo}
+                  type="button"
+                  onClick={() => rellenar(d.correo)}
+                  className="text-[11px] font-medium px-2 py-2 rounded-xl
+                    bg-white border border-[#E7EAE7] text-[#5A6968]
+                    hover:border-[#286D68] hover:text-[#286D68] hover:bg-[#EDF5F4]
+                    transition-all cursor-pointer text-center"
+                >
+                  {d.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>

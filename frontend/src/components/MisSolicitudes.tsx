@@ -168,17 +168,17 @@ export const MisSolicitudes: React.FC<MisSolicitudesProps> = ({ usuario }) => {
   const getBadgeEstado = (estado: string) => {
     switch (estado.toLowerCase()) {
       case "pendiente":
-        return "bg-[#E3A21A]/10 text-[#E3A21A] border-[#E3A21A]/30 font-semibold";
+        return "bg-[#C89B3C]/10 text-[#C89B3C] border-[#C89B3C]/30 font-semibold";
       case "en proceso":
-        return "bg-[#1E4E79]/10 text-[#1E4E79] border-[#1E4E79]/20 font-semibold";
+        return "bg-[#286D68]/10 text-[#286D68] border-[#286D68]/20 font-semibold";
       case "en espera":
-        return "bg-[#173C5E]/10 text-[#173C5E] border-[#173C5E]/20 font-semibold";
+        return "bg-[#6B7280]/9 text-[#6B7280] border-[#6B7280]/18 font-semibold";
       case "resuelto":
-        return "bg-[#47705A]/10 text-[#47705A] border-[#47705A]/20 font-semibold";
+        return "bg-[#52966A]/10 text-[#52966A] border-[#52966A]/20 font-semibold";
       case "cerrado":
-        return "bg-[#52606D]/10 text-[#52606D] border-[#52606D]/20 font-semibold";
+        return "bg-[#788583]/10 text-[#788583] border-[#788583]/20 font-semibold";
       default:
-        return "bg-[#52606D]/10 text-[#52606D] border-[#52606D]/20 font-semibold";
+        return "bg-[#788583]/10 text-[#788583] border-[#788583]/20 font-semibold";
     }
   };
 
@@ -234,7 +234,7 @@ export const MisSolicitudes: React.FC<MisSolicitudesProps> = ({ usuario }) => {
                   onClick={() => seleccionarTicket(t)}
                   className={`p-4 cursor-pointer transition-all ${
                     ticketSeleccionado?.id_ticket === t.id_ticket
-                      ? "bg-blue-500/10 border-l-4 border-[var(--accent-primary)]"
+                      ? "border-l-4 border-[#286D68] bg-[#DCEFEA]/40"
                       : "hover:bg-[var(--bg-card-hover)]"
                   }`}
                 >
@@ -297,7 +297,7 @@ export const MisSolicitudes: React.FC<MisSolicitudesProps> = ({ usuario }) => {
                     {ticketSeleccionado.calificacion && (
                       <div className="flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-full shrink-0">
                         <Star size={13} className="text-amber-500 fill-amber-400" />
-                        <span className="text-xs font-bold text-[#E3A21A]">
+                        <span className="text-xs font-bold text-[#C89B3C]">
                           {ticketSeleccionado.calificacion}/5
                         </span>
                       </div>
@@ -313,7 +313,7 @@ export const MisSolicitudes: React.FC<MisSolicitudesProps> = ({ usuario }) => {
                         }}
                         className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-[var(--border-glass)] text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)] transition-colors cursor-pointer"
                       >
-                        <CheckCircle2 size={14} className="text-[#47705A]" />
+                        <CheckCircle2 size={14} className="text-[#52966A]" />
                         <span>Cerrar ticket</span>
                       </button>
                     )}
@@ -364,7 +364,7 @@ export const MisSolicitudes: React.FC<MisSolicitudesProps> = ({ usuario }) => {
                         <div
                           className={`rounded-lg px-4 py-2.5 text-xs leading-relaxed [overflow-wrap:anywhere] ${
                             esMio
-                              ? "bg-[#1E4E79] text-white rounded-br-xs shadow-md shadow-blue-500/20"
+                              ? "bg-[#286D68] text-white rounded-br-xs shadow-md shadow-blue-500/20"
                               : "liquid-glass border border-[var(--border-glass)] text-[var(--text-primary)] rounded-bl-xs shadow-xs"
                           }`}
                         >
@@ -422,7 +422,7 @@ export const MisSolicitudes: React.FC<MisSolicitudesProps> = ({ usuario }) => {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-2">
-              <CheckCircle2 size={20} className="text-[#47705A]" />
+              <CheckCircle2 size={20} className="text-[#52966A]" />
               <h2 className="text-base font-bold text-[var(--text-primary)]">
                 Cerrar ticket #{ticketSeleccionado.id_ticket}
               </h2>

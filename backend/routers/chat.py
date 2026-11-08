@@ -26,7 +26,7 @@ ROLES_STAFF = ("Administrador", "Ejecutivo")
 
 MSG_IA_NO_DISPONIBLE = (
     "El asistente de IA no está disponible en este momento. "
-    "Puedes solicitar la asistencia de un ejecutivo para atender tu consulta."
+    "Puedes usar el botón 'Hablar con ejecutivo' para que un miembro del equipo de administración te atienda personalmente."
 )
 
 
@@ -213,7 +213,11 @@ async def chat_rag(body: ChatRequest, usuario: UsuarioToken = Depends(get_usuari
                 )
 
                 if not rows:
-                    msg_vacio = "Lo siento, no encontré información publicada en la base de conocimiento para atender tu solicitud."
+                    msg_vacio = (
+                        "No encontré documentos publicados en la base de conocimiento de tu comunidad. "
+                        "Es posible que aún no se hayan cargado reglamentos o circulares. "
+                        "Te recomiendo contactar directamente a la administración."
+                    )
                     await conn.execute(
                         """
                         INSERT INTO MENSAJE (conversacion_id, emisor, contenido, nivel_confianza, requiere_escalamiento)
@@ -242,7 +246,11 @@ async def chat_rag(body: ChatRequest, usuario: UsuarioToken = Depends(get_usuari
                 ]
 
                 if score_maximo < UMBRAL_MEDIA_CONFIANZA:
-                    texto_resp = "Lo siento, no encontré información suficiente en la base de conocimiento para responder a tu consulta."
+                    texto_resp = (
+                        "No encontré información suficiente en la base de conocimiento para responder tu consulta con certeza. "
+                        "Puedes reformular la pregunta usando términos del reglamento de tu comunidad, "
+                        "o si prefieres atención directa, escala tu caso a un ejecutivo."
+                    )
                     await conn.execute(
                         """
                         INSERT INTO MENSAJE (conversacion_id, emisor, contenido, fragmento_id, nivel_confianza, requiere_escalamiento)

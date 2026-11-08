@@ -205,7 +205,7 @@ const ModalAgregarUsuario: React.FC<ModalAgregarUsuarioProps> = ({
                 maxLength={100}
                 value={nombre}
                 onChange={(e) => setNombre(e.target.value)}
-                className="w-full border border-slate-200 rounded-2xl px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full border border-slate-200 rounded-2xl px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#286D68]"
               />
             </div>
 
@@ -224,7 +224,7 @@ const ModalAgregarUsuario: React.FC<ModalAgregarUsuarioProps> = ({
                 maxLength={100}
                 value={apellido}
                 onChange={(e) => setApellido(e.target.value)}
-                className="w-full border border-slate-200 rounded-2xl px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full border border-slate-200 rounded-2xl px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#286D68]"
               />
             </div>
           </div>
@@ -244,13 +244,13 @@ const ModalAgregarUsuario: React.FC<ModalAgregarUsuarioProps> = ({
               required
               value={correo}
               onChange={(e) => setCorreo(e.target.value)}
-              className="w-full border border-slate-200 rounded-2xl px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full border border-slate-200 rounded-2xl px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#286D68]"
             />
           </div>
 
           {/* INFORMACIÓN DE ACTIVACIÓN */}
-          <div className="bg-blue-50 border border-blue-200 rounded-2xl p-3">
-            <p className="text-xs text-blue-700">
+          <div className="bg-[#EDF5F4] border border-[#C4E0DA] rounded-2xl p-3">
+            <p className="text-xs text-[#1E5450]">
               El usuario recibirá un correo electrónico
               con un enlace para activar su cuenta
               y establecer su contraseña.
@@ -270,7 +270,7 @@ const ModalAgregarUsuario: React.FC<ModalAgregarUsuarioProps> = ({
               id="nuevo-usuario-rol"
               value={rol}
               onChange={(e) => setRol(Number(e.target.value))}
-              className="w-full border border-slate-200 rounded-2xl px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full border border-slate-200 rounded-2xl px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#286D68]"
             >
               {ROLES.map((r) => (
                 <option key={r.id} value={r.id}>
@@ -304,7 +304,7 @@ const ModalAgregarUsuario: React.FC<ModalAgregarUsuarioProps> = ({
             <button
               type="submit"
               disabled={enviando}
-              className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-all disabled:opacity-50 cursor-pointer"
+              className="px-4 py-2 text-sm font-semibold text-white bg-[#286D68] hover:bg-[#1E5450] rounded-xl transition-all disabled:opacity-50 cursor-pointer"
             >
               {enviando ? "Creando..." : "Crear usuario"}
             </button>
@@ -502,7 +502,7 @@ export const GestionUsuarios: React.FC = () => {
               size={14}
               className={
                 cargando
-                  ? "animate-spin text-blue-600"
+                  ? "animate-spin text-[#286D68]"
                   : ""
               }
             />
@@ -515,7 +515,7 @@ export const GestionUsuarios: React.FC = () => {
               setNotificacion(null);
               setModalAbierto(true);
             }}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-4 py-2 rounded-xl transition-all shadow-sm shadow-blue-500/20 cursor-pointer"
+            className="flex items-center gap-2 bg-[#286D68] hover:bg-[#1E5450] text-white text-xs font-semibold px-4 py-2 rounded-xl transition-all shadow-sm shadow-[#286D68]/20 cursor-pointer"
           >
             <Plus size={16} />
             <span>Agregar Usuario</span>
@@ -540,7 +540,7 @@ export const GestionUsuarios: React.FC = () => {
               </span>
             </div>
 
-            <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
+            <div className="w-10 h-10 bg-[#EDF5F4] text-[#286D68] rounded-xl flex items-center justify-center">
               <Users size={20} />
             </div>
           </div>
@@ -594,7 +594,7 @@ export const GestionUsuarios: React.FC = () => {
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
               placeholder="Buscar por nombre, correo o rol..."
-              className="w-full bg-white border border-slate-200 rounded-xl py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full bg-white border border-slate-200 rounded-xl py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-1 focus:ring-[#286D68]"
             />
           </div>
         </div>
@@ -663,7 +663,7 @@ export const GestionUsuarios: React.FC = () => {
                             u.rol_nombre === "Administrador"
                               ? "bg-purple-50 text-purple-700 border-purple-200"
                               : u.rol_nombre === "Ejecutivo"
-                              ? "bg-blue-50 text-blue-700 border-blue-200"
+                              ? "bg-[#EDF5F4] text-[#1E5450] border-[#C4E0DA]"
                               : "bg-slate-100 text-slate-600 border-slate-200"
                           }`}
                         >
