@@ -15,8 +15,13 @@ import {
 } from "lucide-react";
 import { cabecerasAuth, API_URL } from "../utils/api";
 
+interface TicketEstadoItem {
+  estado: string;
+  cantidad: number;
+}
+
 interface MetricasData {
-  resumen: {
+  resumen?: {
     total_conversaciones: number;
     tasa_escalamiento: number;
     promedio_satisfaccion: number;
@@ -24,17 +29,18 @@ interface MetricasData {
     documentos_activos: number;
     fragmentos_indexados: number;
   };
-  rag: {
+  rag?: {
     total_respuestas: number;
     confianza_promedio: number;
     alta_confianza: number;
     media_confianza: number;
     baja_confianza: number;
   };
-  tickets: {
+  tickets?: {
     total_tickets: number;
     por_estado: Record<string, number>;
   };
+  tickets_estado?: TicketEstadoItem[];
 }
 
 interface EstadoGmail {
@@ -143,13 +149,23 @@ export const MetricasSistema: React.FC = () => {
     );
   }
 
-  const totalRespuestasRAG = metricas?.rag.total_respuestas || 0;
-  const pctAlta = totalRespuestasRAG > 0 ? Math.round(((metricas?.rag.alta_confianza || 0) / totalRespuestasRAG) * 100) : 0;
-  const pctMedia = totalRespuestasRAG > 0 ? Math.round(((metricas?.rag.media_confianza || 0) / totalRespuestasRAG) * 100) : 0;
-  const pctBaja = totalRespuestasRAG > 0 ? Math.round(((metricas?.rag.baja_confianza || 0) / totalRespuestasRAG) * 100) : 0;
+  const totalRespuestasRAG = metricas?.rag?.total_respuestas || 0;
+  const pctAlta = totalRespuestasRAG > 0 ? Math.round(((metricas?.rag?.alta_confianza || 0) / totalRespuestasRAG) * 100) : 0;
+  const pctMedia = totalRespuestasRAG > 0 ? Math.round(((metricas?.rag?.media_confianza || 0) / totalRespuestasRAG) * 100) : 0;
+  const pctBaja = totalRespuestasRAG > 0 ? Math.round(((metricas?.rag?.baja_confianza || 0) / totalRespuestasRAG) * 100) : 0;
 
-  const ticketsPorEstado = metricas?.tickets.por_estado || {};
-  const totalTickets = metricas?.tickets.total_tickets || 0;
+  // Soporta tanto metricas.tickets.por_estado como metricas.tickets_estado
+  const ticketsPorEstado: Record<string, number> =
+    metricas?.tickets?.por_estado ||
+    (metricas?.tickets_estado
+      ? Object.fromEntries(metricas.tickets_estado.map((item) => [item.estado, item.cantidad]))
+      : {});
+
+  const totalTickets =
+    metricas?.tickets?.total_tickets ??
+    (metricas?.tickets_estado
+      ? metricas.tickets_estado.reduce((acc, curr) => acc + (curr.cantidad || 0), 0)
+      : Object.values(ticketsPorEstado).reduce((acc, curr) => acc + curr, 0));
 
   const ordenEstados = ["Pendiente", "En Proceso", "En Espera", "Resuelto", "Cerrado"];
   const ticketsArray = ordenEstados
@@ -193,10 +209,10 @@ export const MetricasSistema: React.FC = () => {
               </div>
             </div>
             <div className="text-3xl font-extrabold font-heading text-[#173C5E]">
-              {metricas?.resumen.total_conversaciones || 0}
+              {metricas?.resumen?.total_conversaciones || 0}
             </div>
             <p className="text-[11.5px] font-medium text-[#7B8794] mt-1.5">
-              {metricas?.resumen.tasa_escalamiento ?? 0}% requirió atención humana
+              {metricas?.resumen?.tasa_escalamiento ?? 0}% requirió atención humana
             </p>
           </div>
 
@@ -208,7 +224,7 @@ export const MetricasSistema: React.FC = () => {
               </div>
             </div>
             <div className="text-3xl font-extrabold font-heading text-[#173C5E]">
-              {Math.round((metricas?.rag.confianza_promedio || 0) * 100)}%
+              {Math.round((metricas?.rag?.confianza_promedio || 0) * 100)}%
             </div>
             <p className="text-[11.5px] font-medium text-[#7B8794] mt-1.5">
               Similitud coseno promedio en respuestas
@@ -223,11 +239,11 @@ export const MetricasSistema: React.FC = () => {
               </div>
             </div>
             <div className="text-3xl font-extrabold font-heading text-[#173C5E] flex items-baseline gap-1.5">
-              {metricas?.resumen.promedio_satisfaccion ?? 0}
+              {metricas?.resumen?.promedio_satisfaccion ?? 0}
               <span className="text-xs font-medium text-[#7B8794]">/ 5.0</span>
             </div>
             <p className="text-[11.5px] font-medium text-[#7B8794] mt-1.5">
-              Basado en {metricas?.resumen.total_evaluaciones || 0} evaluaciones
+              Basado en {metricas?.resumen?.total_evaluaciones || 0} evaluaciones
             </p>
           </div>
 
@@ -239,10 +255,10 @@ export const MetricasSistema: React.FC = () => {
               </div>
             </div>
             <div className="text-3xl font-extrabold font-heading text-[#173C5E]">
-              {metricas?.resumen.fragmentos_indexados || 0}
+              {metricas?.resumen?.fragmentos_indexados || 0}
             </div>
             <p className="text-[11.5px] font-medium text-[#7B8794] mt-1.5">
-              Vectores en {metricas?.resumen.documentos_activos || 0} documentos activos
+              Vectores en {metricas?.resumen?.documentos_activos || 0} documentos activos
             </p>
           </div>
         </div>
@@ -257,7 +273,7 @@ export const MetricasSistema: React.FC = () => {
                 Precisión de Respuestas IA
               </h2>
               <span className="text-[11px] text-[#7B8794] font-medium">
-                {metricas?.rag.total_respuestas || 0} respuestas generadas
+                {metricas?.rag?.total_respuestas || 0} respuestas generadas
               </span>
             </div>
 
@@ -267,7 +283,7 @@ export const MetricasSistema: React.FC = () => {
                   <span className="text-[#47705A] flex items-center gap-1.5">
                     <CheckCircle2 size={14} /> Alta Confianza (&ge; 80%)
                   </span>
-                  <span className="text-[#52606D] font-bold">{metricas?.rag.alta_confianza || 0} ({pctAlta}%)</span>
+                  <span className="text-[#52606D] font-bold">{metricas?.rag?.alta_confianza || 0} ({pctAlta}%)</span>
                 </div>
                 <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden">
                   <div className="h-full bg-[#47705A] rounded-full transition-all duration-500" style={{ width: `${pctAlta}%` }} />
@@ -279,7 +295,7 @@ export const MetricasSistema: React.FC = () => {
                   <span className="text-[#E3A21A] flex items-center gap-1.5">
                     <AlertTriangle size={14} /> Confianza Parcial (60% - 79%)
                   </span>
-                  <span className="text-[#52606D] font-bold">{metricas?.rag.media_confianza || 0} ({pctMedia}%)</span>
+                  <span className="text-[#52606D] font-bold">{metricas?.rag?.media_confianza || 0} ({pctMedia}%)</span>
                 </div>
                 <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden">
                   <div className="h-full bg-[#E3A21A] rounded-full transition-all duration-500" style={{ width: `${pctMedia}%` }} />
@@ -291,7 +307,7 @@ export const MetricasSistema: React.FC = () => {
                   <span className="text-[#C53030] flex items-center gap-1.5">
                     <AlertTriangle size={14} /> Baja Confianza / Escalados (&lt; 60%)
                   </span>
-                  <span className="text-[#52606D] font-bold">{metricas?.rag.baja_confianza || 0} ({pctBaja}%)</span>
+                  <span className="text-[#52606D] font-bold">{metricas?.rag?.baja_confianza || 0} ({pctBaja}%)</span>
                 </div>
                 <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden">
                   <div className="h-full bg-[#C53030] rounded-full transition-all duration-500" style={{ width: `${pctBaja}%` }} />

@@ -24,7 +24,7 @@ import {
 import { tokenVigente, API_URL } from "./utils/api";
 
 // Rutas que existen; cualquier otra muestra la página 404
-const RUTAS_VALIDAS = ["/", "/activar-cuenta", "/recuperar-password", "/restablecer-password"];
+const RUTAS_VALIDAS = ["/", "/index.html", "/activar-cuenta", "/recuperar-password", "/restablecer-password"];
 
 export default function App() {
   // Limpieza permanente de cualquier preferencia previa de tema oscuro

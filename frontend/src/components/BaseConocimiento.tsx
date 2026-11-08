@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   Plus,
   Database,
@@ -13,7 +13,6 @@ import {
   CheckCircle2,
   Trash2,
   UploadCloud,
-  Files
 } from "lucide-react";
 import type { Usuario } from "../types";
 import { API_URL, cabecerasAuth } from "../utils/api";
@@ -45,7 +44,7 @@ interface BaseConocimientoProps {
   usuario: Usuario;
 }
 
-export const BaseConocimiento: React.FC<BaseConocimientoProps> = ({ usuario }) => {
+export const BaseConocimiento: React.FC<BaseConocimientoProps> = ({ usuario: _usuario }) => {
   const [stats, setStats] = useState<Stats>({
     documentos: 0,
     publicados: 0,
@@ -59,14 +58,9 @@ export const BaseConocimiento: React.FC<BaseConocimientoProps> = ({ usuario }) =
   // Notificaciones
   const [mensajeGlobal, setMensajeGlobal] = useState<{ tipo: "exito" | "error"; texto: string } | null>(null);
 
-  // Modal para agregar documentos
+  // Modal para agregar documentos (Drag & Drop)
   const [modalAbierto, setModalAbierto] = useState(false);
-  const [tabCarga, setTabCarga] = useState<"masiva" | "individual">("masiva");
-  const [titulo, setTitulo] = useState("");
-  const [archivo, setArchivo] = useState<File | null>(null);
-  const [subiendo, setSubiendo] = useState(false);
   const [errorCrear, setErrorCrear] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Carga Masiva Drag & Drop
   const [archivosMasivos, setArchivosMasivos] = useState<ItemArchivoMasivo[]>([]);
@@ -168,44 +162,6 @@ export const BaseConocimiento: React.FC<BaseConocimientoProps> = ({ usuario }) =
       notificarTemporal("error", "Error de red al alternar el estado.");
     } finally {
       setProcesandoDocId(null);
-    }
-  };
-
-  const handleSubirDocumento = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!archivo || !titulo.trim()) return;
-
-    setSubiendo(true);
-    setErrorCrear(null);
-
-    const formData = new FormData();
-    formData.append("titulo", titulo.trim());
-    formData.append("admin_id", usuario.id_usuario.toString());
-    formData.append("archivo", archivo);
-
-    try {
-      const res = await fetch(`${API_URL}/api/documentos`, {
-        method: "POST",
-        headers: getAuthHeaders(),
-        body: formData,
-      });
-
-      if (res.ok) {
-        setModalAbierto(false);
-        setTitulo("");
-        setArchivo(null);
-        if (fileInputRef.current) fileInputRef.current.value = "";
-        notificarTemporal("exito", "Documento indexado con éxito en la base vectorial.");
-        await cargarDatos();
-      } else {
-        const errorData = await res.json().catch(() => null);
-        setErrorCrear(errorData?.detail || "Error al indexar el archivo en el servidor.");
-      }
-    } catch (err) {
-      console.error("Fallo al subir documento:", err);
-      setErrorCrear("Error de conexión al subir e indexar el archivo.");
-    } finally {
-      setSubiendo(false);
     }
   };
 
@@ -638,48 +594,11 @@ export const BaseConocimiento: React.FC<BaseConocimientoProps> = ({ usuario }) =
                 </div>
               </div>
               <button
-                onClick={() => !subiendo && !subiendoMasivo && setModalAbierto(false)}
-                disabled={subiendo || subiendoMasivo}
+                onClick={() => !subiendoMasivo && setModalAbierto(false)}
+                disabled={subiendoMasivo}
                 className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] disabled:opacity-30 p-1.5 rounded-xl hover:bg-[var(--bg-card-hover)] transition-colors cursor-pointer"
               >
                 <X size={18} />
-              </button>
-            </div>
-
-            {/* Selector de pestañas estilo Apple Segmented Control */}
-            <div className="apple-segmented-container p-1 rounded-lg flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => {
-                  setTabCarga("masiva");
-                  setErrorCrear(null);
-                }}
-                disabled={subiendo || subiendoMasivo}
-                className={`apple-segmented-item flex-1 py-2 px-3 rounded-xl flex items-center justify-center gap-2 text-xs font-semibold transition-all cursor-pointer ${
-                  tabCarga === "masiva" ? "active" : ""
-                }`}
-              >
-                <Files size={14} />
-                <span>Carga Masiva Drag & Drop</span>
-                {archivosMasivos.length > 0 && (
-                  <span className="bg-blue-500/20 text-[var(--accent-primary)] text-[10px] px-1.5 py-0.2 rounded-full font-bold">
-                    {archivosMasivos.length}
-                  </span>
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setTabCarga("individual");
-                  setErrorCrear(null);
-                }}
-                disabled={subiendo || subiendoMasivo}
-                className={`apple-segmented-item flex-1 py-2 px-3 rounded-xl flex items-center justify-center gap-2 text-xs font-semibold transition-all cursor-pointer ${
-                  tabCarga === "individual" ? "active" : ""
-                }`}
-              >
-                <FileText size={14} />
-                <span>Carga Individual con Título</span>
               </button>
             </div>
 
@@ -691,324 +610,253 @@ export const BaseConocimiento: React.FC<BaseConocimientoProps> = ({ usuario }) =
               </div>
             )}
 
-            {/* Contenido según pestaña */}
+            {/* Contenido de Carga Drag & Drop */}
             <div className="flex-1 overflow-y-auto space-y-4 apple-scrollbar">
-              {tabCarga === "masiva" ? (
-                <div className="space-y-4">
-                  {/* Dropzone Drag & Drop */}
-                  <div
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      if (!subiendoMasivo) setArrastrando(true);
-                    }}
-                    onDragLeave={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setArrastrando(false);
-                    }}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setArrastrando(false);
-                      if (!subiendoMasivo && e.dataTransfer.files) {
-                        agregarArchivosMasivos(e.dataTransfer.files);
+              <div className="space-y-4">
+                {/* Dropzone Drag & Drop */}
+                <div
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (!subiendoMasivo) setArrastrando(true);
+                  }}
+                  onDragLeave={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setArrastrando(false);
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setArrastrando(false);
+                    if (!subiendoMasivo && e.dataTransfer.files) {
+                      agregarArchivosMasivos(e.dataTransfer.files);
+                    }
+                  }}
+                  onClick={() => {
+                    if (!subiendoMasivo && multiFileInputRef.current) {
+                      multiFileInputRef.current.click();
+                    }
+                  }}
+                  className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-2.5 select-none ${
+                    arrastrando
+                      ? "border-[var(--accent-primary)] bg-blue-500/10 scale-[1.01]"
+                      : "border-[var(--border-glass)] bg-[var(--bg-surface-elevated)]/40 hover:bg-[var(--bg-card-hover)]"
+                  } ${subiendoMasivo ? "opacity-50 pointer-events-none" : ""}`}
+                >
+                  <input
+                    ref={multiFileInputRef}
+                    type="file"
+                    multiple
+                    accept=".pdf,.docx,.txt"
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files) {
+                        agregarArchivosMasivos(e.target.files);
                       }
                     }}
-                    onClick={() => {
-                      if (!subiendoMasivo && multiFileInputRef.current) {
-                        multiFileInputRef.current.click();
-                      }
-                    }}
-                    className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-2.5 select-none ${
-                      arrastrando
-                        ? "border-[var(--accent-primary)] bg-blue-500/10 scale-[1.01]"
-                        : "border-[var(--border-glass)] bg-[var(--bg-surface-elevated)]/40 hover:bg-[var(--bg-card-hover)]"
-                    } ${subiendoMasivo ? "opacity-50 pointer-events-none" : ""}`}
-                  >
-                    <input
-                      ref={multiFileInputRef}
-                      type="file"
-                      multiple
-                      accept=".pdf,.docx,.txt"
-                      className="hidden"
-                      onChange={(e) => {
-                        if (e.target.files) {
-                          agregarArchivosMasivos(e.target.files);
-                        }
-                      }}
-                    />
-                    <div className="w-12 h-12 bg-blue-500/10 border border-blue-500/20 rounded-lg flex items-center justify-center text-[var(--accent-primary)] shadow-sm">
-                      <UploadCloud size={26} />
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-[var(--text-primary)]">
-                        Arrastra y suelta varios documentos aquí
-                      </p>
-                      <p className="text-xs text-[var(--text-secondary)] mt-0.5">
-                        o <span className="text-[var(--accent-primary)] font-semibold underline underline-offset-2">explora tus archivos</span> (PDF, DOCX o TXT)
-                      </p>
-                    </div>
-                    <span className="text-[11px] text-[var(--text-tertiary)] font-medium">
-                      Hasta 30 archivos simultáneos • Máximo 25 MB por archivo
-                    </span>
+                  />
+                  <div className="w-12 h-12 bg-blue-500/10 border border-blue-500/20 rounded-lg flex items-center justify-center text-[var(--accent-primary)] shadow-sm">
+                    <UploadCloud size={26} />
                   </div>
+                  <div>
+                    <p className="text-sm font-semibold text-[var(--text-primary)]">
+                      Arrastra y suelta tus documentos aquí
+                    </p>
+                    <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+                      o <span className="text-[var(--accent-primary)] font-semibold underline underline-offset-2">explora tus archivos</span> (PDF, DOCX o TXT)
+                    </p>
+                  </div>
+                  <span className="text-[11px] text-[var(--text-tertiary)] font-medium">
+                    Puedes subir uno o varios documentos a la vez • Máximo 25 MB por archivo
+                  </span>
+                </div>
 
-                  {/* Resumen de resultados si hubo carga */}
-                  {resumenMasivo && (
-                    <div className="p-3.5 liquid-glass border border-[var(--border-subtle)] rounded-lg space-y-1.5 text-xs">
-                      <div className="font-semibold text-[var(--text-primary)] flex items-center justify-between">
-                        <span>Resumen ({resumenMasivo.total} archivos procesados):</span>
+                {/* Resumen de resultados si hubo carga */}
+                {resumenMasivo && (
+                  <div className="p-3.5 liquid-glass border border-[var(--border-subtle)] rounded-lg space-y-1.5 text-xs">
+                    <div className="font-semibold text-[var(--text-primary)] flex items-center justify-between">
+                      <span>Resumen ({resumenMasivo.total} archivos procesados):</span>
+                      <button
+                        type="button"
+                        onClick={() => setResumenMasivo(null)}
+                        className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] text-[11px]"
+                      >
+                        Ocultar
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 pt-1 text-center font-semibold">
+                      <div className="p-2 bg-emerald-500/10 text-[#47705A] rounded-xl border border-emerald-500/20">
+                        <span className="block text-base font-bold">{resumenMasivo.exitosos}</span>
+                        <span>Indexados</span>
+                      </div>
+                      <div className="p-2 bg-amber-500/10 text-[#E3A21A] rounded-xl border border-amber-500/20">
+                        <span className="block text-base font-bold">{resumenMasivo.duplicados}</span>
+                        <span>Duplicados</span>
+                      </div>
+                      <div className="p-2 bg-red-500/10 text-[#C53030] rounded-xl border border-red-500/20">
+                        <span className="block text-base font-bold">{resumenMasivo.fallidos}</span>
+                        <span>Con error</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Lista de archivos en cola */}
+                {archivosMasivos.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs font-semibold text-[var(--text-secondary)]">
+                      <span>Archivos en cola ({archivosMasivos.length}/30):</span>
+                      {!subiendoMasivo && (
                         <button
                           type="button"
-                          onClick={() => setResumenMasivo(null)}
-                          className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] text-[11px]"
+                          onClick={limpiarListaMasiva}
+                          className="text-[var(--text-tertiary)] hover:text-[var(--accent-danger)] transition-colors flex items-center gap-1 cursor-pointer"
                         >
-                          Ocultar
+                          <Trash2 size={12} />
+                          <span>Limpiar lista</span>
                         </button>
-                      </div>
-                      <div className="grid grid-cols-3 gap-2 pt-1 text-center font-semibold">
-                        <div className="p-2 bg-emerald-500/10 text-[#47705A] rounded-xl border border-emerald-500/20">
-                          <span className="block text-base font-bold">{resumenMasivo.exitosos}</span>
-                          <span>Indexados</span>
-                        </div>
-                        <div className="p-2 bg-amber-500/10 text-[#E3A21A] rounded-xl border border-amber-500/20">
-                          <span className="block text-base font-bold">{resumenMasivo.duplicados}</span>
-                          <span>Duplicados</span>
-                        </div>
-                        <div className="p-2 bg-red-500/10 text-[#C53030] rounded-xl border border-red-500/20">
-                          <span className="block text-base font-bold">{resumenMasivo.fallidos}</span>
-                          <span>Con error</span>
-                        </div>
-                      </div>
+                      )}
                     </div>
-                  )}
 
-                  {/* Lista de archivos en cola */}
-                  {archivosMasivos.length > 0 && (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between text-xs font-semibold text-[var(--text-secondary)]">
-                        <span>Archivos en cola ({archivosMasivos.length}/30):</span>
-                        {!subiendoMasivo && (
-                          <button
-                            type="button"
-                            onClick={limpiarListaMasiva}
-                            className="text-[var(--text-tertiary)] hover:text-[var(--accent-danger)] transition-colors flex items-center gap-1 cursor-pointer"
+                    <div className="max-h-56 overflow-y-auto space-y-2 pr-1 border border-[var(--border-subtle)] rounded-lg p-2.5 bg-[var(--bg-surface-elevated)]/30 apple-scrollbar">
+                      {archivosMasivos.map((item) => {
+                        const ext = item.file.name.slice(item.file.name.lastIndexOf(".")).toLowerCase();
+                        const sizeKb = Math.round(item.file.size / 1024);
+                        const sizeDisplay =
+                          sizeKb > 1024 ? `${(sizeKb / 1024).toFixed(1)} MB` : `${sizeKb} KB`;
+
+                        return (
+                          <div
+                            key={item.id}
+                            className="flex items-center justify-between p-2.5 rounded-xl liquid-glass border border-[var(--border-subtle)] text-xs"
                           >
-                            <Trash2 size={12} />
-                            <span>Limpiar lista</span>
-                          </button>
-                        )}
-                      </div>
-
-                      <div className="max-h-56 overflow-y-auto space-y-2 pr-1 border border-[var(--border-subtle)] rounded-lg p-2.5 bg-[var(--bg-surface-elevated)]/30 apple-scrollbar">
-                        {archivosMasivos.map((item) => {
-                          const ext = item.file.name.slice(item.file.name.lastIndexOf(".")).toLowerCase();
-                          const sizeKb = Math.round(item.file.size / 1024);
-                          const sizeDisplay =
-                            sizeKb > 1024 ? `${(sizeKb / 1024).toFixed(1)} MB` : `${sizeKb} KB`;
-
-                          return (
-                            <div
-                              key={item.id}
-                              className="flex items-center justify-between p-2.5 rounded-xl liquid-glass border border-[var(--border-subtle)] text-xs"
-                            >
-                              <div className="flex items-center gap-2.5 min-w-0 pr-2">
-                                <span
-                                  className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase shrink-0 ${
-                                    ext === ".pdf"
-                                      ? "bg-rose-500/10 text-[#C53030] border border-rose-500/20"
-                                      : ext === ".docx"
-                                      ? "bg-blue-500/10 text-[#1E4E79] border border-blue-500/20"
-                                      : "bg-zinc-500/10 text-[#52606D] border border-zinc-500/20"
-                                  }`}
-                                >
-                                  {ext.replace(".", "")}
+                            <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                              <span
+                                className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase shrink-0 ${
+                                  ext === ".pdf"
+                                    ? "bg-rose-500/10 text-[#C53030] border border-rose-500/20"
+                                    : ext === ".docx"
+                                    ? "bg-blue-500/10 text-[#1E4E79] border border-blue-500/20"
+                                    : "bg-zinc-500/10 text-[#52606D] border border-zinc-500/20"
+                                }`}
+                              >
+                                {ext.replace(".", "")}
+                              </span>
+                              <div className="min-w-0">
+                                <p className="font-semibold text-[var(--text-primary)] truncate" title={item.file.name}>
+                                  {item.file.name}
+                                </p>
+                                <span className="text-[10px] text-[var(--text-tertiary)]">
+                                  {sizeDisplay}
                                 </span>
-                                <div className="min-w-0">
-                                  <p className="font-semibold text-[var(--text-primary)] truncate" title={item.file.name}>
-                                    {item.file.name}
-                                  </p>
-                                  <span className="text-[10px] text-[var(--text-tertiary)]">
-                                    {sizeDisplay}
-                                  </span>
-                                </div>
-                              </div>
-
-                              <div className="flex items-center gap-2 shrink-0">
-                                {item.status === "pendiente" && (
-                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-zinc-500/10 text-[var(--text-secondary)]">
-                                    Pendiente
-                                  </span>
-                                )}
-                                {item.status === "subiendo" && (
-                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-500/10 text-[var(--accent-primary)] flex items-center gap-1">
-                                    <Loader2 size={10} className="animate-spin" />
-                                    <span>Indexando</span>
-                                  </span>
-                                )}
-                                {item.status === "exito" && (
-                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-[#47705A] flex items-center gap-1">
-                                    <CheckCircle2 size={11} />
-                                    <span>Indexado</span>
-                                  </span>
-                                )}
-                                {item.status === "duplicado" && (
-                                  <span
-                                    title={item.mensaje}
-                                    className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-[#E3A21A] flex items-center gap-1 cursor-help"
-                                  >
-                                    <AlertCircle size={11} />
-                                    <span>Duplicado</span>
-                                  </span>
-                                )}
-                                {item.status === "error" && (
-                                  <span
-                                    title={item.mensaje}
-                                    className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-500/10 text-[var(--accent-danger)] flex items-center gap-1 cursor-help"
-                                  >
-                                    <AlertCircle size={11} />
-                                    <span>Error</span>
-                                  </span>
-                                )}
-
-                                {!subiendoMasivo && (
-                                  <button
-                                    type="button"
-                                    onClick={() => eliminarArchivoMasivo(item.id)}
-                                    title="Quitar"
-                                    className="p-1 text-[var(--text-tertiary)] hover:text-[var(--accent-danger)] rounded-lg hover:bg-red-500/10 transition-colors cursor-pointer"
-                                  >
-                                    <Trash2 size={14} />
-                                  </button>
-                                )}
                               </div>
                             </div>
-                          );
-                        })}
-                      </div>
+
+                            <div className="flex items-center gap-2 shrink-0">
+                              {item.status === "pendiente" && (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-zinc-500/10 text-[var(--text-secondary)]">
+                                  Pendiente
+                                </span>
+                              )}
+                              {item.status === "subiendo" && (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-500/10 text-[var(--accent-primary)] flex items-center gap-1">
+                                  <Loader2 size={10} className="animate-spin" />
+                                  <span>Indexando</span>
+                                </span>
+                              )}
+                              {item.status === "exito" && (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-[#47705A] flex items-center gap-1">
+                                  <CheckCircle2 size={11} />
+                                  <span>Indexado</span>
+                                </span>
+                              )}
+                              {item.status === "duplicado" && (
+                                <span
+                                  title={item.mensaje}
+                                  className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-[#E3A21A] flex items-center gap-1 cursor-help"
+                                >
+                                  <AlertCircle size={11} />
+                                  <span>Duplicado</span>
+                                </span>
+                              )}
+                              {item.status === "error" && (
+                                <span
+                                  title={item.mensaje}
+                                  className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-500/10 text-[var(--accent-danger)] flex items-center gap-1 cursor-help"
+                                >
+                                  <AlertCircle size={11} />
+                                  <span>Error</span>
+                                </span>
+                              )}
+
+                              {!subiendoMasivo && (
+                                <button
+                                  type="button"
+                                  onClick={() => eliminarArchivoMasivo(item.id)}
+                                  title="Quitar"
+                                  className="p-1 text-[var(--text-tertiary)] hover:text-[var(--accent-danger)] rounded-lg hover:bg-red-500/10 transition-colors cursor-pointer"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                  )}
-
-                  {/* Acciones para Carga Masiva */}
-                  <div className="pt-2 flex items-center justify-between border-t border-[var(--border-subtle)]">
-                    <span className="text-xs text-[var(--text-secondary)] font-medium">
-                      {archivosMasivos.filter((a) => a.status === "pendiente").length} archivo(s) listos para indexar
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setModalAbierto(false)}
-                        disabled={subiendoMasivo}
-                        className="px-4 py-2 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)] rounded-xl transition-colors disabled:opacity-50 cursor-pointer"
-                      >
-                        Cerrar
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleSubirMasivo}
-                        disabled={
-                          subiendoMasivo ||
-                          archivosMasivos.filter(
-                            (a) => a.status === "pendiente" || a.status === "error"
-                          ).length === 0
-                        }
-                        className="apple-btn-primary flex items-center gap-1.5 text-xs font-semibold px-5 py-2.5 rounded-xl transition-all shadow-md cursor-pointer disabled:opacity-50"
-                      >
-                        {subiendoMasivo ? (
-                          <>
-                            <Loader2 size={14} className="animate-spin" />
-                            <span>Indexando lote en RAG...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Upload size={14} />
-                            <span>
-                              Subir e Indexar Lote (
-                              {
-                                archivosMasivos.filter(
-                                  (a) => a.status === "pendiente" || a.status === "error"
-                                ).length
-                              }
-                              )
-                            </span>
-                          </>
-                        )}
-                      </button>
-                    </div>
                   </div>
-                </div>
-              ) : (
-                /* Formulario de Carga Individual */
-                <form onSubmit={handleSubirDocumento} className="space-y-4">
-                  <div>
-                    <label className="text-xs font-semibold text-[var(--text-secondary)] block mb-1">
-                      Título personalizado del documento
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Ej: Manual de Políticas y Procedimientos 2026"
-                      value={titulo}
-                      onChange={(e) => {
-                        setTitulo(e.target.value);
-                        if (errorCrear) setErrorCrear(null);
-                      }}
-                      disabled={subiendo}
-                      className="liquid-input w-full rounded-xl px-3.5 py-2.5 text-sm text-[var(--text-primary)] focus:outline-none disabled:opacity-50"
-                    />
-                  </div>
+                )}
 
-                  <div>
-                    <label className="text-xs font-semibold text-[var(--text-secondary)] block mb-1">
-                      Seleccionar archivo (PDF, DOCX o TXT)
-                    </label>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      required
-                      accept=".pdf,.docx,.txt"
-                      onChange={(e) => {
-                        setArchivo(e.target.files?.[0] || null);
-                        if (errorCrear) setErrorCrear(null);
-                      }}
-                      disabled={subiendo}
-                      className="liquid-input w-full text-xs text-[var(--text-secondary)] file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-500/10 file:text-[var(--accent-primary)] hover:file:bg-blue-500/20 rounded-xl p-1 disabled:opacity-50 cursor-pointer"
-                    />
-                    <span className="text-[11px] text-[var(--text-tertiary)] mt-1 block">
-                      Tamaño máximo admitido: 25 MB
-                    </span>
-                  </div>
-
-                  <div className="pt-2 flex justify-end gap-2 border-t border-[var(--border-subtle)]">
+                {/* Acciones para Carga Masiva */}
+                <div className="pt-2 flex items-center justify-between border-t border-[var(--border-subtle)]">
+                  <span className="text-xs text-[var(--text-secondary)] font-medium">
+                    {archivosMasivos.filter((a) => a.status === "pendiente").length} archivo(s) listos para indexar
+                  </span>
+                  <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() => setModalAbierto(false)}
-                      disabled={subiendo}
+                      disabled={subiendoMasivo}
                       className="px-4 py-2 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)] rounded-xl transition-colors disabled:opacity-50 cursor-pointer"
                     >
-                      Cancelar
+                      Cerrar
                     </button>
                     <button
-                      type="submit"
-                      disabled={subiendo || !archivo || !titulo.trim()}
-                      className="apple-btn-primary flex items-center gap-1.5 text-xs font-semibold px-4 py-2.5 rounded-xl transition-all shadow-md cursor-pointer disabled:opacity-50"
+                      type="button"
+                      onClick={handleSubirMasivo}
+                      disabled={
+                        subiendoMasivo ||
+                        archivosMasivos.filter(
+                          (a) => a.status === "pendiente" || a.status === "error"
+                        ).length === 0
+                      }
+                      className="apple-btn-primary flex items-center gap-1.5 text-xs font-semibold px-5 py-2.5 rounded-xl transition-all shadow-md cursor-pointer disabled:opacity-50"
                     >
-                      {subiendo ? (
+                      {subiendoMasivo ? (
                         <>
                           <Loader2 size={14} className="animate-spin" />
-                          <span>Indexando fragmentos...</span>
+                          <span>Indexando en RAG...</span>
                         </>
                       ) : (
                         <>
                           <Upload size={14} />
-                          <span>Subir e Indexar</span>
+                          <span>
+                            {(() => {
+                              const pendientes = archivosMasivos.filter(
+                                (a) => a.status === "pendiente" || a.status === "error"
+                              ).length;
+                              return pendientes === 1
+                                ? "Subir e Indexar Documento"
+                                : `Subir e Indexar (${pendientes})`;
+                            })()}
+                          </span>
                         </>
                       )}
                     </button>
                   </div>
-                </form>
-              )}
+                </div>
+              </div>
             </div>
           </div>
         </div>

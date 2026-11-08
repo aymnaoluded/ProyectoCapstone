@@ -14,6 +14,14 @@ const cabecerasSeguridad = {
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  server: { headers: cabecerasSeguridad },
-  preview: { headers: cabecerasSeguridad },
+  server: {
+    host: "0.0.0.0",
+    port: 5173,
+    headers: cabecerasSeguridad,
+  },
+  preview: {
+    host: "0.0.0.0",
+    port: 5173,
+    headers: cabecerasSeguridad,
+  },
 })

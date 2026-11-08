@@ -110,6 +110,13 @@ async def obtener_metricas(usuario: UsuarioToken = Depends(requiere_rol("Adminis
                 """
             )
 
+            tickets_lista = [
+                {"estado": r["estado"], "cantidad": r["cantidad"]}
+                for r in tickets_por_estado
+            ]
+            por_estado = {r["estado"]: r["cantidad"] for r in tickets_por_estado}
+            total_tickets = sum(r["cantidad"] for r in tickets_por_estado)
+
             return {
                 "resumen": {
                     "total_conversaciones": total_conv,
@@ -126,10 +133,11 @@ async def obtener_metricas(usuario: UsuarioToken = Depends(requiere_rol("Adminis
                     "media_confianza": stats_rag["media_confianza"] or 0,
                     "baja_confianza": stats_rag["baja_confianza"] or 0,
                 },
-                "tickets_estado": [
-                    {"estado": r["estado"], "cantidad": r["cantidad"]}
-                    for r in tickets_por_estado
-                ]
+                "tickets": {
+                    "total_tickets": total_tickets,
+                    "por_estado": por_estado,
+                },
+                "tickets_estado": tickets_lista
             }
     except Exception as e:
         logger.error("Error en GET /api/admin/metricas: %s", e, exc_info=True)
