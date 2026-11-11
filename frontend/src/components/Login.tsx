@@ -1,17 +1,20 @@
 ﻿import React, { useState } from "react";
-import { Lock, Mail, ArrowRight, AlertCircle, Loader2, Building2, Users, Leaf } from "lucide-react";
+import { Lock, Mail, ArrowRight, AlertCircle, Eye, EyeOff } from "lucide-react";
 import type { Usuario } from "../types";
 import { guardarSesionSegura } from "../utils/storage";
 import { API_URL } from "../utils/api";
+import { Marca, Skyline, IndicadorVentanas } from "./ui/Fachada";
+import { Aviso } from "./ui/Pagina";
 
 interface LoginProps {
   onLoginSuccess: (user: Usuario) => void;
 }
 
 export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
-  const [correo, setCorreo]     = useState("");
+  const [correo, setCorreo] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError]       = useState<string | null>(null);
+  const [verPassword, setVerPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -40,202 +43,170 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     }
   };
 
-  const rellenar = (c: string) => { setCorreo(c); setPassword("Hola1234"); setError(null); };
+  const rellenar = (c: string) => {
+    setCorreo(c);
+    setPassword("Hola1234");
+    setError(null);
+  };
 
   return (
-    <div className="min-h-screen w-screen flex font-sans select-none overflow-hidden">
-      {/* ── Panel izquierdo: imagen + overlay ─────────────── */}
-      <div className="hidden lg:flex lg:w-[52%] xl:w-[55%] relative flex-col justify-between p-10 overflow-hidden">
-        {/* Fondo fotográfico con CSS gradient simulado — arquitectura residencial */}
-        <div
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-          style={{
-            backgroundImage: `url('https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=1400&q=80')`,
-          }}
-        />
-        {/* Overlay verde petróleo */}
-        <div className="absolute inset-0 bg-gradient-to-br from-[#1E5450]/92 via-[#286D68]/88 to-[#3A8A84]/80" />
-        {/* Patrón decorativo sutil */}
-        <div className="absolute inset-0 opacity-[0.04]"
-          style={{
-            backgroundImage: `radial-gradient(circle at 1px 1px, white 1px, transparent 0)`,
-            backgroundSize: "40px 40px",
-          }}
-        />
+    <div className="min-h-dvh w-full flex bg-papel font-sans">
+      {/* ── Panel nocturno (escritorio) ───────────────────────── */}
+      <section className="zona-noche hidden lg:flex lg:w-[50%] xl:w-[54%] relative flex-col overflow-hidden bg-noche px-10 xl:px-14 pt-10 xl:pt-12">
+        <div aria-hidden="true" className="pointer-events-none absolute -top-40 -left-24 w-[34rem] h-[34rem] rounded-full bg-turquesa/10 blur-3xl" />
+        <div aria-hidden="true" className="pointer-events-none absolute -bottom-32 right-0 w-[30rem] h-[22rem] rounded-full bg-luz/10 blur-3xl" />
 
-        {/* Contenido superpuesto */}
-        <div className="relative z-10">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-[14px] bg-white/15 border border-white/25
-              flex items-center justify-center backdrop-blur-sm">
-              <Building2 size={22} className="text-[#DCEFEA]" />
-            </div>
-            <div>
-              <p className="text-white font-heading font-bold text-[15px] leading-tight">Comunidad Clara</p>
-              <p className="text-white/60 text-[11px]">Administraciones Ltda.</p>
-            </div>
-          </div>
-        </div>
+        <Marca tono="noche" className="relative" />
 
-        <div className="relative z-10 space-y-6">
-          <div className="space-y-3">
-            <h2 className="text-white font-heading font-bold text-3xl xl:text-4xl leading-tight tracking-tight">
-              Una comunidad mejor<br />comienza con una<br />
-              <span className="text-[#DCEFEA]">buena comunicación.</span>
-            </h2>
-            <p className="text-white/65 text-sm leading-relaxed max-w-sm">
-              Gestión inteligente de condominios con asistente IA, seguimiento de incidencias
-              y comunicación directa con la administración.
-            </p>
-          </div>
-
-          {/* Features */}
-          <div className="grid grid-cols-1 gap-3 max-w-sm">
+        <div className="relative mt-14 xl:mt-20 max-w-xl escalonado">
+          <p className="ceja !text-menta/55">Administración de condominios</p>
+          <h2 className="titular text-white text-[2.6rem] xl:text-[3.4rem] mt-4">
+            Una comunidad mejor comienza con una <em>buena comunicación.</em>
+          </h2>
+          <p className="text-menta/70 text-[0.975rem] leading-relaxed mt-5 max-w-md">
+            Gestión de condominios con Luz, nuestra asistente con IA, seguimiento de solicitudes y comunicación directa con la administración.
+          </p>
+          <ol className="mt-8 space-y-3">
             {[
-              { icon: <Building2 size={15} />, text: "Gestión integral de edificios y condominios" },
-              { icon: <Users size={15} />,     text: "Comunicación directa con la administración" },
-              { icon: <Leaf size={15} />,      text: "Asistente IA disponible las 24 horas" },
-            ].map((f, i) => (
-              <div key={i} className="flex items-center gap-3 bg-white/8 border border-white/12
-                rounded-xl px-4 py-2.5 backdrop-blur-sm">
-                <span className="text-[#DCEFEA] shrink-0">{f.icon}</span>
-                <p className="text-white/85 text-xs font-medium">{f.text}</p>
-              </div>
+              "Luz, tu asistente, disponible las 24 horas",
+              "Solicitudes con seguimiento de principio a fin",
+              "Comunicación directa con la administración",
+            ].map((texto, i) => (
+              <li key={texto} className="flex items-baseline gap-4 text-[0.9375rem] text-white/85">
+                <span className="numeral text-luz text-[1.05rem] w-6">{String(i + 1).padStart(2, "0")}</span>
+                {texto}
+              </li>
             ))}
+          </ol>
+        </div>
+
+        {/* Edificios: cada ventana encendida es un vecino atendido */}
+        <div className="relative flex-1 min-h-[9rem] mt-10">
+          <Skyline className="absolute bottom-0 right-0 h-[min(100%,25rem)]" />
+          <p className="absolute bottom-6 left-0 text-[0.75rem] text-menta/40">
+            © 2026 Comunidad Clara Administraciones Ltda.
+          </p>
+        </div>
+      </section>
+
+      {/* ── Formulario ────────────────────────────────────────── */}
+      <section className="flex-1 flex flex-col min-w-0">
+        {/* Banda nocturna en celular y tablet */}
+        <div className="zona-noche lg:hidden relative overflow-hidden bg-noche px-5 sm:px-8 pt-6 pb-0">
+          <Marca tono="noche" />
+          <div className="mt-6 h-28 relative">
+            <Skyline className="absolute bottom-0 left-0 right-0 h-full justify-end" />
           </div>
         </div>
 
-        {/* Pie del panel */}
-        <div className="relative z-10 text-white/40 text-[11px]">
-          © 2026 Comunidad Clara Administraciones Ltda.
-        </div>
-      </div>
-
-      {/* ── Panel derecho: formulario ──────────────────────── */}
-      <div className="flex-1 bg-[#F6F5F0] flex items-center justify-center p-6 sm:p-10 overflow-y-auto">
-        <div className="w-full max-w-[400px] space-y-7 animate-fade-in">
-
-          {/* Logo (solo mobile) */}
-          <div className="flex lg:hidden items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-[12px] bg-[#286D68] flex items-center justify-center shadow-md">
-              <Building2 size={20} className="text-[#DCEFEA]" />
-            </div>
-            <div>
-              <p className="font-heading font-bold text-[#293A3B] text-sm leading-tight">Comunidad Clara</p>
-              <p className="text-[#788583] text-[11px]">Administraciones Ltda.</p>
-            </div>
-          </div>
-
-          {/* Encabezado formulario */}
-          <div className="space-y-1.5">
-            <h1 className="text-2xl font-heading font-bold text-[#293A3B] tracking-tight">
-              Bienvenido de vuelta
+        <div className="flex-1 flex items-center justify-center px-5 sm:px-10 py-10">
+          <div className="w-full max-w-[25rem] animate-aparecer">
+            <p className="ceja">Portal de residentes y equipo</p>
+            <h1 className="titular text-[2.25rem] sm:text-[2.6rem] mt-3">
+              Bienvenido <em>de vuelta</em>
             </h1>
-            <p className="text-[#788583] text-sm">
-              Ingresa con tu correo institucional para acceder a la plataforma.
-            </p>
-          </div>
+            <p className="text-tinta-2 text-[0.9375rem] mt-2.5">Ingresa con tu correo para acceder a la plataforma.</p>
 
-          {/* Error */}
-          {error && (
-            <div className="flex items-start gap-3 p-3.5 bg-red-50 border border-red-200
-              rounded-xl text-red-700 animate-fade-in">
-              <AlertCircle size={16} className="shrink-0 mt-0.5 text-red-500" />
-              <p className="text-xs font-medium leading-relaxed">{error}</p>
-            </div>
-          )}
+            <form onSubmit={handleSubmit} className="mt-8 space-y-5" noValidate={false}>
+              {error && <Aviso icono={<AlertCircle size={16} />}>{error}</Aviso>}
 
-          {/* Formulario */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-[#5A6968] tracking-wide block">
-                Correo institucional
-              </label>
-              <div className="relative flex items-center">
-                <Mail className="absolute left-3.5 text-[#A0AFAE] pointer-events-none" size={16} />
-                <input
-                  type="email"
-                  value={correo}
-                  onChange={e => { setCorreo(e.target.value); if (error) setError(null); }}
-                  required
-                  placeholder="ejemplo@correo.com"
-                  className="cc-input w-full py-2.5 pl-10 pr-4 text-sm"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold text-[#5A6968] tracking-wide">
-                  Contraseña
+              <div>
+                <label htmlFor="login-correo" className="etiqueta">
+                  Correo electrónico
                 </label>
-                <a
-                  href="/recuperar-password"
-                  className="text-xs font-medium text-[#286D68] hover:text-[#1E5450]
-                    hover:underline transition-colors"
-                >
-                  ¿Olvidaste tu contraseña?
-                </a>
+                <div className="relative">
+                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-tinta-3 pointer-events-none" size={17} />
+                  <input
+                    id="login-correo"
+                    type="email"
+                    value={correo}
+                    onChange={(e) => {
+                      setCorreo(e.target.value);
+                      if (error) setError(null);
+                    }}
+                    required
+                    autoComplete="email"
+                    placeholder="nombre@correo.com"
+                    className="campo !pl-11 !min-h-[3rem]"
+                  />
+                </div>
               </div>
-              <div className="relative flex items-center">
-                <Lock className="absolute left-3.5 text-[#A0AFAE] pointer-events-none" size={16} />
-                <input
-                  type="password"
-                  value={password}
-                  onChange={e => { setPassword(e.target.value); if (error) setError(null); }}
-                  required
-                  placeholder="••••••••"
-                  className="cc-input w-full py-2.5 pl-10 pr-4 text-sm"
-                />
+
+              <div>
+                <div className="flex items-baseline justify-between gap-3">
+                  <label htmlFor="login-password" className="etiqueta">
+                    Contraseña
+                  </label>
+                  <a href="/recuperar-password" className="text-[0.8125rem] font-semibold text-petroleo hover:text-petroleo-hover hover:underline underline-offset-4">
+                    ¿La olvidaste?
+                  </a>
+                </div>
+                <div className="relative">
+                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-tinta-3 pointer-events-none" size={17} />
+                  <input
+                    id="login-password"
+                    type={verPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      if (error) setError(null);
+                    }}
+                    required
+                    autoComplete="current-password"
+                    placeholder="••••••••"
+                    className="campo !pl-11 !pr-12 !min-h-[3rem]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setVerPassword((v) => !v)}
+                    aria-label={verPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                    aria-pressed={verPassword}
+                    className="boton-icono !w-9 !h-9 absolute right-1.5 top-1/2 -translate-y-1/2"
+                  >
+                    {verPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                  </button>
+                </div>
               </div>
-            </div>
 
-            <button
-              type="submit"
-              disabled={cargando}
-              className="cc-btn-primary w-full py-2.5 px-4 text-sm mt-2"
-            >
-              {cargando ? (
-                <>
-                  <Loader2 size={15} className="animate-spin" />
-                  <span>Iniciando sesión...</span>
-                </>
-              ) : (
-                <>
-                  <span>Acceder a la plataforma</span>
-                  <ArrowRight size={16} />
-                </>
-              )}
-            </button>
-          </form>
+              <button type="submit" disabled={cargando} className="boton boton-primario boton-lg w-full !mt-7">
+                {cargando ? (
+                  <>
+                    <IndicadorVentanas />
+                    <span>Entrando…</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Entrar a la plataforma</span>
+                    <ArrowRight size={17} />
+                  </>
+                )}
+              </button>
+            </form>
 
-          {/* Accesos demo */}
-          <div className="pt-1 border-t border-[#E7EAE7] space-y-3">
-            <p className="text-[11px] text-[#A0AFAE] font-medium text-center">
-              Accesos directos de demostración
-            </p>
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                { label: "Residente",     correo: "nraguileo@gmail.com" },
-                { label: "Ejecutivo",     correo: "bvega@gmail.com" },
-                { label: "Administrador", correo: "mirarrazabal@gmail.com" },
-              ].map(d => (
-                <button
-                  key={d.correo}
-                  type="button"
-                  onClick={() => rellenar(d.correo)}
-                  className="text-[11px] font-medium px-2 py-2 rounded-xl
-                    bg-white border border-[#E7EAE7] text-[#5A6968]
-                    hover:border-[#286D68] hover:text-[#286D68] hover:bg-[#EDF5F4]
-                    transition-all cursor-pointer text-center"
-                >
-                  {d.label}
-                </button>
-              ))}
+            {/* Accesos de demostración (entorno de pruebas) */}
+            <div className="mt-9 pt-6 border-t border-linea">
+              <p className="ceja text-center">Accesos de demostración</p>
+              <div className="grid grid-cols-3 gap-2 mt-3">
+                {[
+                  { label: "Residente", correo: "nraguileo@gmail.com" },
+                  { label: "Ejecutivo", correo: "bvega@gmail.com" },
+                  { label: "Administrador", correo: "mirarrazabal@gmail.com" },
+                ].map((d) => (
+                  <button
+                    key={d.correo}
+                    type="button"
+                    onClick={() => rellenar(d.correo)}
+                    aria-pressed={correo === d.correo}
+                    className={`boton boton-sm !px-2 ${correo === d.correo ? "boton-primario" : "boton-secundario"}`}
+                  >
+                    {d.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 };

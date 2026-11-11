@@ -1,6 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { motion } from "motion/react";
 import { Sidebar } from "./components/Sidebar";
 import type { VistaApp } from "./components/Sidebar";
+import { AccesosRapidos } from "./components/AccesosRapidos";
 import { Chat } from "./components/Chat";
 import { Login } from "./components/Login";
 import type { Usuario } from "./types";
@@ -43,12 +45,28 @@ export default function App() {
   const [refreshHistorialTrigger, setRefreshHistorialTrigger] = useState(0);
   const [mostrarSeguridad, setMostrarSeguridad] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [accesosAbiertos, setAccesosAbiertos] = useState(false);
 
-  const setVistaActiva = (nuevaVista: VistaApp) => {
+  const setVistaActiva = useCallback((nuevaVista: VistaApp) => {
     setMostrarSeguridad(false);
     setVistaActivaState(nuevaVista);
     localStorage.setItem("vistaActiva", nuevaVista);
-  };
+  }, []);
+
+  const cerrarMenuMovil = useCallback(() => setMobileMenuOpen(false), []);
+
+  // Ctrl/⌘ + K abre los accesos rápidos
+  useEffect(() => {
+    if (!usuario) return;
+    const alTeclear = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setAccesosAbiertos((a) => !a);
+      }
+    };
+    window.addEventListener("keydown", alTeclear);
+    return () => window.removeEventListener("keydown", alTeclear);
+  }, [usuario]);
 
   const limpiarSesionLocal = () => {
     eliminarSesionSegura("user_session");
@@ -202,8 +220,16 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen w-screen bg-[#F6F5F0] overflow-hidden font-sans text-[#293A3B] relative">
-      {/* Barra Lateral Corporativa */}
+    <div className="flex h-dvh w-screen bg-papel overflow-hidden font-sans text-tinta relative">
+      {/* Enlace para saltar directo al contenido con teclado */}
+      <a
+        href="#contenido"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[100] boton boton-primario"
+      >
+        Saltar al contenido
+      </a>
+
+      {/* Directorio lateral */}
       <Sidebar
         usuario={usuario}
         vistaActiva={vistaActiva}
@@ -216,11 +242,11 @@ export default function App() {
         mostrarSeguridad={mostrarSeguridad}
         onCambiarPassword={() => setMostrarSeguridad((anterior) => !anterior)}
         mobileAbierto={mobileMenuOpen}
-        onCerrarMobile={() => setMobileMenuOpen(false)}
+        onCerrarMobile={cerrarMenuMovil}
       />
 
-      {/* Contenido Principal con TopBar */}
-      <main className="flex-1 flex flex-col h-full overflow-hidden bg-transparent relative">
+      {/* Contenido principal */}
+      <main id="contenido" className="flex-1 min-w-0 flex flex-col h-full overflow-hidden relative">
         <TopBar
           usuario={usuario}
           vistaActiva={vistaActiva}
@@ -228,9 +254,16 @@ export default function App() {
           onCambiarPassword={() => setMostrarSeguridad((anterior) => !anterior)}
           mostrarSeguridad={mostrarSeguridad}
           onToggleSidebarMobile={() => setMobileMenuOpen((prev) => !prev)}
+          onAbrirAccesos={() => setAccesosAbiertos(true)}
         />
 
-        <div className="flex-1 overflow-hidden relative flex flex-col pb-16 md:pb-0">
+        <motion.div
+          key={mostrarSeguridad ? "seguridad" : vistaActiva}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.34, ease: [0.16, 1, 0.3, 1] }}
+          className="flex-1 min-h-0 overflow-hidden relative flex flex-col pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0"
+        >
           {mostrarSeguridad ? (
             <CambiarPassword onPasswordCambiada={limpiarSesionLocal} />
           ) : (
@@ -281,7 +314,7 @@ export default function App() {
               )}
             </>
           )}
-        </div>
+        </motion.div>
 
         {/* Navegación móvil inferior */}
         <MobileNav
@@ -290,6 +323,18 @@ export default function App() {
           setVistaActiva={setVistaActiva}
         />
       </main>
+
+      {/* Accesos rápidos (Ctrl/⌘ + K) */}
+      <AccesosRapidos
+        abierto={accesosAbiertos}
+        onCerrar={() => setAccesosAbiertos(false)}
+        usuario={usuario}
+        vistaActiva={vistaActiva}
+        onIrA={setVistaActiva}
+        onNuevaConversacion={usuario.rol_nombre === "Cliente" ? handleNuevaConversacion : undefined}
+        onSeguridad={() => setMostrarSeguridad(true)}
+        onCerrarSesion={handleCerrarSesion}
+      />
     </div>
   );
 }

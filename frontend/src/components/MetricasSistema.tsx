@@ -1,19 +1,19 @@
 import React, { useEffect, useState } from "react";
 import {
-  BarChart3,
-  TrendingUp,
-  Sparkles,
+  MessagesSquare,
+  Gauge,
   Star,
-  FileText,
+  Layers,
   AlertTriangle,
   CheckCircle2,
-  Ticket,
   Mail,
   Send,
-  Loader2,
-  RefreshCw,
+  CircleAlert,
 } from "lucide-react";
 import { cabecerasAuth, API_URL } from "../utils/api";
+import { EncabezadoPagina, BotonRecargar, Kpi, InsigniaEstado, Aviso } from "./ui/Pagina";
+import { EsqueletoTarjetas } from "./ui/Skeleton";
+import { IndicadorVentanas } from "./ui/Fachada";
 
 interface TicketEstadoItem {
   estado: string;
@@ -61,6 +61,8 @@ export const MetricasSistema: React.FC = () => {
   // Diagnóstico y prueba de Gmail API
   const [estadoGmail, setEstadoGmail] = useState<EstadoGmail | null>(null);
   const [cargandoGmail, setCargandoGmail] = useState(false);
+  // El backend actual no expone el diagnóstico (responde 404): se informa en vez de simular que funciona
+  const [gmailNoDisponible, setGmailNoDisponible] = useState(false);
   const [destinatarioPrueba, setDestinatarioPrueba] = useState("");
   const [enviandoPrueba, setEnviandoPrueba] = useState(false);
   const [resultadoPrueba, setResultadoPrueba] = useState<{ exito: boolean; mensaje: string } | null>(null);
@@ -88,6 +90,7 @@ export const MetricasSistema: React.FC = () => {
       const res = await fetch(`${API_URL}/api/admin/diagnostico/gmail`, {
         headers: cabecerasAuth(),
       });
+      setGmailNoDisponible(res.status === 404);
       if (res.ok) {
         const data = await res.json();
         setEstadoGmail(data);
@@ -108,7 +111,7 @@ export const MetricasSistema: React.FC = () => {
     try {
       const res = await fetch(`${API_URL}/api/admin/diagnostico/probar-envio`, {
         method: "POST",
-        headers: cabecerasAuth(),
+        headers: cabecerasAuth({ "Content-Type": "application/json" }),
         body: JSON.stringify({ destinatario: destinatarioPrueba.trim() }),
       });
       const data = await res.json().catch(() => ({}));
@@ -120,10 +123,10 @@ export const MetricasSistema: React.FC = () => {
       } else {
         setResultadoPrueba({
           exito: false,
-          mensaje: data.detail || data.mensaje || "Falló el envío de prueba.",
+          mensaje: (typeof data.detail === "string" ? data.detail : "") || data.mensaje || "Falló el envío de prueba.",
         });
       }
-    } catch (err) {
+    } catch {
       setResultadoPrueba({
         exito: false,
         mensaje: "Error de conexión al intentar enviar el correo.",
@@ -138,21 +141,11 @@ export const MetricasSistema: React.FC = () => {
     consultarEstadoGmail();
   }, []);
 
-  if (cargando && !metricas) {
-    return (
-      <div className="flex-1 flex items-center justify-center bg-[#F6F5F0]">
-        <div className="flex flex-col items-center gap-3 text-[#788583]">
-          <Loader2 className="animate-spin text-[#286D68]" size={32} />
-          <p className="text-sm font-medium">Cargando analítica institucional...</p>
-        </div>
-      </div>
-    );
-  }
-
   const totalRespuestasRAG = metricas?.rag?.total_respuestas || 0;
-  const pctAlta = totalRespuestasRAG > 0 ? Math.round(((metricas?.rag?.alta_confianza || 0) / totalRespuestasRAG) * 100) : 0;
-  const pctMedia = totalRespuestasRAG > 0 ? Math.round(((metricas?.rag?.media_confianza || 0) / totalRespuestasRAG) * 100) : 0;
-  const pctBaja = totalRespuestasRAG > 0 ? Math.round(((metricas?.rag?.baja_confianza || 0) / totalRespuestasRAG) * 100) : 0;
+  const pct = (n?: number) => (totalRespuestasRAG > 0 ? Math.round(((n || 0) / totalRespuestasRAG) * 100) : 0);
+  const pctAlta = pct(metricas?.rag?.alta_confianza);
+  const pctMedia = pct(metricas?.rag?.media_confianza);
+  const pctBaja = pct(metricas?.rag?.baja_confianza);
 
   // Soporta tanto metricas.tickets.por_estado como metricas.tickets_estado
   const ticketsPorEstado: Record<string, number> =
@@ -174,324 +167,310 @@ export const MetricasSistema: React.FC = () => {
       estado,
       cantidad: ticketsPorEstado[estado],
     }));
+  const maxTickets = Math.max(1, ...ticketsArray.map((t) => t.cantidad));
+
+  const segmentos = [
+    {
+      clave: "alta",
+      etiqueta: "Confianza alta",
+      rango: "80% o más",
+      cantidad: metricas?.rag?.alta_confianza || 0,
+      pct: pctAlta,
+      color: "bg-grafico-alta",
+      icono: <CheckCircle2 size={15} className="text-grafico-alta" />,
+    },
+    {
+      clave: "media",
+      etiqueta: "Confianza parcial",
+      rango: "60% a 79%",
+      cantidad: metricas?.rag?.media_confianza || 0,
+      pct: pctMedia,
+      color: "bg-grafico-media",
+      icono: <AlertTriangle size={15} className="text-grafico-media" />,
+    },
+    {
+      clave: "baja",
+      etiqueta: "Confianza baja o escalada",
+      rango: "menos de 60%",
+      cantidad: metricas?.rag?.baja_confianza || 0,
+      pct: pctBaja,
+      color: "bg-grafico-baja",
+      icono: <CircleAlert size={15} className="text-grafico-baja" />,
+    },
+  ];
+
+  const cargaInicial = cargando && !metricas;
 
   return (
-    <div className="flex-1 overflow-y-auto bg-[#F6F5F0] font-sans pb-12">
-      {/* Cabecera Interna Estilo iOS */}
-      <div className="bg-white/80 backdrop-blur-md border-b border-slate-200/70 px-6 sm:px-8 py-5 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold font-heading text-[#1E5450] tracking-tight">
-            Métricas y Rendimiento
-          </h1>
-          <p className="text-xs text-[#788583] mt-0.5">
-            Monitoreo continuo de atención, calidad documental y desempeño del asistente IA
-          </p>
-        </div>
+    <div className="flex-1 min-h-0 overflow-y-auto barra-fina">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 pb-12 space-y-7">
+        <EncabezadoPagina
+          ceja="Analítica"
+          titulo={
+            <>
+              Métricas del <em>sistema</em>
+            </>
+          }
+          descripcion="Cuánto se usa Luz, qué tan seguras son sus respuestas y cómo avanza la atención humana."
+          acciones={<BotonRecargar onClick={cargarMetricas} cargando={cargando} />}
+        />
 
-        <button
-          onClick={cargarMetricas}
-          type="button"
-          className="p-2.5 text-[#788583] hover:text-[#1E5450] border border-slate-200 rounded-xl hover:bg-white active:scale-95 transition-all shadow-2xs cursor-pointer"
-          title="Actualizar datos"
-        >
-          <RefreshCw size={15} className={cargando ? "animate-spin text-[#286D68]" : ""} />
-        </button>
-      </div>
-
-      <div className="p-6 sm:p-8 max-w-6xl mx-auto w-full space-y-6">
-        {/* Fila 1: KPIs Principales con Estilo iOS */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white rounded-2xl p-5 border border-slate-200/70 shadow-[0_2px_14px_rgba(31,41,51,0.03)] hover:shadow-[0_8px_24px_rgba(31,41,51,0.06)] hover:-translate-y-0.5 transition-all duration-200">
-            <div className="flex items-center justify-between text-[#788583] mb-3">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#788583]">Conversaciones</span>
-              <div className="p-2.5 bg-[#286D68]/8 text-[#286D68] rounded-xl border border-[#286D68]/15">
-                <TrendingUp size={16} />
-              </div>
-            </div>
-            <div className="text-3xl font-extrabold font-heading text-[#286D68]">
-              {metricas?.resumen?.total_conversaciones || 0}
-            </div>
-            <p className="text-[11.5px] font-medium text-[#7B8794] mt-1.5">
-              {metricas?.resumen?.tasa_escalamiento ?? 0}% requirió atención humana
-            </p>
+        {/* Indicadores principales */}
+        {cargaInicial ? (
+          <EsqueletoTarjetas cantidad={4} className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4" />
+        ) : (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 escalonado">
+            <Kpi
+              etiqueta="Conversaciones"
+              valor={metricas?.resumen?.total_conversaciones || 0}
+              detalle={`${metricas?.resumen?.tasa_escalamiento ?? 0}% requirió atención humana`}
+              icono={<MessagesSquare size={16} />}
+            />
+            <Kpi
+              etiqueta="Confianza"
+              valor={`${Math.round((metricas?.rag?.confianza_promedio || 0) * 100)}%`}
+              detalle="Similitud promedio de las respuestas con los documentos"
+              icono={<Gauge size={16} />}
+              tono="exito"
+            />
+            <Kpi
+              etiqueta="Satisfacción"
+              valor={
+                <span className="flex items-baseline gap-1.5">
+                  {metricas?.resumen?.promedio_satisfaccion ?? 0}
+                  <span className="text-[1rem] text-tinta-3">/ 5</span>
+                </span>
+              }
+              detalle={`Según ${metricas?.resumen?.total_evaluaciones || 0} evaluaciones`}
+              icono={<Star size={16} />}
+              tono="luz"
+            />
+            <Kpi
+              etiqueta="Indexación"
+              valor={metricas?.resumen?.fragmentos_indexados || 0}
+              detalle={`Fragmentos en ${metricas?.resumen?.documentos_activos || 0} documentos activos`}
+              icono={<Layers size={16} />}
+              tono="noche"
+            />
           </div>
+        )}
 
-          <div className="bg-white rounded-2xl p-5 border border-slate-200/70 shadow-[0_2px_14px_rgba(31,41,51,0.03)] hover:shadow-[0_8px_24px_rgba(31,41,51,0.06)] hover:-translate-y-0.5 transition-all duration-200">
-            <div className="flex items-center justify-between text-[#788583] mb-3">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#788583]">Confianza RAG</span>
-              <div className="p-2.5 bg-[#52966A]/12 text-[#52966A] rounded-xl border border-[#52966A]/20">
-                <Sparkles size={16} />
-              </div>
-            </div>
-            <div className="text-3xl font-extrabold font-heading text-[#286D68]">
-              {Math.round((metricas?.rag?.confianza_promedio || 0) * 100)}%
-            </div>
-            <p className="text-[11.5px] font-medium text-[#7B8794] mt-1.5">
-              Similitud coseno promedio en respuestas
-            </p>
-          </div>
-
-          <div className="bg-white rounded-2xl p-5 border border-slate-200/70 shadow-[0_2px_14px_rgba(31,41,51,0.03)] hover:shadow-[0_8px_24px_rgba(31,41,51,0.06)] hover:-translate-y-0.5 transition-all duration-200">
-            <div className="flex items-center justify-between text-[#788583] mb-3">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#788583]">Satisfacción</span>
-              <div className="p-2.5 bg-[#C89B3C]/12 text-[#C89B3C] rounded-xl border border-[#C89B3C]/25">
-                <Star size={16} className="fill-[#C89B3C]" />
-              </div>
-            </div>
-            <div className="text-3xl font-extrabold font-heading text-[#286D68] flex items-baseline gap-1.5">
-              {metricas?.resumen?.promedio_satisfaccion ?? 0}
-              <span className="text-xs font-medium text-[#7B8794]">/ 5.0</span>
-            </div>
-            <p className="text-[11.5px] font-medium text-[#7B8794] mt-1.5">
-              Basado en {metricas?.resumen?.total_evaluaciones || 0} evaluaciones
-            </p>
-          </div>
-
-          <div className="bg-white rounded-2xl p-5 border border-slate-200/70 shadow-[0_2px_14px_rgba(31,41,51,0.03)] hover:shadow-[0_8px_24px_rgba(31,41,51,0.06)] hover:-translate-y-0.5 transition-all duration-200">
-            <div className="flex items-center justify-between text-[#788583] mb-3">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#788583]">Indexación</span>
-              <div className="p-2.5 bg-[#1E5450]/10 text-[#1E5450] rounded-xl border border-[#1E5450]/20">
-                <FileText size={16} />
-              </div>
-            </div>
-            <div className="text-3xl font-extrabold font-heading text-[#286D68]">
-              {metricas?.resumen?.fragmentos_indexados || 0}
-            </div>
-            <p className="text-[11.5px] font-medium text-[#7B8794] mt-1.5">
-              Vectores en {metricas?.resumen?.documentos_activos || 0} documentos activos
-            </p>
-          </div>
-        </div>
-
-        {/* Fila 2: Distribución RAG y Estado de Tickets */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Distribución de Certeza del Bot */}
-          <div className="bg-white p-6 rounded-2xl border border-slate-200/70 shadow-[0_2px_14px_rgba(31,41,51,0.03)] space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h2 className="text-sm font-bold font-heading text-[#1E5450] flex items-center gap-2">
-                <BarChart3 size={16} className="text-[#286D68]" />
-                Precisión de Respuestas IA
+        <div className="grid lg:grid-cols-2 gap-4 sm:gap-5">
+          {/* Precisión de respuestas: barra apilada parte-del-todo */}
+          <section className="superficie p-5 sm:p-6" aria-labelledby="titulo-precision">
+            <div className="flex items-baseline justify-between gap-3">
+              <h2 id="titulo-precision" className="titular text-[1.3rem]">
+                Precisión de las respuestas
               </h2>
-              <span className="text-[11px] text-[#7B8794] font-medium">
-                {metricas?.rag?.total_respuestas || 0} respuestas generadas
-              </span>
+              <span className="text-[0.8125rem] text-tinta-2 tabular-nums">{totalRespuestasRAG} respuestas</span>
+            </div>
+            <p className="text-[0.8125rem] text-tinta-2 mt-1">Según la similitud con los documentos oficiales.</p>
+
+            <div
+              className="mt-5 flex h-3 w-full gap-[2px] rounded-full overflow-hidden bg-papel-2"
+              role="img"
+              aria-label={`Confianza alta ${pctAlta}%, parcial ${pctMedia}%, baja ${pctBaja}%`}
+            >
+              {segmentos
+                .filter((s) => s.pct > 0)
+                .map((s) => (
+                  <span
+                    key={s.clave}
+                    title={`${s.etiqueta}: ${s.cantidad} (${s.pct}%)`}
+                    className={`${s.color} h-full transition-[width] duration-700 ease-curva hover:brightness-110`}
+                    style={{ width: `${s.pct}%` }}
+                  />
+                ))}
             </div>
 
-            <div className="space-y-4 pt-1">
-              <div>
-                <div className="flex justify-between text-xs font-semibold mb-1.5">
-                  <span className="text-[#52966A] flex items-center gap-1.5">
-                    <CheckCircle2 size={14} /> Alta Confianza (&ge; 80%)
-                  </span>
-                  <span className="text-[#788583] font-bold">{metricas?.rag?.alta_confianza || 0} ({pctAlta}%)</span>
-                </div>
-                <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-[#52966A] rounded-full transition-all duration-500" style={{ width: `${pctAlta}%` }} />
-                </div>
-              </div>
-
-              <div>
-                <div className="flex justify-between text-xs font-semibold mb-1.5">
-                  <span className="text-[#C89B3C] flex items-center gap-1.5">
-                    <AlertTriangle size={14} /> Confianza Parcial (60% - 79%)
-                  </span>
-                  <span className="text-[#788583] font-bold">{metricas?.rag?.media_confianza || 0} ({pctMedia}%)</span>
-                </div>
-                <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-[#C89B3C] rounded-full transition-all duration-500" style={{ width: `${pctMedia}%` }} />
-                </div>
-              </div>
-
-              <div>
-                <div className="flex justify-between text-xs font-semibold mb-1.5">
-                  <span className="text-[#C53030] flex items-center gap-1.5">
-                    <AlertTriangle size={14} /> Baja Confianza / Escalados (&lt; 60%)
-                  </span>
-                  <span className="text-[#788583] font-bold">{metricas?.rag?.baja_confianza || 0} ({pctBaja}%)</span>
-                </div>
-                <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-[#C53030] rounded-full transition-all duration-500" style={{ width: `${pctBaja}%` }} />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Distribución de Tickets por Estado */}
-          <div className="bg-white p-6 rounded-2xl border border-slate-200/70 shadow-[0_2px_14px_rgba(31,41,51,0.03)] space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h2 className="text-sm font-bold font-heading text-[#1E5450] flex items-center gap-2">
-                <Ticket size={16} className="text-[#286D68]" />
-                Volumen de Tickets ({totalTickets})
-              </h2>
-              <span className="text-[11px] text-[#7B8794] font-medium">Gestión humana</span>
-            </div>
-
-            <div className="space-y-3 pt-1">
-              {ticketsArray.length === 0 ? (
-                <p className="text-xs text-[#7B8794] py-6 text-center font-medium">No hay tickets registrados aún.</p>
-              ) : (
-                ticketsArray.map((item) => {
-                  const pct = totalTickets > 0 ? Math.round((item.cantidad / totalTickets) * 100) : 0;
-                  return (
-                    <div key={item.estado} className="flex items-center justify-between py-2 border-b border-slate-100/70 last:border-0 text-xs">
-                      <span className="font-semibold text-[#293A3B]">{item.estado}</span>
-                      <div className="flex items-center gap-3">
-                        <span className="text-[#7B8794] font-medium">{pct}%</span>
-                        <span className="font-bold text-[#1E5450] bg-[#F6F5F0] border border-[#CDD4D3] px-3 py-0.5 rounded-full min-w-[34px] text-center shadow-2xs">
-                          {item.cantidad}
+            <table className="w-full mt-5 text-[0.875rem]">
+              <caption className="sr-only">Distribución de respuestas por nivel de confianza</caption>
+              <tbody>
+                {segmentos.map((s) => (
+                  <tr key={s.clave} className="border-t border-linea first:border-t-0">
+                    <th scope="row" className="py-2.5 text-left font-medium text-tinta">
+                      <span className="flex items-center gap-2.5">
+                        <span className={`w-2.5 h-2.5 rounded-[3px] ${s.color}`} aria-hidden="true" />
+                        {s.icono}
+                        <span>
+                          {s.etiqueta} <span className="text-tinta-3 font-normal">· {s.rango}</span>
                         </span>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
+                      </span>
+                    </th>
+                    <td className="py-2.5 text-right tabular-nums text-tinta font-semibold w-14">{s.cantidad}</td>
+                    <td className="py-2.5 text-right tabular-nums text-tinta-2 w-14">{s.pct}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+
+          {/* Tickets por estado: barras horizontales de un solo tono */}
+          <section className="superficie p-5 sm:p-6" aria-labelledby="titulo-tickets">
+            <div className="flex items-baseline justify-between gap-3">
+              <h2 id="titulo-tickets" className="titular text-[1.3rem]">
+                Tickets por estado
+              </h2>
+              <span className="text-[0.8125rem] text-tinta-2 tabular-nums">{totalTickets} en total</span>
             </div>
-          </div>
+            <p className="text-[0.8125rem] text-tinta-2 mt-1">Casos derivados a la atención humana.</p>
+
+            {ticketsArray.length === 0 ? (
+              <p className="text-sm text-tinta-2 py-10 text-center">No hay tickets registrados aún.</p>
+            ) : (
+              <ul className="mt-5 space-y-3.5">
+                {ticketsArray.map((item) => {
+                  const porcentaje = totalTickets > 0 ? Math.round((item.cantidad / totalTickets) * 100) : 0;
+                  return (
+                    <li key={item.estado} className="grid grid-cols-[7.5rem_1fr_auto] items-center gap-3" title={`${item.estado}: ${item.cantidad} (${porcentaje}%)`}>
+                      <InsigniaEstado estado={item.estado} className="justify-self-start" />
+                      <span className="h-2.5 rounded-full bg-papel-2 overflow-hidden" aria-hidden="true">
+                        <span
+                          className="block h-full rounded-full bg-petroleo transition-[width] duration-700 ease-curva"
+                          style={{ width: `${(item.cantidad / maxTickets) * 100}%` }}
+                        />
+                      </span>
+                      <span className="text-[0.875rem] tabular-nums text-right w-20">
+                        <span className="font-semibold text-tinta">{item.cantidad}</span>
+                        <span className="text-tinta-2"> · {porcentaje}%</span>
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
         </div>
 
-        {/* Diagnóstico de Integración Gmail API (OAuth 2.0) */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200/70 shadow-[0_2px_14px_rgba(31,41,51,0.03)] space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-[#286D68]/8 text-[#286D68] rounded-xl border border-[#286D68]/15">
-                <Mail size={18} />
-              </div>
+        {/* Diagnóstico de Gmail API (OAuth 2.0) */}
+        <section className="superficie p-5 sm:p-6" aria-labelledby="titulo-gmail">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <span className="arco grid place-items-center w-9 h-10 bg-menta text-petroleo-hover shrink-0">
+                <Mail size={17} />
+              </span>
               <div>
-                <h2 className="text-sm font-bold font-heading text-[#1E5450]">
-                  Estado de la Integración Gmail API (OAuth 2.0)
+                <h2 id="titulo-gmail" className="titular text-[1.3rem]">
+                  Correo de la plataforma
                 </h2>
-                <p className="text-[11px] text-[#7B8794]">
-                  Servicio de notificaciones, invitaciones y recuperación de contraseñas
+                <p className="text-[0.8125rem] text-tinta-2 mt-0.5">
+                  Integración Gmail API (OAuth 2.0) para invitaciones, avisos y recuperación de contraseñas.
                 </p>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={consultarEstadoGmail}
-              disabled={cargandoGmail}
-              title="Refrescar estado de Gmail"
-              className="p-2 text-[#788583] hover:text-[#1E5450] hover:bg-[#F6F5F0] rounded-xl active:scale-95 transition-all cursor-pointer"
-            >
-              <RefreshCw size={14} className={cargandoGmail ? "animate-spin text-[#286D68]" : ""} />
-            </button>
+            <BotonRecargar onClick={consultarEstadoGmail} cargando={cargandoGmail} soloIcono etiqueta="Refrescar estado de Gmail" />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-1">
-            {/* Estado y Diagnóstico */}
+          {gmailNoDisponible ? (
+            <div className="mt-5">
+              <Aviso tono="luz" icono={<AlertTriangle size={16} />}>
+                El servidor no tiene habilitado el diagnóstico de correo (las rutas <code className="font-mono">/api/admin/diagnostico</code> no
+                existen en el backend actual), así que no se puede consultar el estado ni enviar una prueba desde aquí.
+              </Aviso>
+            </div>
+          ) : (
+          <div className="grid md:grid-cols-2 gap-5 mt-5">
             <div className="space-y-3">
-              <div className="flex items-center justify-between p-3.5 rounded-xl bg-[#F6F5F0] border border-slate-200/80 text-xs">
-                <span className="font-semibold text-[#788583]">Estado de Operación:</span>
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-papel/70 border border-linea px-4 py-3">
+                <span className="text-[0.8125rem] font-semibold text-tinta-2">Estado</span>
                 {estadoGmail?.simulado ? (
-                  <span className="px-3 py-1 rounded-full font-bold text-[10.5px] bg-[#C89B3C]/15 text-[#C89B3C] border border-[#C89B3C]/30 flex items-center gap-1.5 shadow-2xs">
-                    <AlertTriangle size={12} />
-                    <span>Modo Simulación (Desarrollo)</span>
-                  </span>
+                  <span className="insignia insignia-pendiente">Modo simulación (desarrollo)</span>
                 ) : estadoGmail?.exito ? (
-                  <span className="px-3 py-1 rounded-full font-bold text-[10.5px] bg-[#52966A]/15 text-[#52966A] border border-[#52966A]/30 flex items-center gap-1.5 shadow-2xs">
-                    <CheckCircle2 size={12} />
-                    <span>Conexión OAuth 2.0 Activa</span>
-                  </span>
+                  <span className="insignia insignia-resuelto">Conexión OAuth 2.0 activa</span>
                 ) : (
-                  <span className="px-3 py-1 rounded-full font-bold text-[10.5px] bg-slate-200 text-[#788583]">
-                    Consultando...
-                  </span>
+                  <span className="insignia insignia-cerrado">{cargandoGmail ? "Consultando…" : "Sin datos"}</span>
                 )}
               </div>
 
-              <div className="space-y-2 text-xs">
-                <div className="flex justify-between py-1.5 border-b border-slate-100">
-                  <span className="text-[#7B8794]">Remitente configurado:</span>
-                  <span className="font-semibold text-[#293A3B]">
+              <dl className="text-[0.875rem] divide-y divide-linea">
+                <div className="flex justify-between gap-4 py-2.5">
+                  <dt className="text-tinta-2">Remitente</dt>
+                  <dd className="font-semibold text-tinta text-right [overflow-wrap:anywhere]">
                     {estadoGmail?.detalles?.remitente || "Sin configurar"}
-                  </span>
+                  </dd>
                 </div>
-                <div className="flex justify-between py-1.5 border-b border-slate-100">
-                  <span className="text-[#7B8794]">Client ID:</span>
-                  <span className="font-mono text-[11px] text-[#788583]">
+                <div className="flex justify-between gap-4 py-2.5">
+                  <dt className="text-tinta-2">Client ID</dt>
+                  <dd className="font-mono text-[0.8125rem] text-tinta-2 text-right [overflow-wrap:anywhere]">
                     {estadoGmail?.detalles?.client_id_enmascarado || "No configurado"}
-                  </span>
+                  </dd>
                 </div>
-                <div className="flex justify-between py-1.5 border-b border-slate-100">
-                  <span className="text-[#7B8794]">Refresh Token (OAuth 2.0):</span>
-                  <span className="font-semibold">
+                <div className="flex justify-between gap-4 py-2.5">
+                  <dt className="text-tinta-2">Refresh token</dt>
+                  <dd className="font-semibold text-right">
                     {estadoGmail?.detalles?.refresh_token_presente ? (
-                      <span className="text-[#52966A]">Configurado ✓</span>
+                      <span className="text-exito">Configurado</span>
                     ) : (
-                      <span className="text-[#C89B3C]">No detectado</span>
+                      <span className="text-luz-tinta">No detectado</span>
                     )}
-                  </span>
+                  </dd>
                 </div>
-              </div>
+              </dl>
 
               {estadoGmail?.simulado && (
-                <div className="p-3 bg-[#FCF6EC] border border-[#C89B3C]/30 rounded-xl text-[11px] text-[#293A3B] leading-relaxed">
-                  <strong className="text-[#1E5450]">Nota para producción:</strong> Para despachar correos reales, configura en tu archivo <code className="bg-amber-100/70 px-1 py-0.5 rounded font-mono">backend/.env</code> las credenciales de Gmail OAuth 2.0.
-                </div>
+                <Aviso tono="luz">
+                  Para enviar correos reales, configura las credenciales de Gmail OAuth 2.0 en{" "}
+                  <code className="font-mono bg-superficie/70 px-1 rounded">backend/.env</code>.
+                </Aviso>
               )}
             </div>
 
-            {/* Herramienta de Envío de Prueba */}
-            <div className="bg-[#F6F5F0] p-5 rounded-xl border border-slate-200/80 flex flex-col justify-between space-y-3">
+            <div className="rounded-2xl bg-papel/70 border border-linea p-5 flex flex-col gap-3">
               <div>
-                <h3 className="text-xs font-bold font-heading text-[#1E5450] flex items-center gap-1.5 mb-1">
-                  <Send size={14} className="text-[#286D68]" />
-                  Prueba de Envío en Vivo
+                <h3 className="text-[0.9375rem] font-semibold text-tinta flex items-center gap-2">
+                  <Send size={15} className="text-petroleo" />
+                  Enviar un correo de prueba
                 </h3>
-                <p className="text-[11px] text-[#788583] leading-snug">
-                  Verifica que los correos electrónicos se envíen y reciban correctamente sin salir de la plataforma.
+                <p className="text-[0.8125rem] text-tinta-2 mt-1 leading-relaxed">
+                  Comprueba que los correos salen y llegan sin dejar la plataforma.
                 </p>
               </div>
 
               {resultadoPrueba && (
-                <div
-                  className={`p-3 rounded-xl border text-xs flex items-start gap-2 shadow-2xs ${
-                    resultadoPrueba.exito
-                      ? "bg-[#52966A]/12 border-[#52966A]/25 text-[#52966A]"
-                      : "bg-red-50 border-red-200 text-red-700"
-                  }`}
+                <Aviso
+                  tono={resultadoPrueba.exito ? "exito" : "error"}
+                  icono={resultadoPrueba.exito ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
                 >
-                  {resultadoPrueba.exito ? (
-                    <CheckCircle2 size={15} className="text-[#52966A] shrink-0 mt-0.5" />
-                  ) : (
-                    <AlertTriangle size={15} className="text-red-600 shrink-0 mt-0.5" />
-                  )}
-                  <span className="leading-snug font-medium">{resultadoPrueba.mensaje}</span>
-                </div>
+                  {resultadoPrueba.mensaje}
+                </Aviso>
               )}
 
-              <form onSubmit={handleProbarGmail} className="space-y-2.5">
-                <div>
-                  <input
-                    type="email"
-                    required
-                    placeholder="ejemplo@correo.com"
-                    value={destinatarioPrueba}
-                    onChange={(e) => setDestinatarioPrueba(e.target.value)}
-                    disabled={enviandoPrueba}
-                    className="w-full bg-white border border-[#CDD4D3] rounded-xl px-3.5 py-2 text-xs text-[#293A3B] focus:outline-none focus:border-[#286D68] focus:ring-2 focus:ring-[#286D68]/15 disabled:opacity-50 transition-all shadow-2xs"
-                  />
-                </div>
+              <form onSubmit={handleProbarGmail} className="space-y-2.5 mt-auto">
+                <label htmlFor="correo-prueba" className="sr-only">
+                  Correo de destino
+                </label>
+                <input
+                  id="correo-prueba"
+                  type="email"
+                  required
+                  placeholder="destinatario@correo.com"
+                  value={destinatarioPrueba}
+                  onChange={(e) => setDestinatarioPrueba(e.target.value)}
+                  disabled={enviandoPrueba}
+                  className="campo"
+                />
                 <button
                   type="submit"
                   disabled={enviandoPrueba || !destinatarioPrueba.trim()}
-                  className="w-full flex items-center justify-center gap-1.5 bg-[#286D68] hover:bg-[#1E5450] active:scale-[0.98] disabled:opacity-50 text-white text-xs font-heading font-semibold py-2.5 px-3 rounded-xl transition-all shadow-xs cursor-pointer"
+                  className="boton boton-primario w-full"
                 >
                   {enviandoPrueba ? (
                     <>
-                      <Loader2 size={13} className="animate-spin" />
-                      <span>Despachando correo de prueba...</span>
+                      <IndicadorVentanas />
+                      Enviando correo de prueba…
                     </>
                   ) : (
                     <>
-                      <Send size={13} />
-                      <span>Enviar Correo de Verificación</span>
+                      <Send size={15} />
+                      Enviar correo de verificación
                     </>
                   )}
                 </button>
               </form>
             </div>
           </div>
-        </div>
+          )}
+        </section>
       </div>
     </div>
   );

@@ -2,20 +2,27 @@ import React, { useEffect, useState, useRef } from "react";
 import {
   Plus,
   Database,
-  BookOpen,
   FileText,
   Upload,
-  X,
-  Loader2,
-  RefreshCw,
   Edit3,
   AlertCircle,
   CheckCircle2,
   Trash2,
   UploadCloud,
+  Layers,
+  MessagesSquare,
+  Eye,
+  EyeOff,
+  Search,
+  CalendarDays,
 } from "lucide-react";
 import type { Usuario } from "../types";
 import { API_URL, cabecerasAuth } from "../utils/api";
+import { useToast } from "../context/ToastContext";
+import { EncabezadoPagina, BotonRecargar, Kpi, EstadoVacio, Aviso } from "./ui/Pagina";
+import { EsqueletoTarjetas } from "./ui/Skeleton";
+import { Modal } from "./ui/Modal";
+import { IndicadorVentanas } from "./ui/Fachada";
 
 interface Stats {
   documentos: number;
@@ -45,6 +52,9 @@ interface BaseConocimientoProps {
 }
 
 export const BaseConocimiento: React.FC<BaseConocimientoProps> = ({ usuario: _usuario }) => {
+  const toast = useToast();
+  const [busqueda, setBusqueda] = useState("");
+  const [filtroPublicacion, setFiltroPublicacion] = useState<"todos" | "publicados" | "ocultos">("todos");
   const [stats, setStats] = useState<Stats>({
     documentos: 0,
     publicados: 0,
@@ -54,9 +64,6 @@ export const BaseConocimiento: React.FC<BaseConocimientoProps> = ({ usuario: _us
   const [documentos, setDocumentos] = useState<DocumentoItem[]>([]);
   const [cargandoLista, setCargandoLista] = useState(true);
   const [procesandoDocId, setProcesandoDocId] = useState<number | null>(null);
-
-  // Notificaciones
-  const [mensajeGlobal, setMensajeGlobal] = useState<{ tipo: "exito" | "error"; texto: string } | null>(null);
 
   // Modal para agregar documentos (Drag & Drop)
   const [modalAbierto, setModalAbierto] = useState(false);
@@ -87,9 +94,10 @@ export const BaseConocimiento: React.FC<BaseConocimientoProps> = ({ usuario: _us
     return cabecerasAuth();
   };
 
+  // Las notificaciones ahora usan el sistema global de avisos (toasts)
   const notificarTemporal = (tipo: "exito" | "error", texto: string) => {
-    setMensajeGlobal({ tipo, texto });
-    setTimeout(() => setMensajeGlobal(null), 5000);
+    if (tipo === "exito") toast.exito(texto);
+    else toast.error(texto);
   };
 
   const cargarDatos = async () => {
@@ -377,581 +385,464 @@ export const BaseConocimiento: React.FC<BaseConocimientoProps> = ({ usuario: _us
     }
   };
 
+  const termino = busqueda.trim().toLowerCase();
+  const documentosFiltrados = documentos.filter((d) => {
+    if (filtroPublicacion === "publicados" && !d.activo) return false;
+    if (filtroPublicacion === "ocultos" && d.activo) return false;
+    return !termino || d.titulo.toLowerCase().includes(termino);
+  });
+  const pendientesSubida = archivosMasivos.filter((a) => a.status === "pendiente" || a.status === "error").length;
+  const listosSubida = archivosMasivos.filter((a) => a.status === "pendiente").length;
+
+  const abrirCarga = () => {
+    setErrorCrear(null);
+    setModalAbierto(true);
+  };
+
+  const abrirSelectorArchivos = () => {
+    if (!subiendoMasivo && multiFileInputRef.current) {
+      multiFileInputRef.current.click();
+    }
+  };
+
+  const ESTADO_ARCHIVO: Record<ItemArchivoMasivo["status"], { clase: string; texto: string }> = {
+    pendiente: { clase: "insignia-cerrado", texto: "Pendiente" },
+    subiendo: { clase: "insignia-proceso", texto: "Indexando" },
+    exito: { clase: "insignia-resuelto", texto: "Indexado" },
+    duplicado: { clase: "insignia-pendiente", texto: "Duplicado" },
+    error: { clase: "insignia-error", texto: "Error" },
+  };
+
   return (
-    <div className="flex-1 flex flex-col h-full bg-transparent overflow-y-auto apple-scrollbar">
-      {/* Cabecera Superior Glass */}
-      <div className="liquid-glass border-b border-[var(--border-glass)] px-6 sm:px-8 py-4 flex flex-wrap items-center justify-between gap-3 shrink-0 shadow-xs">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[var(--text-primary)]">
-            Base de Conocimiento
-          </h1>
-          <p className="text-xs text-[var(--text-secondary)] mt-0.5">
-            Gestión e indexación vectorial (RAG) con embeddings de Gemini
-          </p>
-        </div>
+    <div className="flex-1 min-h-0 overflow-y-auto barra-fina">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 pb-12 space-y-7">
+        <EncabezadoPagina
+          ceja="Administración"
+          titulo={
+            <>
+              Base de <em>conocimiento</em>
+            </>
+          }
+          descripcion="Los documentos que Luz, la asistente, consulta para responder a los residentes. Solo usa los que están publicados."
+          acciones={
+            <>
+              <BotonRecargar onClick={cargarDatos} cargando={cargandoLista} soloIcono etiqueta="Recargar documentos" />
+              <button type="button" onClick={abrirCarga} className="boton boton-primario">
+                <Plus size={17} />
+                Agregar documentos
+              </button>
+            </>
+          }
+        />
 
-        <div className="flex items-center gap-2.5">
-          <button
-            onClick={cargarDatos}
-            title="Recargar listado"
-            className="p-2.5 rounded-xl liquid-glass border border-[var(--border-glass)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)] transition-all cursor-pointer shadow-xs active:scale-95"
-          >
-            <RefreshCw size={15} className={cargandoLista ? "animate-spin text-[var(--accent-primary)]" : ""} />
-          </button>
-          <button
-            onClick={() => {
-              setErrorCrear(null);
-              setModalAbierto(true);
-            }}
-            className="apple-btn-primary flex items-center gap-2 text-xs font-semibold px-4 py-2.5 rounded-xl transition-all shadow-md cursor-pointer"
-          >
-            <Plus size={16} />
-            <span>Agregar Documento</span>
-          </button>
-        </div>
-      </div>
-
-      <div className="p-4 sm:p-8 space-y-6 max-w-7xl mx-auto w-full">
-        {/* Banner de Notificación Global */}
-        {mensajeGlobal && (
-          <div
-            className={`flex items-center justify-between gap-3 px-4 py-3 rounded-lg border text-xs font-medium transition-all animate-fade-in shadow-xs ${
-              mensajeGlobal.tipo === "exito"
-                ? "bg-emerald-500/10 border-emerald-500/20 text-[#52966A]"
-                : "bg-red-500/10 border-red-500/20 text-[var(--accent-danger)]"
-            }`}
-          >
-            <div className="flex items-center gap-2.5">
-              {mensajeGlobal.tipo === "exito" ? (
-                <CheckCircle2 size={16} className="text-[#52966A] shrink-0" />
-              ) : (
-                <AlertCircle size={16} className="text-red-500 shrink-0" />
-              )}
-              <span>{mensajeGlobal.texto}</span>
-            </div>
-            <button
-              onClick={() => setMensajeGlobal(null)}
-              className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
-            >
-              <X size={14} />
-            </button>
+        {/* Indicadores */}
+        {cargandoLista && documentos.length === 0 ? (
+          <EsqueletoTarjetas cantidad={4} className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4" />
+        ) : (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 escalonado">
+            <Kpi etiqueta="Documentos" valor={stats.documentos} detalle="Cargados en total" icono={<FileText size={16} />} />
+            <Kpi etiqueta="Publicados" valor={stats.publicados} detalle="Disponibles para Luz" icono={<Eye size={16} />} tono="exito" />
+            <Kpi
+              etiqueta="Fragmentos"
+              valor={stats.fragmentos_indexados}
+              detalle="Trozos indexados con embeddings"
+              icono={<Layers size={16} />}
+              tono="luz"
+            />
+            <Kpi
+              etiqueta="Consultas"
+              valor={stats.consultas_atendidas}
+              detalle="Atendidas por Luz"
+              icono={<MessagesSquare size={16} />}
+              tono="noche"
+            />
           </div>
         )}
 
-        {/* Métricas Superiores estilo Apple Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="liquid-glass-card rounded-2xl p-5 shadow-xs">
-            <span className="text-2xl sm:text-3xl font-bold text-[var(--text-primary)] tracking-tight block">
-              {stats.documentos}
-            </span>
-            <span className="text-xs font-medium text-[var(--text-secondary)] mt-1 block">
-              Documentos totales
-            </span>
-          </div>
-
-          <div className="liquid-glass-card rounded-2xl p-5 shadow-xs">
-            <span className="text-2xl sm:text-3xl font-bold text-[#52966A] tracking-tight block">
-              {stats.publicados}
-            </span>
-            <span className="text-xs font-medium text-[var(--text-secondary)] mt-1 block">
-              Publicados (Activos en RAG)
-            </span>
-          </div>
-
-          <div className="liquid-glass-card rounded-2xl p-5 shadow-xs">
-            <span className="text-2xl sm:text-3xl font-bold text-[var(--text-primary)] tracking-tight block">
-              {stats.fragmentos_indexados}
-            </span>
-            <span className="text-xs font-medium text-[var(--text-secondary)] mt-1 block">
-              Fragmentos vectoriales
-            </span>
-          </div>
-
-          <div className="liquid-glass-card rounded-2xl p-5 shadow-xs">
-            <span className="text-2xl sm:text-3xl font-bold text-[var(--accent-primary)] tracking-tight block">
-              {stats.consultas_atendidas}
-            </span>
-            <span className="text-xs font-medium text-[var(--text-secondary)] mt-1 block">
-              Consultas asistidas
-            </span>
-          </div>
-        </div>
-
-        {/* Listado de Documentos en Cards Liquid Glass */}
-        {cargandoLista && documentos.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-[var(--text-tertiary)] space-y-2">
-            <Loader2 className="animate-spin text-[var(--accent-primary)]" size={28} />
-            <p className="text-xs font-medium">Cargando base de conocimiento...</p>
-          </div>
-        ) : documentos.length === 0 ? (
-          <div className="text-center py-16 liquid-glass-card rounded-2xl p-8 space-y-3">
-            <div className="w-14 h-14 rounded-lg bg-blue-500/10 text-[var(--accent-primary)] flex items-center justify-center mx-auto border border-blue-500/20">
-              <Database size={26} />
+        {/* Búsqueda y filtro */}
+        {documentos.length > 0 && (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="relative w-full sm:max-w-sm">
+              <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-tinta-3 pointer-events-none" />
+              <input
+                type="search"
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                placeholder="Buscar por título"
+                aria-label="Buscar documentos por título"
+                className="campo !pl-10 !rounded-full !min-h-[2.5rem]"
+              />
             </div>
-            <h3 className="text-sm font-semibold text-[var(--text-primary)]">No hay documentos indexados</h3>
-            <p className="text-xs text-[var(--text-secondary)] max-w-sm mx-auto leading-relaxed">
-              Presiona "Agregar Documento" para cargar archivos PDF, DOCX o TXT y generar fragmentos con embeddings en pgvector.
+            <div role="radiogroup" aria-label="Filtrar por publicación" className="inline-flex self-start p-1 rounded-full bg-papel-2 border border-linea">
+              {(
+                [
+                  ["todos", "Todos"],
+                  ["publicados", "Publicados"],
+                  ["ocultos", "Sin publicar"],
+                ] as const
+              ).map(([valor, texto]) => (
+                <button
+                  key={valor}
+                  type="button"
+                  role="radio"
+                  aria-checked={filtroPublicacion === valor}
+                  onClick={() => setFiltroPublicacion(valor)}
+                  className={`px-3.5 h-8 rounded-full text-[0.8125rem] font-semibold transition-all duration-200 ${
+                    filtroPublicacion === valor ? "bg-superficie text-tinta shadow-[var(--sombra-papel)]" : "text-tinta-2 hover:text-tinta"
+                  }`}
+                >
+                  {texto}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Documentos */}
+        {cargandoLista && documentos.length === 0 ? (
+          <EsqueletoTarjetas cantidad={4} className="grid md:grid-cols-2 gap-4" />
+        ) : documentos.length === 0 ? (
+          <div className="superficie">
+            <EstadoVacio
+              titulo="Todavía no hay documentos"
+              descripcion="Carga reglamentos, circulares o actas en PDF, DOCX o TXT. El asistente solo responderá con lo que publiques aquí."
+              accion={
+                <button type="button" onClick={abrirCarga} className="boton boton-primario">
+                  <Plus size={17} />
+                  Agregar documentos
+                </button>
+              }
+            />
+          </div>
+        ) : documentosFiltrados.length === 0 ? (
+          <p className="text-center text-sm text-tinta-2 py-10">Ningún documento coincide con la búsqueda.</p>
+        ) : (
+          <ul className="grid md:grid-cols-2 gap-4 escalonado">
+            {documentosFiltrados.map((doc) => (
+              <li
+                key={doc.id_documento}
+                className={`superficie superficie-interactiva p-5 flex flex-col gap-4 ${doc.activo ? "" : "!bg-papel/70"}`}
+              >
+                <div className="flex items-start gap-3.5">
+                  <span
+                    className={`arco grid place-items-center w-10 h-11 shrink-0 transition-colors ${
+                      doc.activo ? "bg-noche text-luz" : "bg-papel-2 text-tinta-3"
+                    }`}
+                    aria-hidden="true"
+                  >
+                    <FileText size={18} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-3">
+                      <h3 className="text-[0.975rem] font-semibold text-tinta leading-snug [overflow-wrap:anywhere]">{doc.titulo}</h3>
+                      <span className={`insignia shrink-0 ${doc.activo ? "insignia-resuelto" : "insignia-pendiente"}`}>
+                        {doc.activo ? "Publicado" : "Sin publicar"}
+                      </span>
+                    </div>
+                    <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[0.8125rem] text-tinta-2">
+                      <span className="flex items-center gap-1.5">
+                        <Layers size={13} className="text-tinta-3" /> {doc.total_fragmentos} fragmentos
+                      </span>
+                      <span className="flex items-center gap-1.5 tabular-nums">
+                        <CalendarDays size={13} className="text-tinta-3" /> {doc.fecha}
+                      </span>
+                      <span className="numeral text-tinta-3">N.º {doc.id_documento}</span>
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-3 border-t border-linea">
+                  <button type="button" onClick={() => abrirModalEdicion(doc)} className="boton boton-fantasma boton-sm">
+                    <Edit3 size={14} />
+                    Editar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleToggleActivo(doc.id_documento)}
+                    disabled={procesandoDocId === doc.id_documento}
+                    className={`boton boton-sm ${doc.activo ? "boton-secundario" : "boton-primario"}`}
+                  >
+                    {procesandoDocId === doc.id_documento ? (
+                      <IndicadorVentanas />
+                    ) : doc.activo ? (
+                      <EyeOff size={14} />
+                    ) : (
+                      <Eye size={14} />
+                    )}
+                    {doc.activo ? "Despublicar" : "Publicar"}
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* ── Carga de documentos ─────────────────────────────────── */}
+      <Modal
+        abierto={modalAbierto}
+        onCerrar={() => setModalAbierto(false)}
+        bloqueado={subiendoMasivo}
+        ancho="lg"
+        icono={<Database size={18} />}
+        titulo="Agregar documentos"
+        descripcion="Cada archivo se divide en fragmentos y se indexa para que Luz pueda consultarlo."
+        pie={
+          <>
+            <span className="sm:mr-auto self-center text-[0.8125rem] text-tinta-2">
+              {listosSubida} {listosSubida === 1 ? "archivo listo" : "archivos listos"} para indexar
+            </span>
+            <button type="button" onClick={() => setModalAbierto(false)} disabled={subiendoMasivo} className="boton boton-fantasma">
+              Cerrar
+            </button>
+            <button
+              type="button"
+              onClick={handleSubirMasivo}
+              disabled={subiendoMasivo || pendientesSubida === 0}
+              className="boton boton-primario"
+            >
+              {subiendoMasivo ? (
+                <>
+                  <IndicadorVentanas />
+                  Indexando…
+                </>
+              ) : (
+                <>
+                  <Upload size={15} />
+                  {pendientesSubida === 1 ? "Subir e indexar" : `Subir e indexar (${pendientesSubida})`}
+                </>
+              )}
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-4 pb-2">
+          {errorCrear && <Aviso icono={<AlertCircle size={16} />}>{errorCrear}</Aviso>}
+
+          {/* Zona para arrastrar y soltar */}
+          <div
+            role="button"
+            tabIndex={subiendoMasivo ? -1 : 0}
+            aria-label="Seleccionar archivos PDF, DOCX o TXT para subir"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                abrirSelectorArchivos();
+              }
+            }}
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (!subiendoMasivo) setArrastrando(true);
+            }}
+            onDragLeave={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setArrastrando(false);
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setArrastrando(false);
+              if (!subiendoMasivo && e.dataTransfer.files) {
+                agregarArchivosMasivos(e.dataTransfer.files);
+              }
+            }}
+            onClick={abrirSelectorArchivos}
+            className={`rounded-2xl border-2 border-dashed px-6 py-8 text-center flex flex-col items-center gap-3 select-none transition-all duration-300 ease-curva
+              ${arrastrando ? "border-petroleo bg-menta-2 scale-[1.01]" : "border-linea-fuerte bg-papel/60 hover:border-petroleo hover:bg-menta-2/60"}
+              ${subiendoMasivo ? "opacity-50 pointer-events-none" : "cursor-pointer"}`}
+          >
+            <input
+              ref={multiFileInputRef}
+              type="file"
+              multiple
+              accept=".pdf,.docx,.txt"
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files) {
+                  agregarArchivosMasivos(e.target.files);
+                }
+              }}
+            />
+            <span
+              className={`arco grid place-items-center w-12 h-14 transition-colors duration-300 ${
+                arrastrando ? "bg-noche text-luz" : "bg-menta text-petroleo-hover"
+              }`}
+            >
+              <UploadCloud size={22} />
+            </span>
+            <div>
+              <p className="text-[0.9375rem] font-semibold text-tinta">
+                {arrastrando ? "Suelta los archivos aquí" : "Arrastra tus documentos aquí"}
+              </p>
+              <p className="text-[0.8125rem] text-tinta-2 mt-1">
+                o <span className="font-semibold text-petroleo underline underline-offset-4">explora tus archivos</span> · PDF,
+                DOCX o TXT
+              </p>
+            </div>
+            <span className="text-[0.75rem] text-tinta-3">Hasta 30 archivos por carga · máximo 25 MB cada uno</span>
+          </div>
+
+          {/* Resumen de la última carga */}
+          {resumenMasivo && (
+            <div className="rounded-2xl border border-linea p-3.5 animate-aparecer">
+              <div className="flex items-center justify-between text-[0.8125rem] font-semibold text-tinta">
+                <span>Resultado · {resumenMasivo.total} archivos procesados</span>
+                <button type="button" onClick={() => setResumenMasivo(null)} className="text-tinta-3 hover:text-tinta text-[0.75rem]">
+                  Ocultar
+                </button>
+              </div>
+              <div className="grid grid-cols-3 gap-2 mt-3 text-center">
+                <div className="rounded-xl bg-exito-suave text-exito py-2.5">
+                  <span className="cifra block text-[1.6rem]">{resumenMasivo.exitosos}</span>
+                  <span className="text-[0.75rem] font-semibold">Indexados</span>
+                </div>
+                <div className="rounded-xl bg-luz-suave text-luz-tinta py-2.5">
+                  <span className="cifra block text-[1.6rem]">{resumenMasivo.duplicados}</span>
+                  <span className="text-[0.75rem] font-semibold">Duplicados</span>
+                </div>
+                <div className="rounded-xl bg-error-suave text-error py-2.5">
+                  <span className="cifra block text-[1.6rem]">{resumenMasivo.fallidos}</span>
+                  <span className="text-[0.75rem] font-semibold">Con error</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Cola de archivos */}
+          {archivosMasivos.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between pb-2">
+                <p className="ceja">En cola · {archivosMasivos.length}/30</p>
+                {!subiendoMasivo && (
+                  <button
+                    type="button"
+                    onClick={limpiarListaMasiva}
+                    className="flex items-center gap-1 text-[0.8125rem] font-medium text-tinta-2 hover:text-error transition-colors"
+                  >
+                    <Trash2 size={13} />
+                    Limpiar lista
+                  </button>
+                )}
+              </div>
+              <ul className="max-h-56 overflow-y-auto barra-fina space-y-1.5 pr-1">
+                {archivosMasivos.map((item) => {
+                  const ext = item.file.name.slice(item.file.name.lastIndexOf(".")).toLowerCase();
+                  const sizeKb = Math.round(item.file.size / 1024);
+                  const sizeDisplay = sizeKb > 1024 ? `${(sizeKb / 1024).toFixed(1)} MB` : `${sizeKb} KB`;
+                  const estadoArchivo = ESTADO_ARCHIVO[item.status];
+
+                  return (
+                    <li key={item.id} className="flex items-center justify-between gap-3 rounded-xl border border-linea bg-superficie px-3 py-2.5">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className="numeral text-[0.75rem] uppercase w-9 text-center rounded-md bg-papel-2 text-tinta-2 py-0.5 shrink-0">
+                          {ext.replace(".", "")}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-[0.8125rem] font-semibold text-tinta truncate" title={item.file.name}>
+                            {item.file.name}
+                          </p>
+                          <p className="text-[0.75rem] text-tinta-3 truncate" title={item.mensaje}>
+                            {sizeDisplay}
+                            {item.mensaje ? ` · ${item.mensaje}` : ""}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className={`insignia ${estadoArchivo.clase}`}>
+                          {item.status === "subiendo" ? <IndicadorVentanas /> : item.status === "exito" ? <CheckCircle2 size={12} /> : null}
+                          {estadoArchivo.texto}
+                        </span>
+                        {!subiendoMasivo && (
+                          <button
+                            type="button"
+                            onClick={() => eliminarArchivoMasivo(item.id)}
+                            aria-label={`Quitar ${item.file.name}`}
+                            className="boton-icono !w-8 !h-8 hover:!text-error"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+        </div>
+      </Modal>
+
+      {/* ── Edición y reindexación ──────────────────────────────── */}
+      <Modal
+        abierto={modalEditarAbierto && !!docAEditar}
+        onCerrar={() => setModalEditarAbierto(false)}
+        bloqueado={guardandoEdicion}
+        icono={<Edit3 size={17} />}
+        titulo="Editar documento"
+        descripcion="Puedes renombrarlo o reemplazar el archivo; si lo reemplazas se vuelven a calcular sus fragmentos."
+        pie={
+          <>
+            <button type="button" onClick={() => setModalEditarAbierto(false)} disabled={guardandoEdicion} className="boton boton-fantasma">
+              Cancelar
+            </button>
+            <button type="submit" form="form-editar-documento" disabled={guardandoEdicion || !editTitulo.trim()} className="boton boton-primario">
+              {guardandoEdicion ? (
+                <>
+                  <IndicadorVentanas />
+                  {editArchivo ? "Regenerando embeddings…" : "Guardando…"}
+                </>
+              ) : (
+                "Guardar cambios"
+              )}
+            </button>
+          </>
+        }
+      >
+        <form id="form-editar-documento" onSubmit={handleActualizarDocumento} className="space-y-4 pb-2">
+          {errorEditar && <Aviso icono={<AlertCircle size={16} />}>{errorEditar}</Aviso>}
+          <div>
+            <label htmlFor="editar-titulo" className="etiqueta">
+              Título del documento
+            </label>
+            <input
+              id="editar-titulo"
+              type="text"
+              required
+              value={editTitulo}
+              onChange={(e) => {
+                setEditTitulo(e.target.value);
+                if (errorEditar) setErrorEditar(null);
+              }}
+              disabled={guardandoEdicion}
+              className="campo"
+            />
+          </div>
+          <div>
+            <label htmlFor="editar-archivo" className="etiqueta">
+              Reemplazar archivo (opcional)
+            </label>
+            <input
+              id="editar-archivo"
+              ref={editFileInputRef}
+              type="file"
+              accept=".pdf,.docx,.txt"
+              onChange={(e) => {
+                setEditArchivo(e.target.files?.[0] || null);
+                if (errorEditar) setErrorEditar(null);
+              }}
+              disabled={guardandoEdicion}
+              className="campo !p-1.5 text-[0.8125rem] text-tinta-2 file:mr-3 file:h-8 file:px-3.5 file:rounded-full file:border-0 file:bg-menta file:text-petroleo-hover file:font-semibold hover:file:bg-menta-2"
+            />
+            <p className="text-[0.75rem] text-tinta-3 mt-1.5">
+              {editArchivo
+                ? "Al adjuntar un archivo nuevo se recalculan los fragmentos y embeddings."
+                : "Déjalo vacío si solo quieres cambiar el título."}
             </p>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {documentos.map((doc) => (
-              <div
-                key={doc.id_documento}
-                className="liquid-glass-card rounded-2xl p-5 shadow-xs flex flex-col justify-between transition-all"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-start gap-3.5">
-                    <div className="w-10 h-10 rounded-lg bg-[var(--bg-surface-elevated)] border border-[var(--border-subtle)] flex items-center justify-center text-[var(--text-secondary)] shrink-0 mt-0.5">
-                      {doc.titulo.toLowerCase().includes("faq") ? (
-                        <BookOpen size={18} />
-                      ) : doc.titulo.toLowerCase().includes("api") ? (
-                        <FileText size={18} />
-                      ) : (
-                        <Database size={18} />
-                      )}
-                    </div>
-
-                    <div>
-                      <h3 className="font-semibold text-[var(--text-primary)] text-sm leading-snug">
-                        {doc.titulo}
-                      </h3>
-
-                      <div className="flex flex-wrap items-center gap-2 mt-2">
-                        <span className="text-[10px] font-semibold text-[var(--text-secondary)] bg-[var(--bg-surface-elevated)] border border-[var(--border-subtle)] px-2.5 py-0.5 rounded-full">
-                          Manual
-                        </span>
-                        <span className="text-[11px] text-[var(--text-tertiary)]">·</span>
-                        <span className="text-[11px] text-[var(--text-secondary)] font-medium">
-                          {doc.total_fragmentos} fragmentos
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {doc.activo ? (
-                    <span className="text-[10px] font-semibold text-[#286D68] bg-[#DCEFEA] border border-[#C4E0DA] px-2.5 py-0.5 rounded-full shrink-0">
-                      Publicado
-                    </span>
-                  ) : (
-                    <span className="text-[10px] font-semibold text-[#C89B3C] bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 rounded-full shrink-0">
-                      Despublicado
-                    </span>
-                  )}
-                </div>
-
-                <div className="mt-5 pt-3 border-t border-[var(--border-subtle)] flex items-center justify-between">
-                  <span className="text-[11px] text-[var(--text-tertiary)]">Actualizado {doc.fecha}</span>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => abrirModalEdicion(doc)}
-                      title="Editar o reemplazar archivo"
-                      className="p-2 text-[var(--text-secondary)] hover:text-[var(--accent-primary)] hover:bg-[var(--bg-card-hover)] rounded-xl transition-colors cursor-pointer border border-transparent"
-                    >
-                      <Edit3 size={15} />
-                    </button>
-
-                    <button
-                      onClick={() => handleToggleActivo(doc.id_documento)}
-                      disabled={procesandoDocId === doc.id_documento}
-                      className={`text-xs font-semibold px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 ${
-                        doc.activo
-                          ? "text-[var(--accent-danger)] hover:bg-red-500/10 border border-red-500/20"
-                          : "apple-btn-primary shadow-xs"
-                      }`}
-                    >
-                      {procesandoDocId === doc.id_documento && (
-                        <Loader2 size={12} className="animate-spin" />
-                      )}
-                      <span>{doc.activo ? "Despublicar" : "Publicar"}</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Modal de Carga Masiva / Individual estilo Apple Sheet */}
-      {modalAbierto && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fade-in">
-          <div className="liquid-glass-elevated border border-[var(--border-glass)] rounded-3xl max-w-2xl w-full p-6 sm:p-7 shadow-2xl space-y-4 max-h-[90vh] flex flex-col animate-scale-up">
-            {/* Header del Modal */}
-            <div className="flex items-center justify-between pb-2 border-b border-[var(--border-subtle)]">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-500/10 border border-blue-500/20 text-[var(--accent-primary)] rounded-lg flex items-center justify-center">
-                  <Database size={20} />
-                </div>
-                <div>
-                  <h2 className="text-base font-bold text-[var(--text-primary)] tracking-tight">
-                    Cargar a la Base de Conocimiento
-                  </h2>
-                  <p className="text-xs text-[var(--text-secondary)]">
-                    Indexación vectorial para el motor RAG de Comunidad Clara
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => !subiendoMasivo && setModalAbierto(false)}
-                disabled={subiendoMasivo}
-                className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] disabled:opacity-30 p-1.5 rounded-xl hover:bg-[var(--bg-card-hover)] transition-colors cursor-pointer"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            {/* Error */}
-            {errorCrear && (
-              <div className="flex items-start gap-2.5 p-3.5 bg-red-500/10 border border-red-500/20 text-[var(--accent-danger)] rounded-lg text-xs animate-fade-in">
-                <AlertCircle size={16} className="shrink-0 mt-0.5" />
-                <span className="leading-snug">{errorCrear}</span>
-              </div>
-            )}
-
-            {/* Contenido de Carga Drag & Drop */}
-            <div className="flex-1 overflow-y-auto space-y-4 apple-scrollbar">
-              <div className="space-y-4">
-                {/* Dropzone Drag & Drop */}
-                <div
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (!subiendoMasivo) setArrastrando(true);
-                  }}
-                  onDragLeave={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setArrastrando(false);
-                  }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setArrastrando(false);
-                    if (!subiendoMasivo && e.dataTransfer.files) {
-                      agregarArchivosMasivos(e.dataTransfer.files);
-                    }
-                  }}
-                  onClick={() => {
-                    if (!subiendoMasivo && multiFileInputRef.current) {
-                      multiFileInputRef.current.click();
-                    }
-                  }}
-                  className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-2.5 select-none ${
-                    arrastrando
-                      ? "border-[var(--accent-primary)] bg-blue-500/10 scale-[1.01]"
-                      : "border-[var(--border-glass)] bg-[var(--bg-surface-elevated)]/40 hover:bg-[var(--bg-card-hover)]"
-                  } ${subiendoMasivo ? "opacity-50 pointer-events-none" : ""}`}
-                >
-                  <input
-                    ref={multiFileInputRef}
-                    type="file"
-                    multiple
-                    accept=".pdf,.docx,.txt"
-                    className="hidden"
-                    onChange={(e) => {
-                      if (e.target.files) {
-                        agregarArchivosMasivos(e.target.files);
-                      }
-                    }}
-                  />
-                  <div className="w-12 h-12 bg-blue-500/10 border border-blue-500/20 rounded-lg flex items-center justify-center text-[var(--accent-primary)] shadow-sm">
-                    <UploadCloud size={26} />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-[var(--text-primary)]">
-                      Arrastra y suelta tus documentos aquí
-                    </p>
-                    <p className="text-xs text-[var(--text-secondary)] mt-0.5">
-                      o <span className="text-[var(--accent-primary)] font-semibold underline underline-offset-2">explora tus archivos</span> (PDF, DOCX o TXT)
-                    </p>
-                  </div>
-                  <span className="text-[11px] text-[var(--text-tertiary)] font-medium">
-                    Puedes subir uno o varios documentos a la vez • Máximo 25 MB por archivo
-                  </span>
-                </div>
-
-                {/* Resumen de resultados si hubo carga */}
-                {resumenMasivo && (
-                  <div className="p-3.5 liquid-glass border border-[var(--border-subtle)] rounded-lg space-y-1.5 text-xs">
-                    <div className="font-semibold text-[var(--text-primary)] flex items-center justify-between">
-                      <span>Resumen ({resumenMasivo.total} archivos procesados):</span>
-                      <button
-                        type="button"
-                        onClick={() => setResumenMasivo(null)}
-                        className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] text-[11px]"
-                      >
-                        Ocultar
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2 pt-1 text-center font-semibold">
-                      <div className="p-2 bg-emerald-500/10 text-[#52966A] rounded-xl border border-emerald-500/20">
-                        <span className="block text-base font-bold">{resumenMasivo.exitosos}</span>
-                        <span>Indexados</span>
-                      </div>
-                      <div className="p-2 bg-amber-500/10 text-[#C89B3C] rounded-xl border border-amber-500/20">
-                        <span className="block text-base font-bold">{resumenMasivo.duplicados}</span>
-                        <span>Duplicados</span>
-                      </div>
-                      <div className="p-2 bg-red-500/10 text-[#C53030] rounded-xl border border-red-500/20">
-                        <span className="block text-base font-bold">{resumenMasivo.fallidos}</span>
-                        <span>Con error</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Lista de archivos en cola */}
-                {archivosMasivos.length > 0 && (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-xs font-semibold text-[var(--text-secondary)]">
-                      <span>Archivos en cola ({archivosMasivos.length}/30):</span>
-                      {!subiendoMasivo && (
-                        <button
-                          type="button"
-                          onClick={limpiarListaMasiva}
-                          className="text-[var(--text-tertiary)] hover:text-[var(--accent-danger)] transition-colors flex items-center gap-1 cursor-pointer"
-                        >
-                          <Trash2 size={12} />
-                          <span>Limpiar lista</span>
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="max-h-56 overflow-y-auto space-y-2 pr-1 border border-[var(--border-subtle)] rounded-lg p-2.5 bg-[var(--bg-surface-elevated)]/30 apple-scrollbar">
-                      {archivosMasivos.map((item) => {
-                        const ext = item.file.name.slice(item.file.name.lastIndexOf(".")).toLowerCase();
-                        const sizeKb = Math.round(item.file.size / 1024);
-                        const sizeDisplay =
-                          sizeKb > 1024 ? `${(sizeKb / 1024).toFixed(1)} MB` : `${sizeKb} KB`;
-
-                        return (
-                          <div
-                            key={item.id}
-                            className="flex items-center justify-between p-2.5 rounded-xl liquid-glass border border-[var(--border-subtle)] text-xs"
-                          >
-                            <div className="flex items-center gap-2.5 min-w-0 pr-2">
-                              <span
-                                className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase shrink-0 ${
-                                  ext === ".pdf"
-                                    ? "bg-rose-500/10 text-[#C53030] border border-rose-500/20"
-                                    : ext === ".docx"
-                                    ? "bg-blue-500/10 text-[#286D68] border border-blue-500/20"
-                                    : "bg-zinc-500/10 text-[#788583] border border-zinc-500/20"
-                                }`}
-                              >
-                                {ext.replace(".", "")}
-                              </span>
-                              <div className="min-w-0">
-                                <p className="font-semibold text-[var(--text-primary)] truncate" title={item.file.name}>
-                                  {item.file.name}
-                                </p>
-                                <span className="text-[10px] text-[var(--text-tertiary)]">
-                                  {sizeDisplay}
-                                </span>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-2 shrink-0">
-                              {item.status === "pendiente" && (
-                                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-zinc-500/10 text-[var(--text-secondary)]">
-                                  Pendiente
-                                </span>
-                              )}
-                              {item.status === "subiendo" && (
-                                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-500/10 text-[var(--accent-primary)] flex items-center gap-1">
-                                  <Loader2 size={10} className="animate-spin" />
-                                  <span>Indexando</span>
-                                </span>
-                              )}
-                              {item.status === "exito" && (
-                                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-[#52966A] flex items-center gap-1">
-                                  <CheckCircle2 size={11} />
-                                  <span>Indexado</span>
-                                </span>
-                              )}
-                              {item.status === "duplicado" && (
-                                <span
-                                  title={item.mensaje}
-                                  className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-[#C89B3C] flex items-center gap-1 cursor-help"
-                                >
-                                  <AlertCircle size={11} />
-                                  <span>Duplicado</span>
-                                </span>
-                              )}
-                              {item.status === "error" && (
-                                <span
-                                  title={item.mensaje}
-                                  className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-500/10 text-[var(--accent-danger)] flex items-center gap-1 cursor-help"
-                                >
-                                  <AlertCircle size={11} />
-                                  <span>Error</span>
-                                </span>
-                              )}
-
-                              {!subiendoMasivo && (
-                                <button
-                                  type="button"
-                                  onClick={() => eliminarArchivoMasivo(item.id)}
-                                  title="Quitar"
-                                  className="p-1 text-[var(--text-tertiary)] hover:text-[var(--accent-danger)] rounded-lg hover:bg-red-500/10 transition-colors cursor-pointer"
-                                >
-                                  <Trash2 size={14} />
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Acciones para Carga Masiva */}
-                <div className="pt-2 flex items-center justify-between border-t border-[var(--border-subtle)]">
-                  <span className="text-xs text-[var(--text-secondary)] font-medium">
-                    {archivosMasivos.filter((a) => a.status === "pendiente").length} archivo(s) listos para indexar
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setModalAbierto(false)}
-                      disabled={subiendoMasivo}
-                      className="px-4 py-2 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)] rounded-xl transition-colors disabled:opacity-50 cursor-pointer"
-                    >
-                      Cerrar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleSubirMasivo}
-                      disabled={
-                        subiendoMasivo ||
-                        archivosMasivos.filter(
-                          (a) => a.status === "pendiente" || a.status === "error"
-                        ).length === 0
-                      }
-                      className="apple-btn-primary flex items-center gap-1.5 text-xs font-semibold px-5 py-2.5 rounded-xl transition-all shadow-md cursor-pointer disabled:opacity-50"
-                    >
-                      {subiendoMasivo ? (
-                        <>
-                          <Loader2 size={14} className="animate-spin" />
-                          <span>Indexando en RAG...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Upload size={14} />
-                          <span>
-                            {(() => {
-                              const pendientes = archivosMasivos.filter(
-                                (a) => a.status === "pendiente" || a.status === "error"
-                              ).length;
-                              return pendientes === 1
-                                ? "Subir e Indexar Documento"
-                                : `Subir e Indexar (${pendientes})`;
-                            })()}
-                          </span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal de Edición y Reindexación */}
-      {modalEditarAbierto && docAEditar && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fade-in">
-          <div className="liquid-glass-elevated border border-[var(--border-glass)] rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-scale-up">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-bold text-[var(--text-primary)] tracking-tight">Editar documento</h2>
-              <button
-                onClick={() => !guardandoEdicion && setModalEditarAbierto(false)}
-                disabled={guardandoEdicion}
-                className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] disabled:opacity-30 cursor-pointer"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            {errorEditar && (
-              <div className="flex items-start gap-2.5 p-3 bg-red-500/10 border border-red-500/20 text-[var(--accent-danger)] rounded-xl text-xs">
-                <AlertCircle size={16} className="shrink-0 mt-0.5" />
-                <span className="leading-snug">{errorEditar}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleActualizarDocumento} className="space-y-4">
-              <div>
-                <label className="text-xs font-semibold text-[var(--text-secondary)] block mb-1">
-                  Título del documento
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={editTitulo}
-                  onChange={(e) => {
-                    setEditTitulo(e.target.value);
-                    if (errorEditar) setErrorEditar(null);
-                  }}
-                  disabled={guardandoEdicion}
-                  className="liquid-input w-full rounded-xl px-3.5 py-2.5 text-sm text-[var(--text-primary)] focus:outline-none disabled:opacity-50"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-[var(--text-secondary)] block mb-1">
-                  Reemplazar archivo adjunto (Opcional)
-                </label>
-                <input
-                  ref={editFileInputRef}
-                  type="file"
-                  accept=".pdf,.docx,.txt"
-                  onChange={(e) => {
-                    setEditArchivo(e.target.files?.[0] || null);
-                    if (errorEditar) setErrorEditar(null);
-                  }}
-                  disabled={guardandoEdicion}
-                  className="liquid-input w-full text-xs text-[var(--text-secondary)] file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-500/10 file:text-[var(--accent-primary)] hover:file:bg-blue-500/20 rounded-xl p-1 disabled:opacity-50 cursor-pointer"
-                />
-                <p className="text-[11px] text-[var(--text-tertiary)] mt-1">
-                  {editArchivo
-                    ? "Al adjuntar un nuevo archivo se recalculan los fragmentos y embeddings en pgvector."
-                    : "Deja este campo vacío si solo deseas renombrar el documento."}
-                </p>
-              </div>
-
-              <div className="pt-2 flex justify-end gap-2 border-t border-[var(--border-subtle)]">
-                <button
-                  type="button"
-                  onClick={() => setModalEditarAbierto(false)}
-                  disabled={guardandoEdicion}
-                  className="px-4 py-2 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)] rounded-xl transition-colors disabled:opacity-50 cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={guardandoEdicion || !editTitulo.trim()}
-                  className="apple-btn-primary flex items-center gap-1.5 text-xs font-semibold px-4 py-2.5 rounded-xl transition-colors cursor-pointer shadow-sm disabled:opacity-50"
-                >
-                  {guardandoEdicion ? (
-                    <>
-                      <Loader2 size={14} className="animate-spin" />
-                      <span>{editArchivo ? "Regenerando embeddings..." : "Guardando cambios..."}</span>
-                    </>
-                  ) : (
-                    <span>Guardar cambios</span>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+        </form>
+      </Modal>
     </div>
   );
 };

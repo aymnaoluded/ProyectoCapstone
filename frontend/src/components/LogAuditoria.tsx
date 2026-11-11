@@ -1,5 +1,8 @@
 ﻿import React, { useEffect, useState } from "react";
-import { ShieldAlert, RefreshCw, Search, Filter, Clock, Activity } from "lucide-react";
+import { Search, Activity, LogIn, FileText } from "lucide-react";
+import { API_URL } from "../utils/api";
+import { EncabezadoPagina, BotonRecargar, Kpi, EstadoVacio } from "./ui/Pagina";
+import { Esqueleto } from "./ui/Skeleton";
 
 interface LogItem {
   id_log: number;
@@ -9,6 +12,22 @@ interface LogItem {
   detalle: string;
   fecha: string;
 }
+
+const CLASE_ACCION: Record<string, string> = {
+  LOGIN: "insignia-resuelto",
+  LOGOUT: "insignia-cerrado",
+  SUBIDA_DOCUMENTO: "insignia-proceso",
+  TOGGLE_DOCUMENTO: "insignia-proceso",
+  CREATE_USUARIO: "bg-noche text-menta",
+  CREACION_TICKET: "insignia-coral",
+  ELIMINAR_DOCUMENTO: "insignia-error",
+};
+
+// "SUBIDA_DOCUMENTO" → "Subida documento"
+const humanizar = (accion: string) => {
+  const t = (accion || "").replace(/_/g, " ").toLowerCase();
+  return t.charAt(0).toUpperCase() + t.slice(1);
+};
 
 export const LogAuditoria: React.FC = () => {
   const [logs, setLogs] = useState<LogItem[]>([]);
@@ -20,7 +39,7 @@ export const LogAuditoria: React.FC = () => {
     setCargando(true);
     try {
       const token = localStorage.getItem("access_token");
-      const res = await fetch(`http://localhost:8000/api/admin/auditoria?t=${Date.now()}`, {
+      const res = await fetch(`${API_URL}/api/admin/auditoria?t=${Date.now()}`, {
         cache: "no-store",
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -47,177 +66,154 @@ export const LogAuditoria: React.FC = () => {
   const accionesUnicas = ["TODAS", ...Array.from(new Set(logs.map((l) => l.accion)))];
 
   const logsFiltrados = logs.filter((l) => {
-    const usuarioStr = (l.usuario || "").toLowerCase();
-    const correoStr = (l.correo || "").toLowerCase();
-    const detalleStr = (l.detalle || "").toLowerCase();
-    const accionStr = (l.accion || "").toLowerCase();
     const termino = busqueda.toLowerCase();
-
     const coincideTexto =
-      usuarioStr.includes(termino) ||
-      correoStr.includes(termino) ||
-      detalleStr.includes(termino) ||
-      accionStr.includes(termino);
-
+      (l.usuario || "").toLowerCase().includes(termino) ||
+      (l.correo || "").toLowerCase().includes(termino) ||
+      (l.detalle || "").toLowerCase().includes(termino) ||
+      (l.accion || "").toLowerCase().includes(termino);
     const coincideAccion = filtroAccion === "TODAS" || l.accion === filtroAccion;
-
     return coincideTexto && coincideAccion;
   });
 
-  const getBadgeColor = (accion: string) => {
-    switch (accion?.toUpperCase()) {
-      case "LOGIN":
-        return "bg-emerald-50 text-emerald-700 border-emerald-200/70";
-      case "LOGOUT":
-        return "bg-slate-100 text-slate-700 border-slate-300";
-      case "SUBIDA_DOCUMENTO":
-        return "bg-[#EDF5F4] text-[#1E5450] border-[#C4E0DA]/70";
-      case "TOGGLE_DOCUMENTO":
-        return "bg-indigo-50 text-indigo-700 border-indigo-200/70";
-      case "CREATE_USUARIO":
-        return "bg-purple-50 text-purple-700 border-purple-200/70";
-      case "CREACION_TICKET":
-        return "bg-amber-50 text-amber-700 border-amber-200/70";
-      case "ELIMINAR_DOCUMENTO":
-        return "bg-rose-50 text-rose-700 border-rose-200/70";
-      default:
-        return "bg-slate-100 text-slate-700 border-slate-200";
-    }
-  };
+  const cargaInicial = cargando && logs.length === 0;
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-[#f8fafc] overflow-y-auto">
-      {/* Cabecera */}
-      <div className="bg-white border-b border-slate-200 px-8 py-6 flex items-center justify-between shrink-0">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Log de Auditoría</h1>
+    <div className="flex-1 min-h-0 overflow-y-auto barra-fina">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 pb-12 space-y-7">
+        <EncabezadoPagina
+          ceja="Seguridad y trazabilidad"
+          titulo={
+            <>
+              Registro de <em>auditoría</em>
+            </>
+          }
+          descripcion="Cada inicio de sesión, carga de documentos, cuenta creada y ticket queda registrado aquí."
+          acciones={<BotonRecargar onClick={cargarLogs} cargando={cargando} />}
+        />
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 escalonado">
+          <Kpi etiqueta="Registros" valor={logs.length} detalle="Acciones auditadas" icono={<Activity size={16} />} />
+          <Kpi
+            etiqueta="Inicios de sesión"
+            valor={logs.filter((l) => l.accion === "LOGIN").length}
+            detalle="Accesos a la plataforma"
+            icono={<LogIn size={16} />}
+            tono="exito"
+          />
+          <Kpi
+            etiqueta="Gestión documental"
+            valor={logs.filter((l) => l.accion === "SUBIDA_DOCUMENTO" || l.accion === "TOGGLE_DOCUMENTO").length}
+            detalle="Cargas y cambios de publicación"
+            icono={<FileText size={16} />}
+            tono="luz"
+          />
         </div>
 
-        <button
-          onClick={cargarLogs}
-          className="flex items-center gap-2 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 border border-slate-200 px-3.5 py-2 rounded-xl transition-all cursor-pointer"
-        >
-          <RefreshCw size={14} className={cargando ? "animate-spin text-[#286D68]" : ""} />
-          <span>Actualizar</span>
-        </button>
-      </div>
-
-      <div className="p-8 space-y-6 max-w-7xl mx-auto w-full">
-        {/* Métricas / Resumen */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-white border border-slate-200/80 rounded-2xl p-5 border border-slate-200/70 shadow-[0_2px_14px_rgba(31,41,51,0.03)] flex items-center justify-between">
-            <div>
-              <span className="text-2xl font-bold text-slate-900 block">{logs.length}</span>
-              <span className="text-xs font-medium text-slate-500 mt-1 block">Total registros</span>
-            </div>
-            <div className="w-10 h-10 bg-[#EDF5F4] text-[#286D68] rounded-xl flex items-center justify-center">
-              <Activity size={20} />
-            </div>
-          </div>
-
-          <div className="bg-white border border-slate-200/80 rounded-2xl p-5 border border-slate-200/70 shadow-[0_2px_14px_rgba(31,41,51,0.03)] flex items-center justify-between">
-            <div>
-              <span className="text-2xl font-bold text-slate-900 block">
-                {logs.filter((l) => l.accion === "LOGIN").length}
-              </span>
-              <span className="text-xs font-medium text-slate-500 mt-1 block">Inicios de sesión</span>
-            </div>
-            <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
-              <ShieldAlert size={20} />
-            </div>
-          </div>
-
-          <div className="bg-white border border-slate-200/80 rounded-2xl p-5 border border-slate-200/70 shadow-[0_2px_14px_rgba(31,41,51,0.03)] flex items-center justify-between">
-            <div>
-              <span className="text-2xl font-bold text-slate-900 block">
-                {logs.filter((l) => l.accion === "SUBIDA_DOCUMENTO" || l.accion === "TOGGLE_DOCUMENTO").length}
-              </span>
-              <span className="text-xs font-medium text-slate-500 mt-1 block">Gestión documental</span>
-            </div>
-            <div className="w-10 h-10 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center">
-              <Clock size={20} />
-            </div>
-          </div>
-        </div>
-
-        {/* Barra de Filtro y Búsqueda */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="relative flex-1 w-full max-w-md">
-            <Search className="absolute left-3 top-3 text-slate-400" size={18} />
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="relative w-full sm:max-w-sm">
+            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-tinta-3 pointer-events-none" />
             <input
-              type="text"
+              type="search"
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
-              placeholder="Buscar por usuario, acción o detalle..."
-              className="w-full bg-white border border-slate-200 rounded-xl py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-1 focus:ring-[#286D68]"
+              placeholder="Buscar por usuario, acción o detalle"
+              aria-label="Buscar en el registro de auditoría"
+              className="campo !pl-10 !rounded-full !min-h-[2.5rem]"
             />
           </div>
-
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <Filter size={14} className="text-slate-400" />
-            <select
-              value={filtroAccion}
-              onChange={(e) => setFiltroAccion(e.target.value)}
-              className="bg-white border border-slate-200 text-slate-700 text-xs rounded-xl px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#286D68]"
-            >
-              {accionesUnicas.map((acc) => (
-                <option key={acc} value={acc}>
-                  {acc === "TODAS" ? "Todas las acciones" : acc}
-                </option>
-              ))}
-            </select>
-          </div>
+          <label htmlFor="filtro-accion" className="sr-only">
+            Filtrar por acción
+          </label>
+          <select
+            id="filtro-accion"
+            value={filtroAccion}
+            onChange={(e) => setFiltroAccion(e.target.value)}
+            className="campo campo-sm !min-h-[2.5rem] w-full sm:w-auto"
+          >
+            {accionesUnicas.map((acc) => (
+              <option key={acc} value={acc}>
+                {acc === "TODAS" ? "Todas las acciones" : humanizar(acc)}
+              </option>
+            ))}
+          </select>
+          {(busqueda || filtroAccion !== "TODAS") && (
+            <span className="text-[0.8125rem] text-tinta-2 sm:ml-auto tabular-nums">
+              {logsFiltrados.length} de {logs.length} registros
+            </span>
+          )}
         </div>
 
-        {/* Tabla de Logs */}
-        <div className="bg-white border border-slate-200/80 rounded-2xl border border-slate-200/70 shadow-[0_2px_14px_rgba(31,41,51,0.03)] overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-slate-50/70 border-b border-slate-200/80 text-slate-500 font-semibold uppercase tracking-wider">
-                <tr>
-                  <th className="px-6 py-3.5">ID</th>
-                  <th className="px-6 py-3.5">Fecha y Hora</th>
-                  <th className="px-6 py-3.5">Usuario</th>
-                  <th className="px-6 py-3.5">Acción</th>
-                  <th className="px-6 py-3.5">Detalle</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {logsFiltrados.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="px-6 py-10 text-center text-slate-400">
-                      {cargando ? "Cargando registros..." : "No hay registros que coincidan con la búsqueda."}
-                    </td>
-                  </tr>
-                ) : (
-                  logsFiltrados.map((item) => (
-                    <tr key={item.id_log} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="px-6 py-3.5 font-mono text-slate-400">#{item.id_log}</td>
-                      <td className="px-6 py-3.5 font-mono text-slate-500 whitespace-nowrap">
-                        {item.fecha}
-                      </td>
-                      <td className="px-6 py-3.5">
-                        <p className="font-semibold text-slate-900">{item.usuario}</p>
-                        <p className="text-xs text-slate-400">{item.correo}</p>
-                      </td>
-                      <td className="px-6 py-3.5">
-                        <span
-                          className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${getBadgeColor(
-                            item.accion
-                          )}`}
-                        >
-                          {item.accion}
-                        </span>
-                      </td>
-                      <td className="px-6 py-3.5 text-slate-600 max-w-md truncate" title={item.detalle}>
-                        {item.detalle}
-                      </td>
+        <div className="superficie overflow-hidden">
+          {cargaInicial ? (
+            <div className="p-5 space-y-3" role="status" aria-label="Cargando registros">
+              {[0, 1, 2, 3, 4].map((i) => (
+                <div key={i} className="flex items-center gap-4">
+                  <Esqueleto className="h-3.5 w-10" />
+                  <Esqueleto className="h-3.5 w-32" />
+                  <Esqueleto className="h-3.5 flex-1" />
+                </div>
+              ))}
+            </div>
+          ) : logsFiltrados.length === 0 ? (
+            <EstadoVacio
+              compacto
+              titulo={logs.length === 0 ? "Sin registros todavía" : "Sin coincidencias"}
+              descripcion={logs.length === 0 ? "Las acciones de la plataforma aparecerán aquí." : "Ningún registro coincide con la búsqueda."}
+            />
+          ) : (
+            <>
+              <div className="hidden md:block overflow-x-auto max-h-[70vh] barra-fina">
+                <table className="tabla">
+                  <caption className="sr-only">Registro de auditoría</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">N.º</th>
+                      <th scope="col">Fecha y hora</th>
+                      <th scope="col">Usuario</th>
+                      <th scope="col">Acción</th>
+                      <th scope="col">Detalle</th>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  </thead>
+                  <tbody>
+                    {logsFiltrados.map((item) => (
+                      <tr key={item.id_log}>
+                        <td className="numeral text-tinta-3">{item.id_log}</td>
+                        <td className="text-tinta-2 tabular-nums whitespace-nowrap">{item.fecha}</td>
+                        <td>
+                          <p className="font-semibold text-tinta">{item.usuario}</p>
+                          <p className="text-[0.8125rem] text-tinta-2">{item.correo}</p>
+                        </td>
+                        <td>
+                          <span className={`insignia ${CLASE_ACCION[item.accion?.toUpperCase()] ?? "insignia-cerrado"}`}>
+                            {humanizar(item.accion)}
+                          </span>
+                        </td>
+                        <td className="text-tinta-2 max-w-md truncate" title={item.detalle}>
+                          {item.detalle}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <ul className="md:hidden divide-y divide-linea">
+                {logsFiltrados.map((item) => (
+                  <li key={item.id_log} className="px-4 py-3.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className={`insignia ${CLASE_ACCION[item.accion?.toUpperCase()] ?? "insignia-cerrado"}`}>
+                        {humanizar(item.accion)}
+                      </span>
+                      <span className="text-[0.75rem] text-tinta-3 tabular-nums">{item.fecha}</span>
+                    </div>
+                    <p className="text-[0.875rem] font-semibold text-tinta mt-2">{item.usuario}</p>
+                    <p className="text-[0.8125rem] text-tinta-2 mt-0.5 [overflow-wrap:anywhere]">{item.detalle}</p>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
         </div>
       </div>
     </div>

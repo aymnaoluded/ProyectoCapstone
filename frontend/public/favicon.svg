@@ -1,11 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
-  <rect width="64" height="64" rx="12" fill="#1E4E79"/>
-  <!-- Building / Community Icon -->
-  <path d="M16 48V24L32 14L48 24V48H16Z" fill="#173C5E" stroke="#FFFFFF" stroke-width="2.5" stroke-linejoin="round"/>
-  <rect x="24" y="26" width="6" height="6" rx="1" fill="#FFFFFF"/>
-  <rect x="34" y="26" width="6" height="6" rx="1" fill="#FFFFFF"/>
-  <rect x="24" y="36" width="6" height="6" rx="1" fill="#FFFFFF"/>
-  <rect x="34" y="36" width="6" height="6" rx="1" fill="#FFFFFF"/>
-  <path d="M28 48V42H36V48" stroke="#E3A21A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="48" cy="18" r="4" fill="#E3A21A"/>
+  <!-- Marca Comunidad Clara: edificio con remate en arco y ventanas encendidas -->
+  <rect width="64" height="64" rx="15" fill="#0E2624"/>
+  <path d="M17 54V29a15 15 0 0 1 30 0v25z" fill="#1A403D" stroke="#63A69B" stroke-width="2.5" stroke-linejoin="round"/>
+  <rect x="23" y="25" width="7" height="7" rx="1.5" fill="#DCEFEA" fill-opacity=".22"/>
+  <rect x="34" y="25" width="7" height="7" rx="1.5" fill="#F2B441"/>
+  <rect x="23" y="35" width="7" height="7" rx="1.5" fill="#F2B441"/>
+  <rect x="34" y="35" width="7" height="7" rx="1.5" fill="#DCEFEA" fill-opacity=".22"/>
+  <rect x="28.5" y="45" width="7" height="9" rx="1.5" fill="#DCEFEA" fill-opacity=".55"/>
 </svg>

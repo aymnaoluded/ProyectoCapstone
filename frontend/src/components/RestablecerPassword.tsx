@@ -1,15 +1,9 @@
 ﻿import React, { useState } from "react";
-import {
-  Building2,
-  Lock,
-  ArrowRight,
-  AlertCircle,
-  Loader2,
-  CheckCircle2,
-  Eye,
-  EyeOff,
-} from "lucide-react";
+import { Lock, ArrowRight, AlertCircle, CheckCircle2 } from "lucide-react";
 import { API_URL } from "../utils/api";
+import { PantallaAcceso, CampoConIcono, LargoClave } from "./ui/PantallaAcceso";
+import { Aviso } from "./ui/Pagina";
+import { IndicadorVentanas } from "./ui/Fachada";
 
 const RestablecerPassword: React.FC = () => {
   const token = new URLSearchParams(window.location.search).get("token");
@@ -51,11 +45,7 @@ const RestablecerPassword: React.FC = () => {
 
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-        throw new Error(
-          typeof data?.detail === "string"
-            ? data.detail
-            : "No se pudo restablecer la contraseña."
-        );
+        throw new Error(typeof data?.detail === "string" ? data.detail : "No se pudo restablecer la contraseña.");
       }
 
       setCompletado(true);
@@ -69,143 +59,104 @@ const RestablecerPassword: React.FC = () => {
     }
   };
 
+  if (completado) {
+    return (
+      <PantallaAcceso
+        ceja="Contraseña actualizada"
+        titulo={
+          <>
+            Todo listo, <em>vuelve a entrar</em>
+          </>
+        }
+        descripcion="Tu contraseña se restableció correctamente. Ya puedes acceder a Comunidad Clara."
+        ilustracion={
+          <span className="arco grid place-items-center w-11 h-12 bg-exito-suave text-exito mb-5">
+            <CheckCircle2 size={22} />
+          </span>
+        }
+      >
+        <button type="button" onClick={() => window.location.assign("/")} className="boton boton-primario boton-lg w-full">
+          Iniciar sesión
+          <ArrowRight size={17} />
+        </button>
+      </PantallaAcceso>
+    );
+  }
+
   return (
-    <div className="min-h-screen w-screen bg-[#F6F5F0] flex items-center justify-center p-4 font-sans select-none">
-      <div className="w-full max-w-md bg-white rounded-3xl p-8 sm:p-10 shadow-[0_12px_40px_rgba(31,41,51,0.06)] border border-slate-200/80 shadow-sm border border-[#E7EAE7] space-y-6">
-        <div className="text-center space-y-2">
-          <div className="w-12 h-12 bg-[#286D68] text-white rounded-2xl bg-gradient-to-br from-[#286D68] to-[#1E5450] text-white flex items-center justify-center mx-auto shadow-md ring-1 ring-white/20">
-            <Building2 size={24} />
-          </div>
-          <h1 className="text-2xl font-bold font-heading text-[#1E5450]">
-            Comunidad Clara
-          </h1>
-          <p className="text-sm text-[#788583]">
-            Restablecer contraseña institucional
-          </p>
+    <PantallaAcceso
+      ceja="Restablecer contraseña"
+      titulo={
+        <>
+          Elige una <em>nueva contraseña</em>
+        </>
+      }
+      descripcion="Debe tener al menos 8 caracteres. Después podrás entrar con ella de inmediato."
+    >
+      <form onSubmit={handleSubmit} className="space-y-5">
+        {(error || !token) && (
+          <Aviso icono={<AlertCircle size={16} />}>
+            {error || "El enlace no contiene un token. Solicita uno nuevo desde el inicio de sesión."}
+          </Aviso>
+        )}
+
+        <div>
+          <CampoConIcono
+            id="nueva-password"
+            etiqueta="Nueva contraseña"
+            icono={Lock}
+            conMostrar
+            mostrarControlado={mostrar}
+            onToggleMostrar={() => setMostrar((v) => !v)}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Mínimo 8 caracteres"
+            autoComplete="new-password"
+            minLength={8}
+            maxLength={256}
+            required
+          />
+          <LargoClave valor={password} />
         </div>
 
-        {completado ? (
-          <div className="space-y-5 text-center">
-            <div className="flex justify-center">
-              <div className="w-13 h-13 bg-[#52966A]/15 text-[#52966A] rounded-xl flex items-center justify-center">
-                <CheckCircle2 size={30} />
-              </div>
-            </div>
+        <CampoConIcono
+          id="confirmar-password"
+          etiqueta="Confirmar contraseña"
+          icono={Lock}
+          conMostrar
+          mostrarControlado={mostrar}
+          onToggleMostrar={() => setMostrar((v) => !v)}
+          value={confirmar}
+          onChange={(e) => setConfirmar(e.target.value)}
+          placeholder="Repite la contraseña"
+          autoComplete="new-password"
+          minLength={8}
+          maxLength={256}
+          required
+        />
 
-            <h2 className="text-lg font-bold font-heading text-[#1E5450]">
-              ¡Contraseña actualizada con éxito!
-            </h2>
+        <button type="submit" disabled={cargando || !token} className="boton boton-primario boton-lg w-full">
+          {cargando ? (
+            <>
+              <IndicadorVentanas />
+              Guardando…
+            </>
+          ) : (
+            <>
+              Restablecer contraseña
+              <ArrowRight size={17} />
+            </>
+          )}
+        </button>
+      </form>
 
-            <p className="text-sm text-[#788583]">
-              Tu contraseña se restableció correctamente. Ya puedes acceder a Comunidad Clara.
-            </p>
-
-            <button
-              type="button"
-              onClick={() => window.location.assign("/")}
-              className="w-full bg-[#286D68] hover:bg-[#1E5450] text-white font-heading font-semibold py-2.5 rounded-xl flex items-center justify-center gap-2 text-sm transition-all cursor-pointer shadow-xs"
-            >
-              Iniciar sesión
-              <ArrowRight size={18} />
-            </button>
-          </div>
-        ) : (
-          <>
-            {(error || !token) && (
-              <div role="alert" className="flex items-start gap-3 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700">
-                <AlertCircle size={18} className="shrink-0 text-red-600 mt-0.5" />
-                <span className="text-xs font-medium">
-                  {error || "El enlace no contiene un token. Solicita uno nuevo desde el inicio de sesión."}
-                </span>
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-1.5">
-                <label htmlFor="nueva-password" className="text-xs font-semibold text-[#788583]">
-                  Nueva contraseña
-                </label>
-
-                <div className="relative flex items-center">
-                  <Lock className="absolute left-3.5 text-[#788583]" size={16} />
-
-                  <input
-                    id="nueva-password"
-                    type={mostrar ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Mínimo 8 caracteres"
-                    autoComplete="new-password"
-                    minLength={8}
-                    maxLength={256}
-                    required
-                    className="w-full bg-white border border-[#CDD4D3] rounded-xl py-2.5 pl-10 pr-11 text-sm text-[#293A3B] placeholder-[#7B8794] focus:outline-none focus:border-[#286D68] focus:ring-2 focus:ring-[#286D68]/15 transition-all"
-                  />
-
-                  <button
-                    type="button"
-                    onClick={() => setMostrar(!mostrar)}
-                    aria-label={mostrar ? "Ocultar contraseñas" : "Mostrar contraseñas"}
-                    className="absolute right-3.5 text-[#788583] hover:text-[#293A3B] cursor-pointer"
-                  >
-                    {mostrar ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label htmlFor="confirmar-password" className="text-xs font-semibold text-[#788583]">
-                  Confirmar contraseña
-                </label>
-
-                <div className="relative flex items-center">
-                  <Lock className="absolute left-3.5 text-[#788583]" size={16} />
-
-                  <input
-                    id="confirmar-password"
-                    type={mostrar ? "text" : "password"}
-                    value={confirmar}
-                    onChange={(e) => setConfirmar(e.target.value)}
-                    placeholder="Repite la contraseña"
-                    autoComplete="new-password"
-                    minLength={8}
-                    maxLength={256}
-                    required
-                    className="w-full bg-white border border-[#CDD4D3] rounded-xl py-2.5 pl-10 pr-4 text-sm text-[#293A3B] placeholder-[#7B8794] focus:outline-none focus:border-[#286D68] focus:ring-2 focus:ring-[#286D68]/15 transition-all"
-                  />
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={cargando || !token}
-                className="w-full bg-[#286D68] hover:bg-[#1E5450] disabled:opacity-50 disabled:cursor-not-allowed text-white font-heading font-semibold py-2.5 rounded-xl flex items-center justify-center gap-2 text-sm shadow-xs transition-all cursor-pointer"
-              >
-                {cargando ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin" />
-                    Guardando...
-                  </>
-                ) : (
-                  <>
-                    <span>Restablecer contraseña</span>
-                    <ArrowRight size={18} />
-                  </>
-                )}
-              </button>
-            </form>
-
-            <button
-              type="button"
-              onClick={() => window.location.assign("/recuperar-password")}
-              className="w-full text-xs font-medium text-[#286D68] hover:text-[#1E5450] hover:underline text-center cursor-pointer"
-            >
-              Solicitar un nuevo enlace
-            </button>
-          </>
-        )}
-      </div>
-    </div>
+      <a
+        href="/recuperar-password"
+        className="mt-6 block text-center text-[0.875rem] font-semibold text-petroleo hover:underline underline-offset-4"
+      >
+        Solicitar un nuevo enlace
+      </a>
+    </PantallaAcceso>
   );
 };
 

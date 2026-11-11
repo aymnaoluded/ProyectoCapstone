@@ -1,16 +1,6 @@
 import React from "react";
-import {
-  MessageSquare,
-  Ticket,
-  Users,
-  Database,
-  BarChart3,
-  ShieldCheck,
-  Inbox,
-  Clock,
-} from "lucide-react";
 import type { Usuario } from "../types";
-import type { VistaApp } from "./Sidebar";
+import { itemsDeRol, type VistaApp } from "./navegacion";
 
 interface MobileNavProps {
   usuario: Usuario;
@@ -18,59 +8,42 @@ interface MobileNavProps {
   setVistaActiva: (vista: VistaApp) => void;
 }
 
-export const MobileNav: React.FC<MobileNavProps> = ({
-  usuario,
-  vistaActiva,
-  setVistaActiva,
-}) => {
-  // Construir opciones según el rol del usuario
-  const items: Array<{ id: VistaApp; label: string; icon: React.ReactNode }> = [];
-
-  if (usuario.rol_nombre === "Cliente") {
-    items.push(
-      { id: "chat", label: "Asistente IA", icon: <MessageSquare size={18} /> },
-      { id: "mis_tickets", label: "Mis Solicitudes", icon: <Ticket size={18} /> }
-    );
-  } else if (usuario.rol_nombre === "Ejecutivo") {
-    items.push(
-      { id: "bandeja_tickets", label: "Bandeja", icon: <Inbox size={18} /> },
-      { id: "tickets_asignados", label: "Asignados", icon: <Ticket size={18} /> },
-      { id: "historial_tickets", label: "Historial", icon: <Clock size={18} /> }
-    );
-  } else if (usuario.rol_nombre === "Administrador") {
-    items.push(
-      { id: "admin_conocimiento", label: "RAG Docs", icon: <Database size={18} /> },
-      { id: "admin_usuarios", label: "Usuarios", icon: <Users size={18} /> },
-      { id: "metricas", label: "Métricas", icon: <BarChart3 size={18} /> },
-      { id: "bandeja_tickets", label: "Tickets", icon: <Inbox size={18} /> },
-      { id: "auditoria", label: "Auditoría", icon: <ShieldCheck size={18} /> }
-    );
-  }
+/* Barra inferior del celular: la sección activa se marca con una ventana encendida */
+export const MobileNav: React.FC<MobileNavProps> = ({ usuario, vistaActiva, setVistaActiva }) => {
+  const items = itemsDeRol(usuario.rol_nombre).filter((i) => i.enMovil).slice(0, 5);
 
   return (
-    <nav className="md:hidden fixed bottom-2 inset-x-2 z-40 font-sans">
-      <div className="bg-white rounded-lg p-1.5 flex items-center justify-around shadow-lg border border-[#E7EAE7]">
+    <nav
+      aria-label="Navegación principal"
+      className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-superficie/95 backdrop-blur-md border-t border-linea pb-seguro"
+    >
+      <ul className="flex items-stretch justify-around px-1.5">
         {items.map((item) => {
-          const isActive = vistaActiva === item.id;
+          const activo = vistaActiva === item.vista;
+          const Icono = item.icono;
           return (
-            <button
-              key={item.id}
-              onClick={() => setVistaActiva(item.id)}
-              type="button"
-              className={`flex-1 flex flex-col items-center justify-center py-1.5 px-2 rounded-lg transition-all duration-150 cursor-pointer ${
-                isActive
-                  ? "bg-[#DCEFEA] text-[#286D68] shadow-xs font-semibold"
-                  : "text-[#788583] hover:text-[#293A3B] hover:bg-[#F6F5F0]"
-              }`}
-            >
-              <div>{item.icon}</div>
-              <span className="text-[10px] font-heading font-medium mt-0.5 tracking-tight">
-                {item.label}
-              </span>
-            </button>
+            <li key={item.vista} className="flex-1">
+              <button
+                onClick={() => setVistaActiva(item.vista)}
+                type="button"
+                aria-current={activo ? "page" : undefined}
+                className={`relative w-full flex flex-col items-center justify-center gap-1 pt-2.5 pb-2 min-h-[3.5rem] transition-colors
+                  ${activo ? "text-petroleo" : "text-tinta-3 active:text-tinta"}`}
+              >
+                <span
+                  aria-hidden="true"
+                  className={`absolute top-0 h-[3px] rounded-b-sm transition-all duration-300 ease-curva
+                    ${activo ? "w-6 bg-luz shadow-[0_0_10px_rgba(242,180,65,0.8)]" : "w-0 bg-transparent"}`}
+                />
+                <Icono size={20} strokeWidth={activo ? 2.25 : 1.9} />
+                <span className={`text-[0.6875rem] tracking-tight ${activo ? "font-semibold" : "font-medium"}`}>
+                  {item.corta}
+                </span>
+              </button>
+            </li>
           );
         })}
-      </div>
+      </ul>
     </nav>
   );
 };

@@ -1,19 +1,12 @@
 ﻿import React, { useEffect, useState } from "react";
-import {
-  Inbox,
-  Clock,
-  User,
-  Send,
-  RefreshCw,
-  Loader2,
-  Filter,
-  Star,
-  MessageSquare,
-  RotateCcw,
-  X
-} from "lucide-react";
+import { Star, RotateCcw, ArrowLeft, ChevronDown, Mail, UserRound, UserCheck, Hand } from "lucide-react";
 import type { Usuario } from "../types";
 import { cabecerasAuth, API_URL } from "../utils/api";
+import { useToast } from "../context/ToastContext";
+import { EncabezadoPagina, BotonRecargar, EstadoVacio, InsigniaEstado } from "./ui/Pagina";
+import { TarjetaTicket, EsqueletoTickets, HiloMensajes, CompositorHilo, NotaHilo, type MensajeHilo } from "./ui/Tickets";
+import { Modal } from "./ui/Modal";
+import { IndicadorVentanas } from "./ui/Fachada";
 
 interface TicketItem {
   id_ticket: number;
@@ -33,15 +26,6 @@ interface TicketItem {
     id: number;
     nombre: string;
   } | null;
-}
-
-interface MensajeTicket {
-  id_mensaje: number;
-  contenido: string;
-  fecha: string;
-  autor_id: number;
-  autor_nombre: string;
-  autor_rol: number;
 }
 
 interface PersonalAsignable {
@@ -65,7 +49,7 @@ const ESTADOS_DISPONIBLES = [
   { id: 2, nombre: "En Proceso" },
   { id: 3, nombre: "En Espera" },
   { id: 4, nombre: "Resuelto" },
-  { id: 5, nombre: "Cerrado" }
+  { id: 5, nombre: "Cerrado" },
 ];
 
 export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
@@ -73,24 +57,26 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
   soloAsignados = false,
   soloHistorial = false,
 }) => {
+  const toast = useToast();
   const [tickets, setTickets] = useState<TicketItem[]>([]);
   const [cargando, setCargando] = useState(true);
   const [filtroEstado, setFiltroEstado] = useState<number | null>(null);
   const [ticketSeleccionado, setTicketSeleccionado] = useState<TicketItem | null>(null);
-  const [mensajes, setMensajes] = useState<MensajeTicket[]>([]);
+  const [mensajes, setMensajes] = useState<MensajeHilo[]>([]);
   const [cargandoDetalle, setCargandoDetalle] = useState(false);
   const [nuevoMensaje, setNuevoMensaje] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [actualizandoEstado, setActualizandoEstado] = useState(false);
   const [personalAsignable, setPersonalAsignable] = useState<PersonalAsignable[]>([]);
   const [modalReabrir, setModalReabrir] = useState(false);
+  const [descripcionAbierta, setDescripcionAbierta] = useState(false);
 
   const esAdmin = usuario.rol_nombre === "Administrador";
 
   // Muestra el mensaje de error del backend (por ejemplo, un 403 si el ticket ya no es de este ejecutivo)
   const mostrarErrorApi = async (res: Response, porDefecto: string) => {
     const errorData = await res.json().catch(() => null);
-    alert(typeof errorData?.detail === "string" ? errorData.detail : porDefecto);
+    toast.error(porDefecto, typeof errorData?.detail === "string" ? errorData.detail : undefined);
   };
 
   // Solo el Administrador puede asignar tickets a otras personas
@@ -114,27 +100,28 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
         let data = await res.json();
         if (Array.isArray(data)) {
           if (soloHistorial) {
-            data = data.filter((t: any) => t.id_estado === ID_ESTADO_CERRADO);
+            data = data.filter((t: TicketItem) => t.id_estado === ID_ESTADO_CERRADO);
             if (usuario.rol_nombre === "Ejecutivo") {
-              data = data.filter((t: any) => t.ejecutivo && t.ejecutivo.id === usuario.id_usuario);
+              data = data.filter((t: TicketItem) => t.ejecutivo && t.ejecutivo.id === usuario.id_usuario);
             }
           } else if (soloAsignados) {
             data = data.filter(
-              (t: any) =>
-                t.ejecutivo &&
-                t.ejecutivo.id === usuario.id_usuario &&
-                t.id_estado !== ID_ESTADO_CERRADO
+              (t: TicketItem) =>
+                t.ejecutivo && t.ejecutivo.id === usuario.id_usuario && t.id_estado !== ID_ESTADO_CERRADO
             );
           } else if (usuario.rol_nombre === "Ejecutivo") {
-            data = data.filter((t: any) => !t.ejecutivo && t.id_estado !== ID_ESTADO_CERRADO);
+            data = data.filter((t: TicketItem) => !t.ejecutivo && t.id_estado !== ID_ESTADO_CERRADO);
           } else {
-            data = data.filter((t: any) => t.id_estado !== ID_ESTADO_CERRADO);
+            data = data.filter((t: TicketItem) => t.id_estado !== ID_ESTADO_CERRADO);
           }
         }
         setTickets(data);
+      } else {
+        toast.error("No se pudo cargar la bandeja", "Inténtalo nuevamente en unos segundos.");
       }
     } catch (err) {
       console.error("Error al cargar la bandeja de tickets:", err);
+      toast.error("Sin conexión con el servidor", "No se pudo cargar la bandeja.");
     } finally {
       setCargando(false);
     }
@@ -142,6 +129,7 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
 
   useEffect(() => {
     cargarTickets();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtroEstado, soloAsignados, soloHistorial]);
 
   const seleccionarTicket = async (ticket: TicketItem) => {
@@ -149,7 +137,7 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
     setCargandoDetalle(true);
     try {
       const res = await fetch(`${API_URL}/api/tickets/${ticket.id_ticket}`, {
-        headers: cabecerasAuth()
+        headers: cabecerasAuth(),
       });
       if (res.ok) {
         const data = await res.json();
@@ -170,8 +158,8 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
         method: "PATCH",
         headers: cabecerasAuth({ "Content-Type": "application/json" }),
         body: JSON.stringify({
-          id_estado: nuevoEstadoId
-        })
+          id_estado: nuevoEstadoId,
+        }),
       });
 
       if (res.ok) {
@@ -179,17 +167,17 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
         const datosActualizados: TicketItem = {
           ...ticketSeleccionado,
           id_estado: nuevoEstadoId,
-          estado: estadoObj?.nombre || ticketSeleccionado.estado
+          estado: estadoObj?.nombre || ticketSeleccionado.estado,
         };
         setTicketSeleccionado(datosActualizados);
-        setTickets((prev) =>
-          prev.map((t) => (t.id_ticket === ticketSeleccionado.id_ticket ? datosActualizados : t))
-        );
+        setTickets((prev) => prev.map((t) => (t.id_ticket === ticketSeleccionado.id_ticket ? datosActualizados : t)));
+        toast.exito(`Ticket #${ticketSeleccionado.id_ticket} actualizado`, `Nuevo estado: ${datosActualizados.estado}.`);
       } else {
         await mostrarErrorApi(res, "No se pudo actualizar el estado del ticket.");
       }
     } catch (err) {
       console.error("Error al actualizar estado:", err);
+      toast.error("Sin conexión con el servidor", "El estado no cambió.");
     } finally {
       setActualizandoEstado(false);
     }
@@ -206,11 +194,12 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
       const res = await fetch(`${API_URL}/api/tickets/${ticketSeleccionado.id_ticket}/estado`, {
         method: "PATCH",
         headers: cabecerasAuth({ "Content-Type": "application/json" }),
-        body: JSON.stringify({ id_estado: nuevoEstadoId })
+        body: JSON.stringify({ id_estado: nuevoEstadoId }),
       });
 
       if (res.ok) {
         // Deja de estar cerrado: sale del historial
+        toast.exito(`Ticket #${ticketSeleccionado.id_ticket} reabierto`, "Volvió a la bandeja de casos activos.");
         setTickets((prev) => prev.filter((t) => t.id_ticket !== ticketSeleccionado.id_ticket));
         setTicketSeleccionado(null);
       } else {
@@ -218,6 +207,7 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
       }
     } catch (err) {
       console.error("Error al reabrir ticket:", err);
+      toast.error("Sin conexión con el servidor", "El ticket sigue cerrado.");
     } finally {
       setActualizandoEstado(false);
       setModalReabrir(false);
@@ -237,8 +227,8 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
         headers: cabecerasAuth({ "Content-Type": "application/json" }),
         body: JSON.stringify({
           id_estado: nuevoEstadoId,
-          ejecutivo_id: ejecutivoId
-        })
+          ejecutivo_id: ejecutivoId,
+        }),
       });
 
       if (res.ok) {
@@ -247,17 +237,54 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
           ...ticketSeleccionado,
           id_estado: nuevoEstadoId,
           estado: estadoObj?.nombre || ticketSeleccionado.estado,
-          ejecutivo: { id: ejecutivoId, nombre: persona?.nombre || "Ejecutivo" }
+          ejecutivo: { id: ejecutivoId, nombre: persona?.nombre || "Ejecutivo" },
         };
         setTicketSeleccionado(datosActualizados);
-        setTickets((prev) =>
-          prev.map((t) => (t.id_ticket === ticketSeleccionado.id_ticket ? datosActualizados : t))
-        );
+        setTickets((prev) => prev.map((t) => (t.id_ticket === ticketSeleccionado.id_ticket ? datosActualizados : t)));
+        toast.exito(`Ticket #${ticketSeleccionado.id_ticket} asignado`, `Responsable: ${datosActualizados.ejecutivo?.nombre}.`);
       } else {
         await mostrarErrorApi(res, "No se pudo asignar el ticket.");
       }
     } catch (err) {
       console.error("Error al asignar ticket:", err);
+      toast.error("Sin conexión con el servidor", "La asignación no cambió.");
+    } finally {
+      setActualizandoEstado(false);
+    }
+  };
+
+  // El Ejecutivo toma para sí un ticket sin responsable: queda asignado a él y pasa a "En Proceso"
+  const handleTomarTicket = async () => {
+    if (!ticketSeleccionado || ticketSeleccionado.ejecutivo) return;
+    const tomado = ticketSeleccionado;
+    const nuevoEstadoId = tomado.id_estado === ID_ESTADO_PENDIENTE ? ID_ESTADO_EN_PROCESO : tomado.id_estado;
+    setActualizandoEstado(true);
+    try {
+      const res = await fetch(`${API_URL}/api/tickets/${tomado.id_ticket}/estado`, {
+        method: "PATCH",
+        headers: cabecerasAuth({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ id_estado: nuevoEstadoId, ejecutivo_id: usuario.id_usuario }),
+      });
+
+      if (res.ok) {
+        const estadoObj = ESTADOS_DISPONIBLES.find((e) => e.id === nuevoEstadoId);
+        const datosActualizados: TicketItem = {
+          ...tomado,
+          id_estado: nuevoEstadoId,
+          estado: estadoObj?.nombre || tomado.estado,
+          ejecutivo: { id: usuario.id_usuario, nombre: `${usuario.nombre} ${usuario.apellido}`.trim() },
+        };
+        setTicketSeleccionado(datosActualizados);
+        // Deja de estar "sin responsable": sale de la bandeja y aparece en Tickets asignados
+        setTickets((prev) => prev.filter((t) => t.id_ticket !== tomado.id_ticket));
+        toast.exito(`Tomaste el ticket #${tomado.id_ticket}`, "Ya puedes responder al residente. Lo verás en Tickets asignados.");
+      } else {
+        await mostrarErrorApi(res, "No se pudo tomar el ticket.");
+        if (res.status === 409) cargarTickets();
+      }
+    } catch (err) {
+      console.error("Error al tomar ticket:", err);
+      toast.error("Sin conexión con el servidor", "El ticket sigue sin responsable.");
     } finally {
       setActualizandoEstado(false);
     }
@@ -273,8 +300,8 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
         method: "POST",
         headers: cabecerasAuth({ "Content-Type": "application/json" }),
         body: JSON.stringify({
-          contenido: nuevoMensaje.trim()
-        })
+          contenido: nuevoMensaje.trim(),
+        }),
       });
 
       if (res.ok) {
@@ -287,8 +314,8 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
             fecha: data.fecha,
             autor_id: usuario.id_usuario,
             autor_nombre: `${usuario.nombre} ${usuario.apellido}`,
-            autor_rol: usuario.rol_id
-          }
+            autor_rol: usuario.rol_id,
+          },
         ]);
         setNuevoMensaje("");
       } else {
@@ -296,412 +323,353 @@ export const BandejaEjecutivo: React.FC<BandejaEjecutivoProps> = ({
       }
     } catch (err) {
       console.error("Error al enviar mensaje:", err);
+      toast.error("Sin conexión con el servidor", "El mensaje no se envió.");
     } finally {
       setEnviando(false);
     }
   };
 
-  const getBadgeEstado = (estado: string) => {
-    switch (estado.toLowerCase()) {
-      case "pendiente":
-        return "bg-[#C89B3C]/10 text-[#C89B3C] border-[#C89B3C]/30 font-semibold";
-      case "en proceso":
-        return "bg-[#286D68]/10 text-[#286D68] border-[#286D68]/20 font-semibold";
-      case "en espera":
-        return "bg-[#6B7280]/9 text-[#6B7280] border-[#6B7280]/18 font-semibold";
-      case "resuelto":
-        return "bg-[#52966A]/10 text-[#52966A] border-[#52966A]/20 font-semibold";
-      case "cerrado":
-        return "bg-[#788583]/10 text-[#788583] border-[#788583]/20 font-semibold";
-      default:
-        return "bg-[#788583]/10 text-[#788583] border-[#788583]/20 font-semibold";
-    }
-  };
+  const textos = soloHistorial
+    ? {
+        ceja: "Archivo de casos",
+        titulo: (
+          <>
+            Historial de <em>tickets</em>
+          </>
+        ),
+        descripcion: esAdmin
+          ? "Casos cerrados por los residentes. Desde aquí puedes reabrir uno si hace falta."
+          : "Casos cerrados que atendiste.",
+        lista: "Cerrados",
+        vacio: "No hay tickets cerrados",
+        vacioDesc: "Los casos que los residentes den por cerrados quedarán archivados aquí.",
+      }
+    : soloAsignados
+    ? {
+        ceja: "Mi trabajo",
+        titulo: (
+          <>
+            Tickets <em>asignados</em>
+          </>
+        ),
+        descripcion: "Casos que estás atendiendo. Responde al residente y actualiza el estado.",
+        lista: "Asignados a ti",
+        vacio: "No tienes casos asignados",
+        vacioDesc: "Cuando la administración te asigne un ticket aparecerá en esta lista.",
+      }
+    : {
+        ceja: "Mesa de ayuda",
+        titulo: esAdmin ? (
+          <>
+            Supervisión de <em>tickets</em>
+          </>
+        ) : (
+          <>
+            Bandeja de <em>tickets</em>
+          </>
+        ),
+        descripcion: esAdmin
+          ? "Todos los casos activos escalados desde Luz, la asistente. Asigna un responsable a cada uno."
+          : "Casos escalados que todavía no tienen responsable. Toma uno para empezar a atenderlo.",
+        lista: esAdmin ? "Activos" : "Sin responsable",
+        vacio: "Sin tickets pendientes",
+        vacioDesc: "Los casos que los residentes deriven desde Luz aparecerán aquí.",
+      };
+
+  const puedeResponder = esAdmin || ticketSeleccionado?.ejecutivo?.id === usuario.id_usuario;
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-transparent overflow-hidden">
-      {/* Cabecera Superior Glass */}
-      <div className="liquid-glass border-b border-[var(--border-glass)] px-6 sm:px-8 py-4 flex flex-wrap items-center justify-between gap-3 shrink-0 shadow-xs">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[var(--text-primary)]">
-            {soloHistorial
-              ? "Historial de Tickets"
-              : soloAsignados
-              ? "Tickets Asignados"
-              : "Bandeja de Tickets"}
-          </h1>
-          <p className="text-xs text-[var(--text-secondary)] mt-0.5">
-            {soloHistorial
-              ? "Consulta histórica de casos resueltos y archivados"
-              : soloAsignados
-              ? "Casos asignados directamente a tu atención"
-              : "Casos activos escalados esperando respuesta"}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2.5">
-          {!soloHistorial && (
-            <div className="flex items-center gap-2 liquid-glass border border-[var(--border-glass)] rounded-lg px-3 py-1.5 text-xs text-[var(--text-secondary)] shadow-xs">
-              <Filter size={13} className="text-[var(--text-tertiary)]" />
-              <select
-                value={filtroEstado || ""}
-                onChange={(e) => setFiltroEstado(e.target.value ? Number(e.target.value) : null)}
-                className="bg-transparent focus:outline-none cursor-pointer text-xs font-medium text-[var(--text-primary)]"
-              >
-                <option value="" className="bg-[var(--bg-surface)] text-[var(--text-primary)]">
-                  Todos los estados
-                </option>
-                {ESTADOS_DISPONIBLES.filter((est) => est.id !== ID_ESTADO_CERRADO).map((est) => (
-                  <option
-                    key={est.id}
-                    value={est.id}
-                    className="bg-[var(--bg-surface)] text-[var(--text-primary)]"
+    <div className="flex-1 flex flex-col h-full min-h-0 overflow-hidden">
+      <div className={`px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 pb-5 ${ticketSeleccionado ? "max-md:hidden" : ""}`}>
+        <EncabezadoPagina
+          ceja={textos.ceja}
+          titulo={textos.titulo}
+          descripcion={textos.descripcion}
+          acciones={
+            <>
+              {!soloHistorial && (
+                <>
+                  <label htmlFor="filtro-estado" className="sr-only">
+                    Filtrar por estado
+                  </label>
+                  <select
+                    id="filtro-estado"
+                    value={filtroEstado || ""}
+                    onChange={(e) => setFiltroEstado(e.target.value ? Number(e.target.value) : null)}
+                    className="campo campo-sm w-auto"
                   >
-                    {est.nombre}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          <button
-            onClick={cargarTickets}
-            title="Recargar bandeja"
-            className="p-2.5 rounded-xl liquid-glass border border-[var(--border-glass)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)] transition-all cursor-pointer shadow-xs active:scale-95"
-          >
-            <RefreshCw size={15} className={cargando ? "animate-spin text-[var(--accent-primary)]" : ""} />
-          </button>
-        </div>
+                    <option value="">Todos los estados</option>
+                    {ESTADOS_DISPONIBLES.filter((est) => est.id !== ID_ESTADO_CERRADO).map((est) => (
+                      <option key={est.id} value={est.id}>
+                        {est.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </>
+              )}
+              <BotonRecargar onClick={cargarTickets} cargando={cargando} />
+            </>
+          }
+        />
       </div>
 
-      {/* Contenido dividido en 2 paneles estilo Liquid Glass */}
-      <div className="flex-1 flex flex-col md:flex-row overflow-hidden p-4 sm:p-6 gap-5 max-w-7xl mx-auto w-full">
-        {/* Columna Izquierda: Listado de Tickets */}
-        <div className="w-full md:w-80 lg:w-96 flex flex-col liquid-glass-card rounded-2xl overflow-hidden shrink-0 h-64 md:h-auto">
-          <div className="p-4 border-b border-[var(--border-subtle)] bg-[var(--bg-surface-elevated)]/30 flex items-center justify-between">
-            <span className="text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">
-              {soloHistorial ? "Tickets Cerrados" : "Tickets Disponibles"} ({tickets.length})
-            </span>
+      <div className="flex-1 min-h-0 flex gap-5 px-0 sm:px-6 lg:px-8 pb-0 sm:pb-6">
+        {/* ── Lista ─────────────────────────────────────── */}
+        <section
+          aria-label="Lista de tickets"
+          className={`w-full md:w-[21rem] lg:w-[23rem] shrink-0 flex flex-col min-h-0 sm:rounded-[1.4rem] bg-papel-2/55 border-y sm:border border-linea
+            ${ticketSeleccionado ? "max-md:hidden" : ""}`}
+        >
+          <div className="px-5 pt-4 pb-2 flex items-center justify-between">
+            <p className="ceja">{textos.lista}</p>
+            <span className="text-[0.75rem] font-semibold text-tinta-3 tabular-nums">{tickets.length}</span>
           </div>
-
-          <div className="flex-1 overflow-y-auto divide-y divide-[var(--border-subtle)] apple-scrollbar">
+          <div className="flex-1 min-h-0 overflow-y-auto barra-fina px-2 pb-2 space-y-1">
             {cargando && tickets.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-[var(--text-tertiary)] space-y-2">
-                <Loader2 className="animate-spin text-[var(--accent-primary)]" size={24} />
-                <p className="text-xs font-medium">Cargando bandeja...</p>
-              </div>
+              <EsqueletoTickets />
             ) : tickets.length === 0 ? (
-              <div className="p-8 text-center space-y-2 text-[var(--text-tertiary)]">
-                <Inbox size={32} className="mx-auto opacity-50" />
-                <p className="text-xs font-semibold text-[var(--text-secondary)]">
-                  {soloHistorial ? "No hay tickets cerrados" : "Sin tickets pendientes"}
-                </p>
-                <p className="text-[11px] leading-relaxed">
-                  {soloHistorial
-                    ? "Los tickets archivados y resueltos aparecerán aquí."
-                    : "Los casos derivados aparecerán aquí para ser gestionados."}
-                </p>
-              </div>
+              <EstadoVacio compacto titulo={textos.vacio} descripcion={textos.vacioDesc} />
             ) : (
               tickets.map((t) => (
-                <div
+                <TarjetaTicket
                   key={t.id_ticket}
+                  id={t.id_ticket}
+                  titulo={t.titulo}
+                  descripcion={t.descripcion}
+                  estado={t.estado}
+                  fecha={t.fecha_creacion}
+                  persona={t.cliente.nombre}
+                  seleccionado={ticketSeleccionado?.id_ticket === t.id_ticket}
                   onClick={() => seleccionarTicket(t)}
-                  className={`p-4 cursor-pointer transition-all ${
-                    ticketSeleccionado?.id_ticket === t.id_ticket
-                      ? "border-l-4 border-[#286D68] bg-[#DCEFEA]/40"
-                      : "hover:bg-[var(--bg-card-hover)]"
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="text-xs font-semibold text-[var(--text-primary)] line-clamp-1">
-                      #{t.id_ticket} · {t.titulo}
-                    </span>
-                    <span
-                      className={`text-[9.5px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${getBadgeEstado(
-                        t.estado
-                      )}`}
-                    >
-                      {t.estado}
-                    </span>
-                  </div>
-
-                  <p className="text-xs text-[var(--text-secondary)] mt-1.5 line-clamp-2 leading-relaxed">
-                    {t.descripcion}
-                  </p>
-
-                  <div className="mt-3 flex items-center justify-between text-[10.5px] text-[var(--text-tertiary)]">
-                    <span className="flex items-center gap-1 font-medium text-[var(--text-secondary)]">
-                      <User size={11} /> {t.cliente.nombre}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Clock size={11} /> {t.fecha_creacion}
-                    </span>
-                  </div>
-                </div>
+                />
               ))
             )}
           </div>
-        </div>
+        </section>
 
-        {/* Columna Derecha: Detalle, Asignación y Chat con Cliente */}
-        <div className="flex-1 flex flex-col liquid-glass-card rounded-2xl overflow-hidden min-h-0">
+        {/* ── Detalle ───────────────────────────────────── */}
+        <section
+          aria-label="Detalle del ticket"
+          className={`flex-1 min-w-0 flex flex-col min-h-0 bg-superficie sm:rounded-[1.4rem] sm:border border-linea sm:shadow-[var(--sombra-papel)] overflow-hidden
+            ${ticketSeleccionado ? "" : "max-md:hidden"}`}
+        >
           {ticketSeleccionado ? (
             <>
-              {/* Encabezado y Barra de Acción del Ticket */}
-              <div className="p-5 sm:p-6 border-b border-[var(--border-subtle)] bg-[var(--bg-surface-elevated)]/20 space-y-3 shrink-0">
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div className="space-y-1">
+              <div className="shrink-0 px-5 sm:px-6 pt-4 sm:pt-5 pb-4 border-b border-linea space-y-3.5 max-h-[55%] overflow-y-auto barra-fina">
+                <button
+                  type="button"
+                  onClick={() => setTicketSeleccionado(null)}
+                  className="md:hidden boton boton-fantasma boton-sm -ml-3"
+                >
+                  <ArrowLeft size={15} /> Volver a la lista
+                </button>
+
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="text-base font-bold text-[var(--text-primary)] tracking-tight">
-                        #{ticketSeleccionado.id_ticket} · {ticketSeleccionado.titulo}
-                      </h2>
-                      <span
-                        className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full border ${getBadgeEstado(
-                          ticketSeleccionado.estado
-                        )}`}
-                      >
-                        {ticketSeleccionado.estado}
-                      </span>
+                      <span className="numeral text-tinta-3">N.º {ticketSeleccionado.id_ticket}</span>
+                      <InsigniaEstado estado={ticketSeleccionado.estado} />
+                      {ticketSeleccionado.calificacion && (
+                        <span className="insignia insignia-pendiente insignia-sin-punto">
+                          <Star size={12} className="fill-luz text-luz" />
+                          {ticketSeleccionado.calificacion}/5
+                        </span>
+                      )}
                     </div>
-                    {/* Alto máximo con scroll: una descripción larga no debe tapar el hilo ni el formulario de respuesta */}
-                    <p className="text-xs text-[var(--text-secondary)] leading-relaxed [overflow-wrap:anywhere] whitespace-pre-wrap max-h-28 overflow-y-auto pr-2">
+                    <h2 className="titular text-[1.45rem] sm:text-[1.7rem] mt-1.5 [overflow-wrap:anywhere]">
+                      {ticketSeleccionado.titulo}
+                    </h2>
+                  </div>
+
+                  {/* El administrador reabre tickets cerrados desde el historial */}
+                  {soloHistorial && esAdmin && ticketSeleccionado.id_estado === ID_ESTADO_CERRADO && (
+                    <button type="button" onClick={() => setModalReabrir(true)} className="boton boton-secundario boton-sm shrink-0">
+                      <RotateCcw size={15} />
+                      Reabrir ticket
+                    </button>
+                  )}
+                </div>
+
+                {/* Ficha: residente, responsable y controles */}
+                <div className="grid sm:grid-cols-2 gap-2.5">
+                  <div className="rounded-xl bg-papel/70 border border-linea px-3.5 py-2.5 min-w-0">
+                    <p className="ceja !text-[0.625rem]">Residente</p>
+                    <p className="text-[0.875rem] font-semibold text-tinta mt-1 flex items-center gap-1.5 min-w-0">
+                      <UserRound size={14} className="text-tinta-3 shrink-0" />
+                      <span className="truncate">{ticketSeleccionado.cliente.nombre}</span>
+                    </p>
+                    <a
+                      href={`mailto:${ticketSeleccionado.cliente.correo}`}
+                      className="text-[0.8125rem] text-petroleo hover:underline flex items-center gap-1.5 mt-0.5 min-w-0"
+                    >
+                      <Mail size={13} className="shrink-0" />
+                      <span className="truncate">{ticketSeleccionado.cliente.correo}</span>
+                    </a>
+                  </div>
+
+                  <div className="rounded-xl bg-papel/70 border border-linea px-3.5 py-2.5 space-y-2 min-w-0">
+                    {!soloHistorial && esAdmin ? (
+                      <div>
+                        <label htmlFor="asignar-ticket" className="ceja !text-[0.625rem] block">
+                          Responsable
+                        </label>
+                        <select
+                          id="asignar-ticket"
+                          value={ticketSeleccionado.ejecutivo?.id ?? ""}
+                          onChange={(e) => handleAsignar(Number(e.target.value))}
+                          disabled={actualizandoEstado || personalAsignable.length === 0}
+                          className="campo campo-sm mt-1"
+                        >
+                          <option value="" disabled>
+                            Sin asignar
+                          </option>
+                          {personalAsignable.map((p) => (
+                            <option key={p.id_usuario} value={p.id_usuario}>
+                              {p.id_usuario === usuario.id_usuario ? `${p.nombre} (yo)` : p.nombre}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : (
+                      <div>
+                        <p className="ceja !text-[0.625rem]">Responsable</p>
+                        <p className="text-[0.875rem] font-semibold text-tinta mt-1 flex items-center gap-1.5">
+                          <UserCheck size={14} className="text-tinta-3" />
+                          {ticketSeleccionado.ejecutivo ? ticketSeleccionado.ejecutivo.nombre : "Sin asignar"}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Con responsable se cambia el estado; "Cerrado" no se ofrece: cerrar es exclusivo del cliente */}
+                    {!soloHistorial && ticketSeleccionado.ejecutivo && (
+                      <div>
+                        <label htmlFor="estado-ticket" className="ceja !text-[0.625rem] block">
+                          Estado
+                        </label>
+                        <select
+                          id="estado-ticket"
+                          value={ticketSeleccionado.id_estado}
+                          onChange={(e) => handleCambiarEstado(Number(e.target.value))}
+                          disabled={actualizandoEstado}
+                          className="campo campo-sm mt-1"
+                        >
+                          {ESTADOS_DISPONIBLES.filter(
+                            (est) => est.id !== ID_ESTADO_CERRADO || ticketSeleccionado.id_estado === ID_ESTADO_CERRADO
+                          ).map((est) => (
+                            <option key={est.id} value={est.id}>
+                              {est.nombre}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                    {/* Un ejecutivo puede tomar un ticket que todavía no tiene responsable */}
+                    {!soloHistorial && !ticketSeleccionado.ejecutivo && !esAdmin && (
+                      <button
+                        type="button"
+                        onClick={handleTomarTicket}
+                        disabled={actualizandoEstado}
+                        className="boton boton-primario boton-sm w-full"
+                      >
+                        <Hand size={15} />
+                        Tomar este ticket
+                      </button>
+                    )}
+                    {actualizandoEstado && (
+                      <p className="flex items-center gap-2 text-[0.75rem] text-petroleo" role="status">
+                        <IndicadorVentanas /> Guardando…
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="rounded-xl bg-papel/70 border border-linea">
+                  <button
+                    type="button"
+                    onClick={() => setDescripcionAbierta((v) => !v)}
+                    aria-expanded={descripcionAbierta}
+                    className="w-full flex items-center justify-between gap-3 px-3.5 py-2 text-[0.8125rem] font-semibold text-tinta-2"
+                  >
+                    Descripción del caso · <span className="font-normal tabular-nums">{ticketSeleccionado.fecha_creacion}</span>
+                    <ChevronDown size={15} className={`ml-auto transition-transform duration-300 ${descripcionAbierta ? "rotate-180" : ""}`} />
+                  </button>
+                  {descripcionAbierta && (
+                    <p className="px-3.5 pb-3 text-[0.8125rem] text-tinta-2 leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere] max-h-28 overflow-y-auto barra-fina">
                       {ticketSeleccionado.descripcion}
                     </p>
-                  </div>
-
-                  {/* Acciones de Asignación / Estado */}
-                  {!soloHistorial && (
-                    <div className="flex items-center gap-2 shrink-0">
-                      {/* El Administrador puede asignar el ticket a cualquier ejecutivo activo */}
-                      {esAdmin && (
-                        <div className="flex items-center gap-2">
-                          <label className="text-[11px] font-medium text-slate-500">Asignado a:</label>
-                          <select
-                            value={ticketSeleccionado.ejecutivo?.id ?? ""}
-                            onChange={(e) => handleAsignar(Number(e.target.value))}
-                            disabled={actualizandoEstado || personalAsignable.length === 0}
-                            className="text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-slate-700 focus:outline-none focus:ring-1
-                            focus:ring-blue-500 cursor-pointer disabled:opacity-50"
-                          >
-                            <option value="" disabled>
-                              Sin asignar
-                            </option>
-                            {personalAsignable.map((p) => (
-                              <option key={p.id_usuario} value={p.id_usuario}>
-                                {p.id_usuario === usuario.id_usuario ? `${p.nombre} (yo)` : p.nombre}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      )}
-
-                      {/* Sin responsable: solo el Admin lo asigna (con el selector). Con responsable: se cambia el estado */}
-                      {!ticketSeleccionado.ejecutivo ? (
-                        !esAdmin && (
-                          <span className="text-[11px] font-semibold text-[var(--text-secondary)] px-3 py-1.5 rounded-xl border border-[var(--border-glass)]">
-                            Pendiente de asignación
-                          </span>
-                        )
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <label className="text-[11px] font-semibold text-[var(--text-secondary)]">
-                            Estado:
-                          </label>
-                          <select
-                            value={ticketSeleccionado.id_estado}
-                            onChange={(e) => handleCambiarEstado(Number(e.target.value))}
-                            disabled={actualizandoEstado}
-                            className="text-xs font-semibold liquid-glass border border-[var(--border-glass)] rounded-xl px-3 py-1.5 text-[var(--text-primary)] focus:outline-none cursor-pointer disabled:opacity-50"
-                          >
-                            {/* "Cerrado" no se ofrece: cerrar un ticket es exclusivo del cliente */}
-                            {ESTADOS_DISPONIBLES.filter(
-                              (est) => est.id !== ID_ESTADO_CERRADO || ticketSeleccionado.id_estado === ID_ESTADO_CERRADO
-                            ).map((est) => (
-                              <option
-                                key={est.id}
-                                value={est.id}
-                                className="bg-[var(--bg-surface)] text-[var(--text-primary)]"
-                              >
-                                {est.nombre}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex flex-wrap items-center justify-between text-xs text-[var(--text-secondary)] pt-2.5 border-t border-[var(--border-subtle)] gap-2">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <span>
-                      <strong className="text-[var(--text-primary)]">Cliente:</strong> {ticketSeleccionado.cliente.nombre} ({ticketSeleccionado.cliente.correo})
-                    </span>
-                    <span>·</span>
-                    <span>
-                      <strong className="text-[var(--text-primary)]">Asignado:</strong>{" "}
-                      {ticketSeleccionado.ejecutivo ? ticketSeleccionado.ejecutivo.nombre : "Sin asignar"}
-                    </span>
-                  </div>
-
-                  {ticketSeleccionado.calificacion && (
-                    <div className="flex items-center gap-1 bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 rounded-full">
-                      <Star size={12} className="text-amber-500 fill-amber-400" />
-                      <span className="text-[11px] font-bold text-[#C89B3C]">
-                        {ticketSeleccionado.calificacion}/5
-                      </span>
-                    </div>
                   )}
                 </div>
               </div>
 
-              {/* Hilo de Respuestas */}
-              <div className="flex-1 p-5 sm:p-6 overflow-y-auto space-y-4 apple-scrollbar">
-                {cargandoDetalle ? (
-                  <div className="flex flex-col items-center justify-center h-full text-[var(--text-tertiary)]">
-                    <Loader2 className="animate-spin text-[var(--accent-primary)] mb-2" size={26} />
-                    <span className="text-xs font-medium">Cargando mensajes del ticket...</span>
-                  </div>
-                ) : mensajes.length === 0 ? (
-                  <div className="text-center py-16 text-[var(--text-tertiary)] space-y-2">
-                    <MessageSquare size={32} className="mx-auto opacity-40" />
-                    <p className="text-xs font-semibold text-[var(--text-secondary)]">No hay mensajes previos</p>
-                    <p className="text-[11px] max-w-xs mx-auto">
-                      Envía la primera respuesta para asistir al cliente.
-                    </p>
-                  </div>
-                ) : (
-                  mensajes.map((m) => {
-                    const esMio = m.autor_id === usuario.id_usuario;
-                    return (
-                      <div
-                        key={m.id_mensaje}
-                        className={`flex flex-col max-w-[85%] sm:max-w-[75%] ${
-                          esMio ? "ml-auto items-end" : "mr-auto items-start"
-                        } animate-scale-up`}
-                      >
-                        <span className="text-[10px] text-[var(--text-tertiary)] mb-1 px-1">
-                          {esMio ? "Tú" : m.autor_nombre} · {m.fecha}
-                        </span>
-                        <div
-                          className={`rounded-lg px-4 py-2.5 text-xs leading-relaxed ${
-                            esMio
-                              ? "bg-[#286D68] text-white rounded-br-xs shadow-md shadow-blue-500/20"
-                              : "liquid-glass border border-[var(--border-glass)] text-[var(--text-primary)] rounded-bl-xs shadow-xs"
-                          }`}
-                        >
-                          {m.contenido}
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
+              <div className="flex-1 min-h-0 overflow-y-auto barra-fina">
+                <HiloMensajes
+                  mensajes={mensajes}
+                  usuarioId={usuario.id_usuario}
+                  cargando={cargandoDetalle}
+                  vacio={
+                    <EstadoVacio compacto titulo="Sin mensajes todavía" descripcion="Envía la primera respuesta para orientar al residente." />
+                  }
+                />
               </div>
 
-              {/* Input para responder */}
               {soloHistorial ? (
-                <div className="p-4 bg-[var(--bg-surface-elevated)]/30 border-t border-[var(--border-subtle)] text-center text-xs text-[var(--text-tertiary)] font-medium">
-                  Este ticket se encuentra cerrado. Se muestra en modo de solo lectura.
-                </div>
-              ) : !esAdmin && ticketSeleccionado.ejecutivo?.id !== usuario.id_usuario ? (
+                <NotaHilo>Este ticket está cerrado. Se muestra en modo de solo lectura.</NotaHilo>
+              ) : !puedeResponder ? (
                 // El Ejecutivo solo responde los tickets asignados a él
-                <div className="p-4 bg-slate-50 border-t border-slate-200 text-center text-xs text-slate-500">
-                  Podrás responder al cliente cuando el administrador te asigne este ticket.
-                </div>
+                <NotaHilo>
+                  {ticketSeleccionado.ejecutivo
+                    ? `Este ticket lo atiende ${ticketSeleccionado.ejecutivo.nombre}.`
+                    : "Toma este ticket para responder al residente."}
+                </NotaHilo>
               ) : (
-                <form onSubmit={handleEnviarMensaje} className="p-4 border-t border-[var(--border-subtle)] bg-[var(--bg-surface-elevated)]/40 flex gap-2.5 shrink-0">
-                  <input
-                    type="text"
-                    placeholder="Escribe una respuesta para el cliente..."
-                    maxLength={5000}
-                    value={nuevoMensaje}
-                    onChange={(e) => setNuevoMensaje(e.target.value)}
-                    disabled={enviando || ticketSeleccionado.id_estado === 5}
-                    className="liquid-input flex-1 rounded-lg px-4 py-2.5 text-xs text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:outline-none disabled:opacity-50"
-                  />
-                  <button
-                    type="submit"
-                    disabled={enviando || !nuevoMensaje.trim() || ticketSeleccionado.id_estado === 5}
-                    className="apple-btn-primary px-5 py-2.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all disabled:opacity-50 shadow-sm cursor-pointer"
-                  >
-                    {enviando ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-                    <span>Responder</span>
-                  </button>
-                </form>
+                <CompositorHilo
+                  valor={nuevoMensaje}
+                  onCambio={setNuevoMensaje}
+                  onEnviar={handleEnviarMensaje}
+                  enviando={enviando}
+                  deshabilitado={ticketSeleccionado.id_estado === ID_ESTADO_CERRADO}
+                  placeholder="Escribe una respuesta para el residente…"
+                  etiqueta="Respuesta para el residente"
+                />
               )}
             </>
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-[var(--text-tertiary)]">
-              <div className="w-16 h-16 rounded-lg liquid-glass border border-[var(--border-glass)] flex items-center justify-center text-[var(--text-tertiary)] mb-3 shadow-sm">
-                <Inbox size={32} />
-              </div>
-              <p className="text-sm font-semibold text-[var(--text-primary)]">Ningún ticket seleccionado</p>
-              <p className="text-xs text-[var(--text-secondary)] mt-1 max-w-sm leading-relaxed">
-                Selecciona una solicitud de la columna izquierda para revisar el contexto, tomar el caso o dar respuesta al usuario.
-              </p>
-            </div>
+            <EstadoVacio
+              className="flex-1"
+              titulo="Ningún ticket seleccionado"
+              descripcion="Elige un caso de la lista para revisar el contexto, tomarlo o responder al residente."
+            />
           )}
-        </div>
+        </section>
       </div>
 
-      {/* Modal de confirmación para reabrir (mismo estilo que el modal de escalamiento del chat) */}
-      {modalReabrir && ticketSeleccionado && (
-        <div
-          className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 flex items-center justify-center p-4"
-          onClick={() => !actualizandoEstado && setModalReabrir(false)}
-        >
-          <div
-            className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-blue-600">
-                <RotateCcw size={20} />
-                <h2 className="text-base font-bold text-slate-900">
-                  Reabrir ticket #{ticketSeleccionado.id_ticket}
-                </h2>
-              </div>
-              <button
-                onClick={() => setModalReabrir(false)}
-                disabled={actualizandoEstado}
-                className="text-slate-400 hover:text-slate-600 transition-colors cursor-pointer disabled:opacity-50"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <p className="text-sm font-medium text-slate-800 [overflow-wrap:anywhere]">{ticketSeleccionado.titulo}</p>
-
-            <p className="text-xs text-slate-500">
-              {ticketSeleccionado.ejecutivo
-                ? `El ticket volverá a la bandeja de activos en estado "En Proceso", asignado a ${ticketSeleccionado.ejecutivo.nombre}.`
-                : 'El ticket volverá a la bandeja de activos en estado "Pendiente", para que un ejecutivo lo tome.'}
-            </p>
-
-            <div className="pt-2 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setModalReabrir(false)}
-                disabled={actualizandoEstado}
-                className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={handleReabrir}
-                disabled={actualizandoEstado}
-                className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-semibold px-4 py-2 rounded-xl transition-colors cursor-pointer
-                flex items-center gap-1.5"
-              >
-                {actualizandoEstado ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
-                <span>{actualizandoEstado ? "Reabriendo..." : "Reabrir ticket"}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Confirmación para reabrir */}
+      <Modal
+        abierto={modalReabrir && !!ticketSeleccionado}
+        onCerrar={() => setModalReabrir(false)}
+        bloqueado={actualizandoEstado}
+        tono="luz"
+        icono={<RotateCcw size={18} />}
+        titulo={`Reabrir el ticket N.º ${ticketSeleccionado?.id_ticket ?? ""}`}
+        descripcion={
+          ticketSeleccionado?.ejecutivo
+            ? `Volverá a la bandeja de activos en estado "En Proceso", asignado a ${ticketSeleccionado.ejecutivo.nombre}.`
+            : 'Volverá a la bandeja de activos en estado "Pendiente", para que un ejecutivo lo tome.'
+        }
+        pie={
+          <>
+            <button type="button" onClick={() => setModalReabrir(false)} disabled={actualizandoEstado} className="boton boton-fantasma">
+              Cancelar
+            </button>
+            <button type="button" onClick={handleReabrir} disabled={actualizandoEstado} className="boton boton-primario">
+              {actualizandoEstado ? <IndicadorVentanas /> : <RotateCcw size={15} />}
+              {actualizandoEstado ? "Reabriendo…" : "Reabrir ticket"}
+            </button>
+          </>
+        }
+      >
+        <p className="text-[0.9375rem] font-semibold text-tinta [overflow-wrap:anywhere]">{ticketSeleccionado?.titulo}</p>
+      </Modal>
     </div>
   );
 };

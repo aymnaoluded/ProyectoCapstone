@@ -1,24 +1,16 @@
 ﻿import React, { useState } from "react";
-import {
-  Building2,
-  Lock,
-  ArrowRight,
-  AlertCircle,
-  Loader2,
-  CheckCircle2,
-  Eye,
-  EyeOff,
-} from "lucide-react";
+import { Lock, ArrowRight, AlertCircle, CheckCircle2, KeyRound } from "lucide-react";
 
 import { API_URL, obtenerToken } from "../utils/api";
+import { CampoConIcono, LargoClave } from "./ui/PantallaAcceso";
+import { Aviso } from "./ui/Pagina";
+import { IndicadorVentanas } from "./ui/Fachada";
 
 interface CambiarPasswordProps {
   onPasswordCambiada: () => void;
 }
 
-const CambiarPassword: React.FC<CambiarPasswordProps> = ({
-  onPasswordCambiada,
-}) => {
+const CambiarPassword: React.FC<CambiarPasswordProps> = ({ onPasswordCambiada }) => {
   const [actual, setActual] = useState("");
   const [nueva, setNueva] = useState("");
   const [confirmar, setConfirmar] = useState("");
@@ -71,11 +63,7 @@ const CambiarPassword: React.FC<CambiarPasswordProps> = ({
 
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-        throw new Error(
-          typeof data?.detail === "string"
-            ? data.detail
-            : "No se pudo cambiar la contraseña."
-        );
+        throw new Error(typeof data?.detail === "string" ? data.detail : "No se pudo cambiar la contraseña.");
       }
 
       setActual("");
@@ -89,100 +77,83 @@ const CambiarPassword: React.FC<CambiarPasswordProps> = ({
     }
   };
 
+  const toggle = () => setMostrarPassword((v) => !v);
+
   return (
-    <div className="flex-1 min-h-0 w-full flex items-center justify-center overflow-y-auto bg-[#F6F5F0] p-4 font-sans select-none">
-      {/* TARJETA PRINCIPAL CON ESQUINAS DE 8 PX */}
-      <div className="w-full max-w-md bg-white rounded-3xl p-8 sm:p-10 shadow-[0_12px_40px_rgba(31,41,51,0.06)] border border-slate-200/80 shadow-sm border border-[#E7EAE7] space-y-6">
-        {/* CABECERA INSTITUCIONAL */}
-        <div className="text-center space-y-2">
-          <div className="w-12 h-12 bg-[#286D68] text-white rounded-2xl bg-gradient-to-br from-[#286D68] to-[#1E5450] text-white flex items-center justify-center mx-auto shadow-md ring-1 ring-white/20">
-            <Building2 size={24} />
-          </div>
-
-          <h1 className="text-2xl font-bold font-heading text-[#1E5450]">
-            Comunidad Clara
+    <div className="flex-1 min-h-0 w-full overflow-y-auto barra-fina">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 grid lg:grid-cols-[1fr_27rem] gap-10 items-start">
+        {/* Explicación */}
+        <div className="animate-aparecer">
+          <p className="ceja">Tu perfil</p>
+          <h1 className="titular text-[2rem] sm:text-[2.6rem] mt-2.5">
+            Seguridad de <em>tu cuenta</em>
           </h1>
-
-          <p className="text-sm text-[#788583]">
-            Gestión de seguridad y cambio de contraseña
+          <p className="text-[0.9375rem] text-tinta-2 mt-3 max-w-md leading-relaxed">
+            Cambia tu contraseña cuando quieras. Por seguridad, al guardarla se cerrará tu sesión y tendrás que volver a
+            ingresar con la nueva.
           </p>
+          <ul className="mt-7 space-y-3 max-w-md">
+            {["Usa al menos 8 caracteres.", "Debe ser distinta de la actual.", "No la compartas con nadie, ni siquiera con la administración."].map(
+              (t, i) => (
+                <li key={t} className="flex items-baseline gap-3 text-[0.9rem] text-tinta">
+                  <span className="numeral text-petroleo w-5">{String(i + 1).padStart(2, "0")}</span>
+                  {t}
+                </li>
+              )
+            )}
+          </ul>
         </div>
 
-        {/* MENSAJES DE ERROR */}
-        {error && (
-          <div
-            role="alert"
-            className="flex items-start gap-3 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 animate-fade-in"
-          >
-            <AlertCircle size={18} className="shrink-0 text-red-600 mt-0.5" />
-            <span className="text-xs font-medium leading-relaxed">{error}</span>
-          </div>
-        )}
-
-        {exito ? (
-          /* CONTRASEÑA ACTUALIZADA */
-          <div className="space-y-5 text-center">
-            <div className="flex justify-center">
-              <div className="w-13 h-13 bg-[#52966A]/15 text-[#52966A] rounded-xl flex items-center justify-center">
-                <CheckCircle2 size={30} />
-              </div>
+        {/* Formulario */}
+        <div className="superficie p-6 sm:p-8 animate-aparecer" style={{ animationDelay: "0.08s" }}>
+          {exito ? (
+            <div className="text-center py-4" role="status">
+              <span className="arco grid place-items-center w-11 h-12 bg-exito-suave text-exito mx-auto">
+                <CheckCircle2 size={22} />
+              </span>
+              <h2 className="titular text-[1.5rem] mt-4">Contraseña actualizada</h2>
+              <p className="text-sm text-tinta-2 mt-2 leading-relaxed">
+                Se cambió correctamente. Por seguridad, debes iniciar sesión nuevamente.
+              </p>
+              <button type="button" onClick={onPasswordCambiada} className="boton boton-primario boton-lg w-full mt-6">
+                Iniciar sesión
+                <ArrowRight size={17} />
+              </button>
             </div>
-
-            <h2 className="text-xl font-bold font-heading text-[#1E5450]">
-              ¡Contraseña actualizada con éxito!
-            </h2>
-
-            <p className="text-sm text-[#788583]">
-              Tu contraseña se cambió correctamente. Por seguridad institucional, debes iniciar sesión nuevamente.
-            </p>
-
-            <button
-              type="button"
-              onClick={onPasswordCambiada}
-              className="w-full bg-[#286D68] hover:bg-[#1E5450] text-white font-heading font-semibold py-2.5 rounded-xl flex items-center justify-center gap-2 text-sm shadow-xs transition-all cursor-pointer"
-            >
-              <span>Iniciar sesión</span>
-              <ArrowRight size={18} />
-            </button>
-          </div>
-        ) : (
-          /* FORMULARIO */
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* CONTRASEÑA ACTUAL */}
-            <div className="space-y-1.5">
-              <label htmlFor="password-actual" className="text-xs font-semibold text-[#788583]">
-                Contraseña actual
-              </label>
-
-              <div className="relative flex items-center">
-                <Lock size={16} className="absolute left-3.5 text-[#788583]" />
-
-                <input
-                  id="password-actual"
-                  type={mostrarPassword ? "text" : "password"}
-                  value={actual}
-                  onChange={(e) => setActual(e.target.value)}
-                  autoComplete="current-password"
-                  required
-                  maxLength={256}
-                  placeholder="••••••••"
-                  className="w-full bg-white border border-[#CDD4D3] rounded-xl py-2.5 pl-10 pr-11 text-sm text-[#293A3B] placeholder-[#7B8794] focus:outline-none focus:border-[#286D68] focus:ring-2 focus:ring-[#286D68]/15 transition-all"
-                />
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div className="flex items-center gap-3 pb-1">
+                <span className="arco grid place-items-center w-9 h-10 bg-menta text-petroleo-hover">
+                  <KeyRound size={17} />
+                </span>
+                <h2 className="text-[1rem] font-semibold">Cambiar contraseña</h2>
               </div>
-            </div>
 
-            {/* NUEVA CONTRASEÑA */}
-            <div className="space-y-1.5">
-              <label htmlFor="password-nueva" className="text-xs font-semibold text-[#788583]">
-                Nueva contraseña
-              </label>
+              {error && <Aviso icono={<AlertCircle size={16} />}>{error}</Aviso>}
 
-              <div className="relative flex items-center">
-                <Lock size={16} className="absolute left-3.5 text-[#788583]" />
+              <CampoConIcono
+                id="password-actual"
+                etiqueta="Contraseña actual"
+                icono={Lock}
+                conMostrar
+                mostrarControlado={mostrarPassword}
+                onToggleMostrar={toggle}
+                value={actual}
+                onChange={(e) => setActual(e.target.value)}
+                autoComplete="current-password"
+                required
+                maxLength={256}
+                placeholder="••••••••"
+              />
 
-                <input
+              <div>
+                <CampoConIcono
                   id="password-nueva"
-                  type={mostrarPassword ? "text" : "password"}
+                  etiqueta="Nueva contraseña"
+                  icono={Lock}
+                  conMostrar
+                  mostrarControlado={mostrarPassword}
+                  onToggleMostrar={toggle}
                   value={nueva}
                   onChange={(e) => setNueva(e.target.value)}
                   autoComplete="new-password"
@@ -190,71 +161,41 @@ const CambiarPassword: React.FC<CambiarPasswordProps> = ({
                   minLength={8}
                   maxLength={256}
                   placeholder="Mínimo 8 caracteres"
-                  className="w-full bg-white border border-[#CDD4D3] rounded-xl py-2.5 pl-10 pr-11 text-sm text-[#293A3B] placeholder-[#7B8794] focus:outline-none focus:border-[#286D68] focus:ring-2 focus:ring-[#286D68]/15 transition-all"
                 />
+                <LargoClave valor={nueva} />
               </div>
-            </div>
 
-            {/* CONFIRMAR CONTRASEÑA */}
-            <div className="space-y-1.5">
-              <label htmlFor="password-confirmar" className="text-xs font-semibold text-[#788583]">
-                Confirmar nueva contraseña
-              </label>
+              <CampoConIcono
+                id="password-confirmar"
+                etiqueta="Confirmar nueva contraseña"
+                icono={Lock}
+                conMostrar
+                mostrarControlado={mostrarPassword}
+                onToggleMostrar={toggle}
+                value={confirmar}
+                onChange={(e) => setConfirmar(e.target.value)}
+                autoComplete="new-password"
+                required
+                minLength={8}
+                maxLength={256}
+                placeholder="Repite tu contraseña"
+              />
 
-              <div className="relative flex items-center">
-                <Lock size={16} className="absolute left-3.5 text-[#788583]" />
-
-                <input
-                  id="password-confirmar"
-                  type={mostrarPassword ? "text" : "password"}
-                  value={confirmar}
-                  onChange={(e) => setConfirmar(e.target.value)}
-                  autoComplete="new-password"
-                  required
-                  minLength={8}
-                  maxLength={256}
-                  placeholder="Repite tu contraseña"
-                  className="w-full bg-white border border-[#CDD4D3] rounded-xl py-2.5 pl-10 pr-11 text-sm text-[#293A3B] placeholder-[#7B8794] focus:outline-none focus:border-[#286D68] focus:ring-2 focus:ring-[#286D68]/15 transition-all"
-                />
-              </div>
-            </div>
-
-            {/* MOSTRAR CONTRASEÑAS */}
-            <button
-              type="button"
-              onClick={() => setMostrarPassword(!mostrarPassword)}
-              className="flex items-center gap-2 text-xs font-medium text-[#788583] hover:text-[#286D68] transition-colors cursor-pointer"
-            >
-              {mostrarPassword ? <EyeOff size={15} /> : <Eye size={15} />}
-              <span>{mostrarPassword ? "Ocultar contraseñas" : "Mostrar contraseñas"}</span>
-            </button>
-
-            {/* BOTÓN GUARDAR */}
-            <button
-              type="submit"
-              disabled={cargando}
-              className="w-full bg-[#286D68] hover:bg-[#1E5450] disabled:opacity-50 text-white font-heading font-semibold py-2.5 rounded-xl flex items-center justify-center gap-2 text-sm shadow-xs transition-all cursor-pointer"
-            >
-              {cargando ? (
-                <>
-                  <Loader2 size={16} className="animate-spin" />
-                  <span>Guardando...</span>
-                </>
-              ) : (
-                <>
-                  <span>Guardar nueva contraseña</span>
-                  <ArrowRight size={18} />
-                </>
-              )}
-            </button>
-          </form>
-        )}
-
-        {/* PIE DE TARJETA */}
-        <div className="pt-4 border-t border-[#E7EAE7] text-center">
-          <p className="text-[11px] text-[#788583] font-medium">
-            Seguridad institucional · Comunidad Clara Administraciones Ltda.
-          </p>
+              <button type="submit" disabled={cargando} className="boton boton-primario boton-lg w-full">
+                {cargando ? (
+                  <>
+                    <IndicadorVentanas />
+                    Guardando…
+                  </>
+                ) : (
+                  <>
+                    Guardar nueva contraseña
+                    <ArrowRight size={17} />
+                  </>
+                )}
+              </button>
+            </form>
+          )}
         </div>
       </div>
     </div>

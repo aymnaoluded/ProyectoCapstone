@@ -1,19 +1,12 @@
-﻿
-import React, { useEffect, useState } from "react";
-import {
-  Users,
-  UserCheck,
-  Shield,
-  Search,
-  RefreshCw,
-  Circle,
-  Plus,
-  X,
-  CheckCircle2,
-  AlertTriangle,
-} from "lucide-react";
+﻿import React, { useEffect, useState } from "react";
+import { Users, UserCheck, Search, Plus, UserPlus, Headphones, Home, AlertCircle, MailCheck } from "lucide-react";
 
 import { API_URL } from "../utils/api";
+import { useToast } from "../context/ToastContext";
+import { EncabezadoPagina, BotonRecargar, Kpi, EstadoVacio, Aviso } from "./ui/Pagina";
+import { Modal } from "./ui/Modal";
+import { IndicadorVentanas } from "./ui/Fachada";
+import { Esqueleto } from "./ui/Skeleton";
 
 interface UsuarioAdmin {
   id_usuario: number;
@@ -26,17 +19,17 @@ interface UsuarioAdmin {
   online: boolean;
 }
 
-type Notificacion = {
-  tipo: "exito" | "advertencia";
-  titulo: string;
-  mensaje: string;
-};
-
 const ROLES = [
   { id: 1, nombre: "Administrador" },
   { id: 2, nombre: "Ejecutivo" },
   { id: 3, nombre: "Cliente" },
 ];
+
+const CLASE_ROL: Record<string, string> = {
+  Administrador: "bg-noche text-menta",
+  Ejecutivo: "insignia-coral",
+  Cliente: "insignia-proceso",
+};
 
 function getToken(): string | null {
   return localStorage.getItem("access_token");
@@ -60,16 +53,8 @@ function obtenerMensajeError(data: unknown): string {
         if (!error || typeof error !== "object") {
           return "Error de validación.";
         }
-
-        const item = error as {
-          loc?: Array<string | number>;
-          msg?: string;
-        };
-
-        const campo = Array.isArray(item.loc)
-          ? item.loc.join(".")
-          : "Campo desconocido";
-
+        const item = error as { loc?: Array<string | number>; msg?: string };
+        const campo = Array.isArray(item.loc) ? item.loc.join(".") : "Campo desconocido";
         return `${campo}: ${item.msg || "Valor inválido"}`;
       })
       .join(" | ");
@@ -83,14 +68,12 @@ function obtenerMensajeError(data: unknown): string {
 // ============================================================
 
 interface ModalAgregarUsuarioProps {
+  abierto: boolean;
   onClose: () => void;
   onUsuarioCreado: (correoEnviado: boolean) => void;
 }
 
-const ModalAgregarUsuario: React.FC<ModalAgregarUsuarioProps> = ({
-  onClose,
-  onUsuarioCreado,
-}) => {
+const ModalAgregarUsuario: React.FC<ModalAgregarUsuarioProps> = ({ abierto, onClose, onUsuarioCreado }) => {
   const [nombre, setNombre] = useState("");
   const [apellido, setApellido] = useState("");
   const [correo, setCorreo] = useState("");
@@ -99,6 +82,19 @@ const ModalAgregarUsuario: React.FC<ModalAgregarUsuarioProps> = ({
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Formulario limpio cada vez que se abre (ajuste durante el render, no en un efecto)
+  const [abiertoPrevio, setAbiertoPrevio] = useState(abierto);
+  if (abiertoPrevio !== abierto) {
+    setAbiertoPrevio(abierto);
+    if (abierto) {
+      setNombre("");
+      setApellido("");
+      setCorreo("");
+      setRol(3);
+      setError(null);
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -106,9 +102,7 @@ const ModalAgregarUsuario: React.FC<ModalAgregarUsuarioProps> = ({
     const token = getToken();
 
     if (!token) {
-      setError(
-        "Tu sesión ha expirado. Vuelve a iniciar sesión."
-      );
+      setError("Tu sesión ha expirado. Vuelve a iniciar sesión.");
       return;
     }
 
@@ -120,199 +114,134 @@ const ModalAgregarUsuario: React.FC<ModalAgregarUsuarioProps> = ({
     setEnviando(true);
 
     try {
-      const res = await fetch(
-        `${API_URL}/api/admin/usuarios`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            nombre: nombre.trim(),
-            apellido: apellido.trim(),
-            correo: correo.trim().toLowerCase(),
-            rol,
-          }),
-        }
-      );
+      const res = await fetch(`${API_URL}/api/admin/usuarios`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          nombre: nombre.trim(),
+          apellido: apellido.trim(),
+          correo: correo.trim().toLowerCase(),
+          rol,
+        }),
+      });
 
       const data = await res.json().catch(() => null);
 
       if (!res.ok) {
-        console.error(
-          "Error al crear usuario:",
-          res.status,
-          data
-        );
-
+        console.error("Error al crear usuario:", res.status, data);
         throw new Error(obtenerMensajeError(data));
       }
 
-      // Informar al componente principal del resultado.
-      // Ya no utilizamos alert() del navegador.
       onUsuarioCreado(data?.correo_enviado === true);
-
     } catch (err: unknown) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Ocurrió un error inesperado."
-      );
+      setError(err instanceof Error ? err.message : "Ocurrió un error inesperado.");
     } finally {
       setEnviando(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
-
-        {/* CABECERA */}
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-bold text-slate-900">
-            Agregar Usuario
-          </h2>
-
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={enviando}
-            aria-label="Cerrar formulario"
-            className="text-slate-400 hover:text-slate-600 disabled:opacity-50 cursor-pointer"
-          >
-            <X size={20} />
+    <Modal
+      abierto={abierto}
+      onCerrar={onClose}
+      bloqueado={enviando}
+      ancho="md"
+      icono={<UserPlus size={18} />}
+      titulo="Agregar usuario"
+      descripcion="La persona recibirá un correo con un enlace para activar su cuenta y crear su contraseña."
+      pie={
+        <>
+          <button type="button" onClick={onClose} disabled={enviando} className="boton boton-fantasma">
+            Cancelar
           </button>
-        </div>
-
-        {/* FORMULARIO */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-
-          {/* NOMBRE Y APELLIDO */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label
-                htmlFor="nuevo-usuario-nombre"
-                className="block text-xs font-semibold text-slate-600 mb-1"
-              >
-                Nombre
-              </label>
-
-              <input
-                id="nuevo-usuario-nombre"
-                type="text"
-                required
-                maxLength={100}
-                value={nombre}
-                onChange={(e) => setNombre(e.target.value)}
-                className="w-full border border-slate-200 rounded-2xl px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#286D68]"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="nuevo-usuario-apellido"
-                className="block text-xs font-semibold text-slate-600 mb-1"
-              >
-                Apellido
-              </label>
-
-              <input
-                id="nuevo-usuario-apellido"
-                type="text"
-                required
-                maxLength={100}
-                value={apellido}
-                onChange={(e) => setApellido(e.target.value)}
-                className="w-full border border-slate-200 rounded-2xl px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#286D68]"
-              />
-            </div>
-          </div>
-
-          {/* CORREO */}
+          <button type="submit" form="form-nuevo-usuario" disabled={enviando} className="boton boton-primario">
+            {enviando ? <IndicadorVentanas /> : <UserPlus size={16} />}
+            {enviando ? "Creando…" : "Crear usuario"}
+          </button>
+        </>
+      }
+    >
+      <form id="form-nuevo-usuario" onSubmit={handleSubmit} className="space-y-4 pb-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label
-              htmlFor="nuevo-usuario-correo"
-              className="block text-xs font-semibold text-slate-600 mb-1"
-            >
-              Correo
+            <label htmlFor="nuevo-usuario-nombre" className="etiqueta">
+              Nombre
             </label>
-
             <input
-              id="nuevo-usuario-correo"
-              type="email"
+              id="nuevo-usuario-nombre"
+              type="text"
               required
-              value={correo}
-              onChange={(e) => setCorreo(e.target.value)}
-              className="w-full border border-slate-200 rounded-2xl px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#286D68]"
+              maxLength={100}
+              value={nombre}
+              onChange={(e) => setNombre(e.target.value)}
+              autoComplete="given-name"
+              className="campo"
             />
           </div>
-
-          {/* INFORMACIÓN DE ACTIVACIÓN */}
-          <div className="bg-[#EDF5F4] border border-[#C4E0DA] rounded-2xl p-3">
-            <p className="text-xs text-[#1E5450]">
-              El usuario recibirá un correo electrónico
-              con un enlace para activar su cuenta
-              y establecer su contraseña.
-            </p>
-          </div>
-
-          {/* ROL */}
           <div>
-            <label
-              htmlFor="nuevo-usuario-rol"
-              className="block text-xs font-semibold text-slate-600 mb-1"
-            >
-              Rol
+            <label htmlFor="nuevo-usuario-apellido" className="etiqueta">
+              Apellido
             </label>
-
-            <select
-              id="nuevo-usuario-rol"
-              value={rol}
-              onChange={(e) => setRol(Number(e.target.value))}
-              className="w-full border border-slate-200 rounded-2xl px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#286D68]"
-            >
-              {ROLES.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.nombre}
-                </option>
-              ))}
-            </select>
+            <input
+              id="nuevo-usuario-apellido"
+              type="text"
+              required
+              maxLength={100}
+              value={apellido}
+              onChange={(e) => setApellido(e.target.value)}
+              autoComplete="family-name"
+              className="campo"
+            />
           </div>
+        </div>
 
-          {/* ERRORES DEL FORMULARIO */}
-          {error && (
-            <p
-              role="alert"
-              className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-2xl px-3 py-2"
-            >
-              {error}
-            </p>
-          )}
+        <div>
+          <label htmlFor="nuevo-usuario-correo" className="etiqueta">
+            Correo
+          </label>
+          <input
+            id="nuevo-usuario-correo"
+            type="email"
+            required
+            value={correo}
+            onChange={(e) => setCorreo(e.target.value)}
+            autoComplete="email"
+            placeholder="nombre@correo.com"
+            className="campo"
+          />
+        </div>
 
-          {/* ACCIONES */}
-          <div className="flex justify-end gap-2 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={enviando}
-              className="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 rounded-xl transition-all disabled:opacity-50 cursor-pointer"
-            >
-              Cancelar
-            </button>
-
-            <button
-              type="submit"
-              disabled={enviando}
-              className="px-4 py-2 text-sm font-semibold text-white bg-[#286D68] hover:bg-[#1E5450] rounded-xl transition-all disabled:opacity-50 cursor-pointer"
-            >
-              {enviando ? "Creando..." : "Crear usuario"}
-            </button>
+        <fieldset>
+          <legend className="etiqueta">Rol</legend>
+          <div className="grid grid-cols-3 gap-2" role="radiogroup">
+            {ROLES.map((r) => (
+              <label
+                key={r.id}
+                className={`flex flex-col items-center gap-1.5 rounded-xl border px-2 py-3 text-[0.8125rem] font-semibold cursor-pointer transition-all
+                  has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-petroleo
+                  ${rol === r.id ? "border-petroleo bg-menta-2 text-petroleo-hover" : "border-linea-fuerte text-tinta-2 hover:border-tinta-3"}`}
+              >
+                <input
+                  type="radio"
+                  name="nuevo-usuario-rol"
+                  value={r.id}
+                  checked={rol === r.id}
+                  onChange={() => setRol(r.id)}
+                  className="sr-only"
+                />
+                {r.id === 1 ? <Users size={17} /> : r.id === 2 ? <Headphones size={17} /> : <Home size={17} />}
+                {r.nombre}
+              </label>
+            ))}
           </div>
+        </fieldset>
 
-        </form>
-      </div>
-    </div>
+        {error && <Aviso icono={<AlertCircle size={16} />}>{error}</Aviso>}
+      </form>
+    </Modal>
   );
 };
 
@@ -321,14 +250,11 @@ const ModalAgregarUsuario: React.FC<ModalAgregarUsuarioProps> = ({
 // ============================================================
 
 export const GestionUsuarios: React.FC = () => {
+  const toast = useToast();
   const [usuarios, setUsuarios] = useState<UsuarioAdmin[]>([]);
   const [cargando, setCargando] = useState(true);
   const [busqueda, setBusqueda] = useState("");
   const [modalAbierto, setModalAbierto] = useState(false);
-
-  // Nueva notificación integrada en Comunidad Clara.
-  const [notificacion, setNotificacion] =
-    useState<Notificacion | null>(null);
 
   const cargarUsuarios = async () => {
     setCargando(true);
@@ -336,31 +262,20 @@ export const GestionUsuarios: React.FC = () => {
     try {
       const token = getToken();
 
-      const res = await fetch(
-        `${API_URL}/api/admin/usuarios?t=${Date.now()}`,
-        {
-          cache: "no-store",
-          headers: {
-            ...(token
-              ? { Authorization: `Bearer ${token}` }
-              : {}),
-          },
-        }
-      );
+      const res = await fetch(`${API_URL}/api/admin/usuarios?t=${Date.now()}`, {
+        cache: "no-store",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
 
       if (res.ok) {
         setUsuarios(await res.json());
       } else {
-        console.error(
-          "No se pudo cargar la lista de usuarios:",
-          res.status
-        );
+        console.error("No se pudo cargar la lista de usuarios:", res.status);
       }
     } catch (err) {
-      console.error(
-        "Error al cargar lista de usuarios:",
-        err
-      );
+      console.error("Error al cargar lista de usuarios:", err);
     } finally {
       setCargando(false);
     }
@@ -369,45 +284,22 @@ export const GestionUsuarios: React.FC = () => {
   // Cargar usuarios y mantener actualización automática.
   useEffect(() => {
     cargarUsuarios();
-
     const interval = setInterval(cargarUsuarios, 15000);
-
     return () => clearInterval(interval);
   }, []);
 
-  // Ocultar automáticamente la notificación tras 5 segundos.
-  useEffect(() => {
-    if (!notificacion) return;
-
-    const timeout = window.setTimeout(() => {
-      setNotificacion(null);
-    }, 5000);
-
-    return () => window.clearTimeout(timeout);
-  }, [notificacion]);
-
   // Se ejecuta cuando el backend confirma la creación.
   const handleUsuarioCreado = (correoEnviado: boolean) => {
-    // Cerrar el modal sin perder la notificación.
     setModalAbierto(false);
-
-    // Actualizar la tabla sin interrumpir la operación.
     void cargarUsuarios();
 
     if (correoEnviado) {
-      setNotificacion({
-        tipo: "exito",
-        titulo: "Usuario creado correctamente",
-        mensaje:
-          "Se envió el correo de activación al nuevo usuario.",
-      });
+      toast.exito("Usuario creado correctamente", "Se envió el correo de activación al nuevo usuario.");
     } else {
-      setNotificacion({
-        tipo: "advertencia",
-        titulo: "Usuario creado con advertencia",
-        mensaje:
-          "La cuenta fue creada, pero no se pudo confirmar el envío del correo de activación. Revisa el backend antes de intentar crearla nuevamente.",
-      });
+      toast.aviso(
+        "Usuario creado con advertencia",
+        "La cuenta fue creada, pero no se pudo confirmar el envío del correo de activación. Revisa el backend antes de intentar crearla nuevamente."
+      );
     }
   };
 
@@ -418,306 +310,156 @@ export const GestionUsuarios: React.FC = () => {
       u.rol_nombre.toLowerCase().includes(busqueda.toLowerCase())
   );
 
-  const totalOnline = usuarios.filter(
-    (u) => u.online
-  ).length;
+  const totalOnline = usuarios.filter((u) => u.online).length;
+  const totalEquipo = usuarios.filter((u) => u.rol_nombre !== "Cliente").length;
+  const totalResidentes = usuarios.length - totalEquipo;
+  const cargaInicial = cargando && usuarios.length === 0;
+
+  const conexion = (u: UsuarioAdmin) =>
+    u.online ? (
+      <span className="inline-flex items-center gap-2 text-[0.8125rem] font-semibold text-tinta">
+        <span className="ventana ventana-encendida w-[7px] h-[9px]" aria-hidden="true" /> En línea
+      </span>
+    ) : (
+      <span className="inline-flex items-center gap-2 text-[0.8125rem] text-tinta-2">
+        <span className="ventana ventana-clara w-[7px] h-[9px]" aria-hidden="true" /> Desconectado
+      </span>
+    );
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-[#f8fafc] overflow-y-auto">
+    <div className="flex-1 min-h-0 overflow-y-auto barra-fina">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 pb-12 space-y-7">
+        <EncabezadoPagina
+          ceja="Administración"
+          titulo={
+            <>
+              Gestión de <em>usuarios</em>
+            </>
+          }
+          descripcion="Cuentas de residentes, ejecutivos y administración. La conexión se actualiza sola cada 15 segundos."
+          acciones={
+            <>
+              <BotonRecargar onClick={cargarUsuarios} cargando={cargando} soloIcono etiqueta="Actualizar usuarios" />
+              <button type="button" onClick={() => setModalAbierto(true)} className="boton boton-primario">
+                <Plus size={17} />
+                Agregar usuario
+              </button>
+            </>
+          }
+        />
 
-      {/* NOTIFICACIÓN INTEGRADA */}
-      {notificacion && (
-        <div
-          role={notificacion.tipo === "advertencia" ? "alert" : "status"}
-          aria-live={notificacion.tipo === "advertencia" ? "assertive" : "polite"}
-          className="fixed top-5 right-5 z-[60] w-[calc(100%-2.5rem)] max-w-sm animate-in fade-in slide-in-from-top-3 duration-300"
-        >
-          <div
-            className={`flex items-start gap-3 rounded-2xl border p-4 shadow-xl bg-white ${
-              notificacion.tipo === "exito"
-                ? "border-emerald-200"
-                : "border-amber-200"
-            }`}
-          >
-            {/* ICONO */}
-            <div
-              className={`shrink-0 rounded-xl p-2 ${
-                notificacion.tipo === "exito"
-                  ? "bg-emerald-50 text-emerald-600"
-                  : "bg-amber-50 text-amber-600"
-              }`}
-            >
-              {notificacion.tipo === "exito" ? (
-                <CheckCircle2 size={20} />
-              ) : (
-                <AlertTriangle size={20} />
-              )}
-            </div>
-
-            {/* CONTENIDO */}
-            <div className="flex-1 min-w-0">
-              <p
-                className={`text-sm font-bold ${
-                  notificacion.tipo === "exito"
-                    ? "text-emerald-700"
-                    : "text-amber-700"
-                }`}
-              >
-                {notificacion.titulo}
-              </p>
-
-              <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                {notificacion.mensaje}
-              </p>
-            </div>
-
-            {/* CERRAR NOTIFICACIÓN */}
-            <button
-              type="button"
-              onClick={() => setNotificacion(null)}
-              aria-label="Cerrar notificación"
-              className="shrink-0 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
-            >
-              <X size={17} />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* CABECERA SUPERIOR */}
-      <div className="bg-white border-b border-slate-200 px-8 py-6 flex items-center justify-between shrink-0">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">
-            Gestión de Usuarios
-          </h1>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 escalonado">
+          <Kpi etiqueta="Cuentas" valor={usuarios.length} detalle="Registradas en la plataforma" icono={<Users size={16} />} />
+          <Kpi etiqueta="En línea" valor={totalOnline} detalle="Conectadas ahora mismo" icono={<UserCheck size={16} />} tono="luz" />
+          <Kpi etiqueta="Equipo" valor={totalEquipo} detalle="Administración y ejecutivos" icono={<Headphones size={16} />} tono="coral" />
+          <Kpi etiqueta="Residentes" valor={totalResidentes} detalle="Cuentas de clientes" icono={<Home size={16} />} tono="exito" />
         </div>
 
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={cargarUsuarios}
-            className="flex items-center gap-2 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 border border-slate-200 px-3.5 py-2 rounded-xl transition-all cursor-pointer"
-          >
-            <RefreshCw
-              size={14}
-              className={
-                cargando
-                  ? "animate-spin text-[#286D68]"
-                  : ""
-              }
+        <div className="relative w-full sm:max-w-sm">
+          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-tinta-3 pointer-events-none" />
+          <input
+            type="search"
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Buscar por nombre, correo o rol"
+            aria-label="Buscar usuarios por nombre, correo o rol"
+            className="campo !pl-10 !rounded-full !min-h-[2.5rem]"
+          />
+        </div>
+
+        <div className="superficie overflow-hidden">
+          {cargaInicial ? (
+            <div className="p-5 space-y-4" role="status" aria-label="Cargando usuarios">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="flex items-center gap-4">
+                  <Esqueleto className="w-9 h-10 !rounded-t-full" />
+                  <div className="flex-1 space-y-2">
+                    <Esqueleto className="h-3.5 w-1/3" />
+                    <Esqueleto className="h-3 w-1/2" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : filtrados.length === 0 ? (
+            <EstadoVacio
+              compacto
+              titulo={usuarios.length === 0 ? "Aún no hay usuarios" : "Sin coincidencias"}
+              descripcion={usuarios.length === 0 ? "Agrega la primera cuenta para comenzar." : `Ningún usuario coincide con “${busqueda}”.`}
             />
-            <span>Actualizar</span>
-          </button>
+          ) : (
+            <>
+              {/* Escritorio: tabla */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="tabla">
+                  <caption className="sr-only">Usuarios de la plataforma</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Usuario</th>
+                      <th scope="col">Rol</th>
+                      <th scope="col">Conexión</th>
+                      <th scope="col">Última conexión</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtrados.map((u) => (
+                      <tr key={u.id_usuario}>
+                        <td>
+                          <div className="flex items-center gap-3">
+                            <span className="arco grid place-items-center w-8 h-9 shrink-0 bg-papel-2 text-tinta-2 text-[0.8125rem] font-semibold">
+                              {u.nombre.trim().charAt(0).toUpperCase()}
+                            </span>
+                            <div className="min-w-0">
+                              <p className="font-semibold text-tinta truncate">{u.nombre}</p>
+                              <p className="text-[0.8125rem] text-tinta-2 truncate">{u.correo}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td>
+                          <span className={`insignia insignia-sin-punto ${CLASE_ROL[u.rol_nombre] ?? "insignia-cerrado"}`}>{u.rol_nombre}</span>
+                        </td>
+                        <td>
+                          {conexion(u)}
+                        </td>
+                        <td className="text-tinta-2 tabular-nums whitespace-nowrap">{u.ultima_conexion}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
 
-          <button
-            type="button"
-            onClick={() => {
-              setNotificacion(null);
-              setModalAbierto(true);
-            }}
-            className="flex items-center gap-2 bg-[#286D68] hover:bg-[#1E5450] text-white text-xs font-semibold px-4 py-2 rounded-xl transition-all shadow-sm shadow-[#286D68]/20 cursor-pointer"
-          >
-            <Plus size={16} />
-            <span>Agregar Usuario</span>
-          </button>
-        </div>
-      </div>
-
-      <div className="p-8 space-y-6 max-w-7xl mx-auto w-full">
-
-        {/* TARJETAS DE MÉTRICAS */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-
-          {/* TOTAL DE CUENTAS */}
-          <div className="bg-white border border-slate-200/80 rounded-2xl p-5 border border-slate-200/70 shadow-[0_2px_14px_rgba(31,41,51,0.03)] flex items-center justify-between">
-            <div>
-              <span className="text-2xl font-bold text-slate-900 block">
-                {usuarios.length}
-              </span>
-
-              <span className="text-xs font-medium text-slate-500 mt-1 block">
-                Total de cuentas
-              </span>
-            </div>
-
-            <div className="w-10 h-10 bg-[#EDF5F4] text-[#286D68] rounded-xl flex items-center justify-center">
-              <Users size={20} />
-            </div>
-          </div>
-
-          {/* USUARIOS EN LÍNEA */}
-          <div className="bg-white border border-slate-200/80 rounded-2xl p-5 border border-slate-200/70 shadow-[0_2px_14px_rgba(31,41,51,0.03)] flex items-center justify-between">
-            <div>
-              <span className="text-2xl font-bold text-emerald-600 block">
-                {totalOnline}
-              </span>
-
-              <span className="text-xs font-medium text-slate-500 mt-1 block">
-                Conectados ahora
-              </span>
-            </div>
-
-            <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
-              <UserCheck size={20} />
-            </div>
-          </div>
-
-          {/* ROLES */}
-          <div className="bg-white border border-slate-200/80 rounded-2xl p-5 border border-slate-200/70 shadow-[0_2px_14px_rgba(31,41,51,0.03)] flex items-center justify-between">
-            <div>
-              <span className="text-2xl font-bold text-slate-900 block">
-                {ROLES.length}
-              </span>
-
-              <span className="text-xs font-medium text-slate-500 mt-1 block">
-                Roles definidos (RBAC)
-              </span>
-            </div>
-
-            <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
-              <Shield size={20} />
-            </div>
-          </div>
-
-        </div>
-
-        {/* BARRA DE BÚSQUEDA */}
-        <div className="flex items-center justify-between gap-4">
-          <div className="relative flex-1 max-w-md">
-            <Search
-              className="absolute left-3 top-3 text-slate-400"
-              size={18}
-            />
-
-            <input
-              type="text"
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              placeholder="Buscar por nombre, correo o rol..."
-              className="w-full bg-white border border-slate-200 rounded-xl py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-1 focus:ring-[#286D68]"
-            />
-          </div>
-        </div>
-
-        {/* TABLA DE USUARIOS */}
-        <div className="bg-white border border-slate-200/80 rounded-2xl border border-slate-200/70 shadow-[0_2px_14px_rgba(31,41,51,0.03)] overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-base">
-
-              <thead className="bg-slate-50/70 border-b border-slate-200/80 text-slate-500 font-semibold uppercase tracking-wider">
-                <tr>
-                  <th className="px-6 py-3.5">
-                    Usuario
-                  </th>
-
-                  <th className="px-6 py-3.5">
-                    Rol
-                  </th>
-
-                  <th className="px-6 py-3.5">
-                    Estado de Conexión
-                  </th>
-
-                  <th className="px-6 py-3.5">
-                    Última Conexión
-                  </th>
-                </tr>
-              </thead>
-
-              <tbody className="divide-y divide-slate-100">
-                {filtrados.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={4}
-                      className="px-6 py-10 text-center text-slate-400"
-                    >
-                      {cargando
-                        ? "Cargando usuarios..."
-                        : "No se encontraron usuarios coincidentes."}
-                    </td>
-                  </tr>
-                ) : (
-                  filtrados.map((u) => (
-                    <tr
-                      key={u.id_usuario}
-                      className="hover:bg-slate-50/50 transition-colors"
-                    >
-
-                      {/* USUARIO */}
-                      <td className="px-6 py-4">
-                        <div>
-                          <p className="font-semibold text-slate-900">
-                            {u.nombre}
-                          </p>
-
-                          <p className="text-[14px] text-slate-400">
-                            {u.correo}
-                          </p>
-                        </div>
-                      </td>
-
-                      {/* ROL */}
-                      <td className="px-6 py-4">
-                        <span
-                          className={`inline-block px-2.5 py-0.5 rounded-full text-[13px] font-semibold border ${
-                            u.rol_nombre === "Administrador"
-                              ? "bg-purple-50 text-purple-700 border-purple-200"
-                              : u.rol_nombre === "Ejecutivo"
-                              ? "bg-[#EDF5F4] text-[#1E5450] border-[#C4E0DA]"
-                              : "bg-slate-100 text-slate-600 border-slate-200"
-                          }`}
-                        >
+              {/* Celular: tarjetas */}
+              <ul className="md:hidden divide-y divide-linea">
+                {filtrados.map((u) => (
+                  <li key={u.id_usuario} className="flex items-start gap-3 px-4 py-3.5">
+                    <span className="arco grid place-items-center w-8 h-9 shrink-0 bg-papel-2 text-tinta-2 text-[0.8125rem] font-semibold">
+                      {u.nombre.trim().charAt(0).toUpperCase()}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="font-semibold text-tinta truncate">{u.nombre}</p>
+                        <span className={`insignia insignia-sin-punto shrink-0 ${CLASE_ROL[u.rol_nombre] ?? "insignia-cerrado"}`}>
                           {u.rol_nombre}
                         </span>
-                      </td>
-
-                      {/* ESTADO DE CONEXIÓN */}
-                      <td className="px-6 py-4">
-                        {u.online ? (
-                          <div className="flex items-center gap-1.5 text-emerald-700 font-semibold bg-emerald-50 border border-emerald-200/70 px-2.5 py-0.5 rounded-full w-fit">
-                            <Circle
-                              size={8}
-                              className="fill-emerald-500 text-emerald-500"
-                            />
-
-                            <span>En línea</span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-1.5 text-slate-500 font-medium bg-slate-50 border border-slate-200 rounded-full px-2.5 py-0.5 w-fit">
-                            <Circle
-                              size={8}
-                              className="fill-slate-300 text-slate-300"
-                            />
-
-                            <span>Desconectado</span>
-                          </div>
-                        )}
-                      </td>
-
-                      {/* ÚLTIMA CONEXIÓN */}
-                      <td className="px-6 py-4 text-slate-500 font-mono text-[15px]">
-                        {u.ultima_conexion}
-                      </td>
-
-                    </tr>
-                  ))
-                )}
-              </tbody>
-
-            </table>
-          </div>
+                      </div>
+                      <p className="text-[0.8125rem] text-tinta-2 truncate">{u.correo}</p>
+                      <div className="flex items-center justify-between gap-2 mt-2">
+                        {conexion(u)}
+                        <span className="text-[0.75rem] text-tinta-3 tabular-nums">{u.ultima_conexion}</span>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
         </div>
 
+        <p className="flex items-center gap-2 text-[0.8125rem] text-tinta-3">
+          <MailCheck size={15} /> Las cuentas nuevas quedan pendientes hasta que la persona active su enlace.
+        </p>
       </div>
 
-      {/* MODAL AGREGAR USUARIO */}
-      {modalAbierto && (
-        <ModalAgregarUsuario
-          onClose={() => setModalAbierto(false)}
-          onUsuarioCreado={handleUsuarioCreado}
-        />
-      )}
-
+      <ModalAgregarUsuario abierto={modalAbierto} onClose={() => setModalAbierto(false)} onUsuarioCreado={handleUsuarioCreado} />
     </div>
   );
 };
