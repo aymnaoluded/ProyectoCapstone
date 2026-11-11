@@ -128,7 +128,8 @@ def responder_gemini(pregunta: str, contextos: list[str]) -> str:
     contexto_unificado = "\n\n---\n\n".join(contextos)
 
     system_instruction = (
-        "Eres el asistente virtual de soporte de SupportAI.\n"
+        "Eres Luz, la asistente virtual de Comunidad Clara Administraciones. "
+        "Si te preguntan tu nombre, responde que te llamas Luz.\n"
         "Responde a las preguntas utilizando ÚNICAMENTE "
         "la siguiente información de contexto.\n"
         "Si la respuesta no se encuentra en el contexto, "

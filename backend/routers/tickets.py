@@ -284,7 +284,8 @@ async def actualizar_estado_ticket(
     usuario: UsuarioToken = Depends(requiere_rol(ROL_EJECUTIVO, ROL_ADMIN))
 ):
     """
-    Cambia el estado del ticket (Ejecutivos y Administradores) y, solo el Administrador, asigna el responsable.
+    Cambia el estado del ticket (Ejecutivos y Administradores) y asigna el responsable:
+    el Administrador asigna a cualquier ejecutivo; un Ejecutivo solo puede tomar para sí un ticket sin responsable.
     Cerrar es exclusivo del cliente (POST /{id_ticket}/cerrar) y reabrir es exclusivo del Administrador.
     """
     pool = obtener_db_pool()
@@ -317,22 +318,31 @@ async def actualizar_estado_ticket(
                         detail="Solo el cliente puede cerrar su ticket."
                     )
 
-                # Solo el Administrador asigna tickets a los ejecutivos
-                if body.ejecutivo_id and usuario.rol != ROL_ADMIN:
-                    raise HTTPException(
-                        status_code=403,
-                        detail="Solo el administrador puede asignar tickets."
-                    )
+                asignado = ticket["ejecutivo_asignado"]
 
-                # Un Ejecutivo solo gestiona los tickets que el Administrador le asignó
-                if usuario.rol == ROL_EJECUTIVO:
-                    asignado = ticket["ejecutivo_asignado"]
-                    if asignado is None:
+                # El Administrador asigna a cualquiera; un Ejecutivo solo puede tomar para sí un ticket sin responsable
+                toma_propia = False
+                if body.ejecutivo_id and usuario.rol != ROL_ADMIN:
+                    if body.ejecutivo_id != usuario.id_usuario:
                         raise HTTPException(
                             status_code=403,
-                            detail="Este ticket aún no tiene responsable. El administrador debe asignarlo."
+                            detail="Solo el administrador puede asignar tickets a otras personas."
                         )
-                    if asignado != usuario.id_usuario:
+                    if asignado is not None and asignado != usuario.id_usuario:
+                        raise HTTPException(
+                            status_code=409,
+                            detail="Otro ejecutivo ya tomó este ticket. Actualiza la bandeja."
+                        )
+                    toma_propia = asignado is None
+
+                # Un Ejecutivo solo gestiona los tickets asignados a él (o el que está tomando ahora)
+                if usuario.rol == ROL_EJECUTIVO:
+                    if asignado is None and not toma_propia:
+                        raise HTTPException(
+                            status_code=403,
+                            detail="Este ticket aún no tiene responsable. Tómalo para poder gestionarlo."
+                        )
+                    if asignado is not None and asignado != usuario.id_usuario:
                         raise HTTPException(
                             status_code=403,
                             detail="Este ticket está asignado a otro ejecutivo."
@@ -386,7 +396,11 @@ async def actualizar_estado_ticket(
                     VALUES ($1, 'CAMBIO_ESTADO_TICKET', $2);
                     """,
                     usuario.id_usuario,
-                    f"Ticket #{id_ticket} cambió a estado '{estado_row['estado']}'"
+                    (
+                        f"Ticket #{id_ticket} tomado por su responsable y cambió a estado '{estado_row['estado']}'"
+                        if toma_propia
+                        else f"Ticket #{id_ticket} cambió a estado '{estado_row['estado']}'"
+                    )
                 )
 
                 return {"status": "actualizado", "nuevo_estado": estado_row["estado"]}
