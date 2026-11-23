@@ -60,9 +60,9 @@ async def obtener_metricas(usuario: UsuarioToken = Depends(requiere_rol("Adminis
                 SELECT 
                     ROUND(COALESCE(AVG(nivel_confianza), 0.0)::NUMERIC, 2) AS confianza_promedio,
                     COUNT(*) FILTER (WHERE emisor = 'bot')::INT AS total_respuestas,
-                    COUNT(*) FILTER (WHERE emisor = 'bot' AND nivel_confianza >= 0.80)::INT AS alta_confianza,
-                    COUNT(*) FILTER (WHERE emisor = 'bot' AND nivel_confianza >= 0.60 AND nivel_confianza < 0.80)::INT AS media_confianza,
-                    COUNT(*) FILTER (WHERE emisor = 'bot' AND (nivel_confianza < 0.60 OR nivel_confianza IS NULL))::INT AS baja_confianza
+                    COUNT(*) FILTER (WHERE emisor = 'bot' AND nivel_confianza >= 0.72)::INT AS alta_confianza,
+                    COUNT(*) FILTER (WHERE emisor = 'bot' AND nivel_confianza >= 0.50 AND nivel_confianza < 0.72)::INT AS media_confianza,
+                    COUNT(*) FILTER (WHERE emisor = 'bot' AND (nivel_confianza < 0.50 OR nivel_confianza IS NULL))::INT AS baja_confianza
                 FROM MENSAJE;
                 """
             )
@@ -742,4 +742,4 @@ async def consultar_correos_recientes(
     return {
         "total": len(mensajes),
         "mensajes": mensajes
-    }
+    }

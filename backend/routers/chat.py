@@ -4,15 +4,15 @@ from typing import Optional, List
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
 from database import obtener_db_pool
-from services import generar_embedding_consulta, responder_gemini
+from services import generar_embedding_consulta, responder_gemini, calcular_confianza_semantica
 from .auth import get_usuario_actual, UsuarioToken, LimitadorIntentos
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/chat", tags=["Chat y RAG"])
 
-UMBRAL_ALTA_CONFIANZA = 0.80
-UMBRAL_MEDIA_CONFIANZA = 0.60
+UMBRAL_ALTA_CONFIANZA = 0.72
+UMBRAL_MEDIA_CONFIANZA = 0.50
 
 MAX_LARGO_MENSAJE = 2000
 
@@ -234,7 +234,8 @@ async def chat_rag(body: ChatRequest, usuario: UsuarioToken = Depends(get_usuari
                         fuentes=[]
                     )
 
-                score_maximo = round(float(rows[0]["similitud"]), 3)
+                similitudes = [float(r["similitud"]) for r in rows]
+                confianza_calculada = calcular_confianza_semantica(similitudes)
                 mejor_fragmento_id = rows[0]["id_fragmento"]
                 fuentes_data = [
                     FuenteResponse(
@@ -245,7 +246,7 @@ async def chat_rag(body: ChatRequest, usuario: UsuarioToken = Depends(get_usuari
                     for r in rows
                 ]
 
-                if score_maximo < UMBRAL_MEDIA_CONFIANZA:
+                if confianza_calculada < UMBRAL_MEDIA_CONFIANZA:
                     texto_resp = (
                         "No encontré información suficiente en la base de conocimiento para responder tu consulta con certeza. "
                         "Puedes reformular la pregunta usando términos del reglamento de tu comunidad, "
@@ -256,13 +257,13 @@ async def chat_rag(body: ChatRequest, usuario: UsuarioToken = Depends(get_usuari
                         INSERT INTO MENSAJE (conversacion_id, emisor, contenido, fragmento_id, nivel_confianza, requiere_escalamiento)
                         VALUES ($1, 'bot', $2, $3, $4, TRUE)
                         """,
-                        conversacion_id, texto_resp, mejor_fragmento_id, score_maximo
+                        conversacion_id, texto_resp, mejor_fragmento_id, confianza_calculada
                     )
                     return ChatResponse(
                         conversacion_id=conversacion_id,
                         respuesta=texto_resp,
                         nivel_confianza="BAJA",
-                        score_maximo=score_maximo,
+                        score_maximo=confianza_calculada,
                         escalar_ejecutivo=True,
                         fuentes=[]
                     )
@@ -274,7 +275,7 @@ async def chat_rag(body: ChatRequest, usuario: UsuarioToken = Depends(get_usuari
                     logger.exception("Fallo al generar la respuesta con Gemini")
                     return await _responder_sin_ia(conn, conversacion_id)
 
-                if score_maximo < UMBRAL_ALTA_CONFIANZA:
+                if confianza_calculada < UMBRAL_ALTA_CONFIANZA:
                     texto_resp = (
                         f"{respuesta_ia}\n\n"
                         "*Nota: Esta respuesta proviene de coincidencias parciales. "
@@ -293,7 +294,7 @@ async def chat_rag(body: ChatRequest, usuario: UsuarioToken = Depends(get_usuari
                     VALUES ($1, 'bot', $2, $3, $4, $5)
                     RETURNING id_mensaje
                     """,
-                    conversacion_id, texto_resp, mejor_fragmento_id, score_maximo, requiere_esc
+                    conversacion_id, texto_resp, mejor_fragmento_id, confianza_calculada, requiere_esc
                 )
                 bot_id = msg_bot["id_mensaje"]
 
@@ -311,7 +312,7 @@ async def chat_rag(body: ChatRequest, usuario: UsuarioToken = Depends(get_usuari
                     conversacion_id=conversacion_id,
                     respuesta=texto_resp,
                     nivel_confianza=nivel,
-                    score_maximo=score_maximo,
+                    score_maximo=confianza_calculada,
                     escalar_ejecutivo=requiere_esc,
                     fuentes=fuentes_data
                 )
