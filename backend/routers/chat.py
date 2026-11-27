@@ -1,5 +1,7 @@
 import logging
 import os
+import asyncio
+import logging
 from typing import Optional, List
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
@@ -156,7 +158,7 @@ async def chat_rag(body: ChatRequest, usuario: UsuarioToken = Depends(get_usuari
         # y se ofrece escalar a un ejecutivo.
         vector_str = None
         try:
-            vector_pregunta = generar_embedding_consulta(body.mensaje)
+            vector_pregunta = await asyncio.to_thread(generar_embedding_consulta, body.mensaje)
             vector_str = f"[{','.join(map(str, vector_pregunta))}]"
         except Exception:
             logger.exception("Fallo al generar el embedding de la consulta")
@@ -270,7 +272,7 @@ async def chat_rag(body: ChatRequest, usuario: UsuarioToken = Depends(get_usuari
 
                 contextos = [r["contenido"] for r in rows]
                 try:
-                    respuesta_ia = responder_gemini(body.mensaje, contextos)
+                    respuesta_ia = await asyncio.to_thread(responder_gemini, body.mensaje, contextos)
                 except Exception:
                     logger.exception("Fallo al generar la respuesta con Gemini")
                     return await _responder_sin_ia(conn, conversacion_id)

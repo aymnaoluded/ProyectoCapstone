@@ -1,14 +1,28 @@
 import os
 import io
+import math
+import time
+import logging
 from google import genai
 from google.genai import types
+from google.genai.errors import APIError
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from pypdf import PdfReader
 import docx
 
-gemini_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+logger = logging.getLogger(__name__)
 
+_api_key = (os.getenv("GEMINI_API_KEY") or "").strip()
+gemini_client = genai.Client(api_key=_api_key)
+
+# Cadena de modelos: intenta primero el principal y conmuta automáticamente si hay saturación (503/429)
 MODELO_GENERACION = "gemini-3.6-flash"
+MODELOS_RESPALDO = [
+    "gemini-3.8-flash",
+    "gemini-3.5-flash-lite",
+    "gemini-3.1-flash-lite",
+]
+
 MODELO_EMBEDDING = "gemini-embedding-001"
 DIMENSIONES_EMBEDDING = 1024
 
@@ -37,7 +51,6 @@ def extraer_texto(buffer: bytes, content_type: str) -> str:
 
     if formato == "pdf":
         reader = PdfReader(io.BytesIO(buffer))
-
         return "\n".join(
             page.extract_text() or ""
             for page in reader.pages
@@ -45,47 +58,53 @@ def extraer_texto(buffer: bytes, content_type: str) -> str:
 
     if formato == "docx":
         doc = docx.Document(io.BytesIO(buffer))
-
-        return "\n".join(
-            p.text
-            for p in doc.paragraphs
-        )
+        partes = [p.text for p in doc.paragraphs if p.text.strip()]
+        # Extraer también texto de tablas (reglamentos, tarifas, contactos)
+        for tabla in doc.tables:
+            for fila in tabla.rows:
+                celdas = [celda.text.strip() for celda in fila.cells if celda.text.strip()]
+                if celdas:
+                    partes.append(" | ".join(celdas))
+        return "\n".join(partes)
 
     if formato == "txt":
-        return buffer.decode(
-            "utf-8",
-            errors="ignore"
-        )
+        return buffer.decode("utf-8", errors="ignore")
 
-    raise ValueError(
-        "Formato no soportado. Solo PDF, DOCX o TXT"
-    )
+    raise ValueError("Formato no soportado. Solo PDF, DOCX o TXT")
 
 
 def fragmentar_texto(texto: str) -> list[str]:
-
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=800,
         chunk_overlap=150
     )
-
-    return splitter.split_text(texto)
+    fragmentos = splitter.split_text(texto)
+    return [f.strip() for f in fragmentos if f and f.strip()]
 
 
 def generar_embedding(texto: str, task_type: str) -> list[float]:
-    try:
-        resultado = gemini_client.models.embed_content(
-            model=MODELO_EMBEDDING,
-            contents=texto,
-            config=types.EmbedContentConfig(
-                output_dimensionality=DIMENSIONES_EMBEDDING,
-                task_type=task_type
+    ultimo_error = None
+    for intento in range(2):
+        try:
+            resultado = gemini_client.models.embed_content(
+                model=MODELO_EMBEDDING,
+                contents=texto,
+                config=types.EmbedContentConfig(
+                    output_dimensionality=DIMENSIONES_EMBEDDING,
+                    task_type=task_type
+                )
             )
-        )
-    except Exception as e:
-        raise IANoDisponibleError(f"Gemini no pudo generar el embedding: {e}") from e
+            return resultado.embeddings[0].values
+        except APIError as e:
+            ultimo_error = e
+            if e.code in (503, 429) and intento == 0:
+                time.sleep(1.0)
+                continue
+            raise IANoDisponibleError(f"Gemini no pudo generar el embedding: {e}") from e
+        except Exception as e:
+            raise IANoDisponibleError(f"Gemini no pudo generar el embedding: {e}") from e
 
-    return resultado.embeddings[0].values
+    raise IANoDisponibleError(f"Gemini no pudo generar el embedding: {ultimo_error}") from ultimo_error
 
 
 def generar_embedding_documento(texto: str) -> list[float]:
@@ -139,71 +158,60 @@ def responder_gemini(pregunta: str, contextos: list[str]) -> str:
         f"Contexto disponible:\n{contexto_unificado}"
     )
 
-    try:
-        response = gemini_client.models.generate_content(
-            model=MODELO_GENERACION,
-            contents=pregunta,
-            config=types.GenerateContentConfig(
-                system_instruction=system_instruction,
-                temperature=0.2
-            )
-        )
-    except Exception as e:
-        raise IANoDisponibleError(f"Gemini no respondió: {e}") from e
+    modelos_a_probar = [MODELO_GENERACION, *MODELOS_RESPALDO]
+    ultimo_error = None
 
-    if not response.text:
-        raise IANoDisponibleError("Gemini devolvió una respuesta vacía")
+    for modelo in modelos_a_probar:
+        for intento in range(2):
+            try:
+                config = types.GenerateContentConfig(
+                    system_instruction=system_instruction,
+                )
+                # Solo aplicar temperature en modelos que no la tienen deprecada
+                if not modelo.startswith("gemini-3."):
+                    config.temperature = 0.2
 
-    return response.text
+                response = gemini_client.models.generate_content(
+                    model=modelo,
+                    contents=pregunta,
+                    config=config,
+                )
+
+                if not response.text:
+                    raise IANoDisponibleError(f"El modelo {modelo} devolvió una respuesta vacía")
+
+                if modelo != MODELO_GENERACION:
+                    logger.info("Respuesta generada usando modelo de respaldo: %s", modelo)
+
+                return response.text
+
+            except APIError as e:
+                ultimo_error = e
+                if e.code in (503, 429):
+                    logger.warning(
+                        "Modelo %s saturado (HTTP %s, intento %d/2). %s",
+                        modelo,
+                        e.code,
+                        intento + 1,
+                        "Reintentando..." if intento == 0 else "Cambiando a modelo de respaldo...",
+                    )
+                    if intento == 0:
+                        time.sleep(1.0)
+                        continue
+                    break  # Pasa al siguiente modelo en MODELOS_RESPALDO
+                raise IANoDisponibleError(f"Gemini no respondió ({modelo}): {e}") from e
+
+            except IANoDisponibleError:
+                raise
+            except Exception as e:
+                raise IANoDisponibleError(f"Gemini no respondió ({modelo}): {e}") from e
+
+    raise IANoDisponibleError(
+        f"Todos los modelos de Gemini están saturados temporalmente: {ultimo_error}"
+    ) from ultimo_error
 
 
 def calcular_confianza_semantica(similitudes: list[float]) -> float:
-    """
-    Calcula el nivel de confianza semántica global a partir de la distribución
-    de similitudes coseno de los fragmentos recuperados en RAG.
-
-    La confianza NO mide la calidad de la respuesta generada por la IA.
-    Mide exclusivamente el grado de correspondencia semántica entre la
-    pregunta del usuario y el conjunto de fragmentos recuperados.
-
-    Fórmula:
-        C = score_ponderado × exp(−k × dispersión_relativa)
-
-    Componentes:
-        1. score_ponderado:
-           Promedio ponderado de las similitudes con pesos posicionales fijos
-           [0.55, 0.25, 0.13, 0.07], normalizados a suma 1.
-           El fragmento más relevante (s₁) recibe siempre el mayor peso,
-           reflejando que pgvector lo devuelve primero por distancia mínima.
-
-        2. dispersión_relativa = σ(scores) / s₁
-           Desviación estándar poblacional de los 4 scores, normalizada por
-           el mejor score. Captura cuán "desigual" es el conjunto de fragmentos:
-           - Dispersión ≈ 0: todos los fragmentos tienen similitud similar.
-           - Dispersión alta: solo uno o pocos fragmentos son relevantes.
-
-        3. penalización = exp(−k × dispersión_relativa)  con k = 2.0
-           Factor de penalización exponencial. Cuando los fragmentos secundarios
-           tienen similitudes muy inferiores al principal, la penalización reduce
-           la confianza, evitando que un único fragmento relevante genere un
-           nivel alto artificialmente.
-           - Dispersión 0.00 → penalización ≈ 1.00 (sin castigo)
-           - Dispersión 0.07 → penalización ≈ 0.87 (castigo mínimo)
-           - Dispersión 0.18 → penalización ≈ 0.70 (castigo moderado)
-           - Dispersión 0.27 → penalización ≈ 0.58 (castigo significativo)
-
-    Umbrales de clasificación (en chat.py):
-        ALTA  : C ≥ 0.72  (fragmentos semánticamente coherentes con la pregunta)
-        MEDIA : C ≥ 0.50  (coincidencia parcial, puede escalar)
-        BAJA  : C < 0.50  (poca o muy desigual correspondencia semántica)
-
-    Escenarios de referencia:
-        [0.90, 0.87, 0.84, 0.81] → C ≈ 0.815  ALTA   (alta coherencia general)
-        [0.85, 0.40, 0.35, 0.25] → C ≈ 0.367  BAJA   (coincidencia aislada)
-        [0.42, 0.38, 0.30, 0.22] → C ≈ 0.264  BAJA   (similitud baja general)
-    """
-    import math
-
     if not similitudes:
         return 0.0
 
@@ -216,23 +224,18 @@ def calcular_confianza_semantica(similitudes: list[float]) -> float:
     if n == 1:
         return round(s1, 3)
 
-    # --- 1. Score ponderado con pesos posicionales fijos ---
     pesos_ref = [0.55, 0.25, 0.13, 0.07][:n]
     total_p = sum(pesos_ref)
     pesos = [p / total_p for p in pesos_ref]
     score_ponderado = sum(w * s for w, s in zip(pesos, scores))
 
-    # --- 2. Dispersión relativa (stddev normalizada por s1) ---
     media = sum(scores) / n
     varianza = sum((s - media) ** 2 for s in scores) / n
     stddev = math.sqrt(varianza)
     dispersion_relativa = stddev / s1
 
-    # --- 3. Penalización exponencial por dispersión ---
     K_DISPERSION = 2.0
     penalizacion = math.exp(-K_DISPERSION * dispersion_relativa)
 
     confianza = score_ponderado * penalizacion
     return round(min(confianza, 1.0), 3)
-
-
